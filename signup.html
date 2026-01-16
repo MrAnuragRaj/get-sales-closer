@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 w-full max-w-md">
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">Create your account</h2>
+        <form id="signup-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Full Name</label>
+                <input type="text" id="full_name" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Company Name</label>
+                <input type="text" id="company" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Email Address</label>
+                <input type="email" id="email" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Password</label>
+                <input type="password" id="password" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button type="submit" class="w-full bg-slate-900 text-white py-2 rounded-xl font-semibold hover:bg-slate-800 transition">Start Free Trial</button>
+        </form>
+        <p class="mt-4 text-center text-sm text-slate-500">Already have an account? <a href="login.html" class="text-blue-600 font-medium">Log in</a></p>
+    </div>
+
+    <script type="module">
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+        const supabase = createClient("https://klbwigcvrdfeeeeotehu.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8");
+
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const full_name = document.getElementById('full_name').value;
+            const company = document.getElementById('company').value;
+
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { full_name, company } // This data goes to the trigger!
+                }
+            });
+
+            if (error) alert(error.message);
+            else alert("Check your email for the confirmation link!");
+        });
+    </script>
+</body>
+</html>
