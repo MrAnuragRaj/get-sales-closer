@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configure Your AI Engine | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; scroll-behavior: smooth; }
+        .gilroy { font-weight: 800; letter-spacing: -0.03em; }
+        .cyber-glow { box-shadow: 0 0 20px 2px rgba(57, 255, 20, 0.6); }
+        .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
+        .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
+        .btn-dopamine:disabled { filter: grayscale(1); cursor: not-allowed; opacity: 0.7; }
+        .tooltip-box { visibility: hidden; opacity: 0; transition: opacity 0.3s; z-index: 100; pointer-events: none; }
+        .tooltip-trigger:hover + .tooltip-box { visibility: visible; opacity: 1; }
+        .deployment-overlay { position: fixed; inset: 0; background: #020617; z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .lock-impact { animation: impact-pulse 0.6s ease-out forwards; }
+        @keyframes impact-pulse {
+            0% { transform: rotate(45deg) scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+            50% { transform: rotate(45deg) scale(1.5); box-shadow: 0 0 60px 30px rgba(57, 255, 20, 0.5); }
+            100% { transform: rotate(45deg) scale(1.2); box-shadow: 0 0 30px 10px rgba(57, 255, 20, 0.8); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+
+    <div id="deploymentOverlay" class="deployment-overlay">
+        <div id="animNode" class="h-16 w-16 bg-[#39FF14] rotate-45 mb-8"></div>
+        <h2 id="overlayText" class="gilroy text-2xl text-white tracking-tighter uppercase">Initializing Engine...</h2>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-8 py-20">
+        <div class="text-center mb-12">
+            <h1 class="text-5xl gilroy text-white mb-4 uppercase">Configure Your Engine</h1>
+            <p class="text-slate-400 italic">Lock your lead leak with elite sales infrastructure.</p>
+        </div>
+
+        <div class="glass-card p-10 rounded-[3rem] w-full relative">
+            <div class="flex justify-center mb-8">
+                <div id="centralNode" class="h-12 w-12 bg-[#39FF14] rotate-45 cyber-glow transition-transform duration-500"></div>
+            </div>
+
+            <div class="flex justify-center mb-6">
+                <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center">
+                    <button id="btnMonthly" class="px-6 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 transition-all duration-300 shadow-lg">
+                        Monthly
+                    </button>
+                    <button id="btnYearly" class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-300 flex items-center gap-2">
+                        Yearly <span class="text-[10px] bg-[#39FF14] text-black px-1.5 rounded font-black">-12%</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-1 text-white mb-2">
+                <span class="text-3xl font-bold mt-2">$</span>
+                <span id="priceDisplay" class="text-8xl font-black gilroy">49</span>
+                <span class="text-slate-500 font-bold ml-2">/mo</span>
+            </div>
+            
+            <div id="billingSubtext" class="text-center text-slate-400 text-sm font-medium mb-10 h-6">
+                Billed monthly
+            </div>
+            
+            <div class="space-y-4 mb-10">
+                <div class="relative flex flex-col p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <div class="text-left flex items-center gap-2">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                            <div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"Speed is the only differentiator. The Sentinel eliminates Lead Decay by triggering a human-like SMS response within 30 seconds."</div></div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleS" checked class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+                    <div id="channelMenu" class="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] text-left">
+                        <label class="flex items-center gap-2"><input type="checkbox" checked disabled class="chan-box accent-[#00D1FF] text-slate-500" data-id="sms"> SMS Channel (Base)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="whatsapp"> WhatsApp Business (+$10)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="fb"> FB Messenger (+$10)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="apple"> Apple iMessage (+$10)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="rcs"> RCS Android (+$10)</label>
+                    </div>
+                </div>
+
+                <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2"><span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span><div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"Retrieves complex facts from your uploaded PDFs and docs to answer queries with clinical precision."</div></div></div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+
+                <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2"><span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span><div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"Negotiates slots and handles the booking by syncing with your Google/Outlook calendar."</div></div></div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleA" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+
+                <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2"><span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span><div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"Ultra-low latency Voice AI that handles inbound and outbound calls with natural tone."</div></div></div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+
+                <div class="pt-8 pb-4 text-left">
+                    <p class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4">Premium Add-ons</p>
+                    <div class="space-y-4">
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake Assurance</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Compliance-Safe Voice Handling™</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing™</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Interactive ChatBot</span>
+                                <div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"AI Agent for proper interaction with customers on your site."</div></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-400">+$149/mo</span>
+                                <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleChatbot" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            </div>
+                        </div>
+
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-[#39FF14]/5 border border-[#39FF14]/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Setup & Onboarding</span>
+                                <div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">"One-time setup fee for white-glove installation."</div></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-[#39FF14]">+$99 (One-time)</span>
+                                <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleInstall" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#39FF14] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="voiceBonus" class="hidden p-4 rounded-xl bg-[#39FF14]/10 border border-[#39FF14]/30 mb-6 text-left">
+                <p class="text-[10px] font-bold text-[#39FF14]">ELITE PERK ACTIVATED: Voice suite includes 3 free channels! ⚡</p>
+            </div>
+
+            <button onclick="handleDeployment()" id="deployBtn" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300">Deploy My Closer</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. SUPABASE CONFIG ---
+        const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co'; 
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8'; 
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // --- 2. STATE ---
+        let billingCycle = 'monthly'; // Default
+
+        // --- 3. DOM ELEMENTS ---
+        const toggles = { 
+            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'), 
+            A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
+            Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'), 
+            Priority: document.getElementById('togglePriority'),
+            Chatbot: document.getElementById('toggleChatbot'),
+            Install: document.getElementById('toggleInstall')
+        };
+        const priceDisp = document.getElementById('priceDisplay');
+        const channelMenu = document.getElementById('channelMenu');
+        const chanBoxes = document.querySelectorAll('.chan-box');
+        
+        // Cycle Buttons
+        const btnMonthly = document.getElementById('btnMonthly');
+        const btnYearly = document.getElementById('btnYearly');
+
+        // --- 4. TOGGLE LOGIC ---
+        function setCycle(cycle) {
+            billingCycle = cycle;
+            if (cycle === 'monthly') {
+                btnMonthly.className = "px-6 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 shadow-lg transition-all";
+                btnYearly.className = "px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all flex items-center gap-2";
+            } else {
+                btnYearly.className = "px-6 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 shadow-lg transition-all flex items-center gap-2";
+                btnMonthly.className = "px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all";
+            }
+            calculate(); // Recalculate price display
+        }
+
+        btnMonthly.addEventListener('click', () => setCycle('monthly'));
+        btnYearly.addEventListener('click', () => setCycle('yearly'));
+
+        // --- 5. CALCULATOR ENGINE ---
+        function calculate() {
+            const S = toggles.S.checked;
+            const B = toggles.B.checked;
+            const A = toggles.A.checked;
+            const L = toggles.L.checked;
+            
+            channelMenu.classList.toggle('hidden', !S && !L);
+            
+            // Base Matrix
+            let base = 0;
+            if (L) {
+                if (S && B && A) base = 349;
+                else if (S && B) base = 299;
+                else if (S && A) base = 249;
+                else if (B && A) base = 299;
+                else if (S) base = 199;
+                else if (B) base = 249;
+                else if (A) base = 199;
+                else base = 149;
+            } else if (S) {
+                if (B && A) base = 249;
+                else if (B) base = 199;
+                else if (A) base = 149;
+                else base = 49; 
+            }
+
+            // Channels
+            let count = Array.from(chanBoxes).filter(x => x.checked).length;
+            let freeChannels = 0;
+            if (L) freeChannels = 3; 
+            else if (S) freeChannels = 2;
+            
+            const extraChannels = Math.max(0, count - freeChannels);
+            const channelCost = extraChannels * 10;
+
+            // Addons
+            let premium = 0;
+            if (toggles.Intake.checked) premium += 99;
+            if (toggles.SafeVoice.checked) premium += 199;
+            if (toggles.Priority.checked) premium += 149;
+            if (toggles.Chatbot.checked) premium += 149;
+            
+            // Setup Fee (Always one-time, never discounted)
+            let oneTime = 0;
+            if (toggles.Install.checked) oneTime += 99;
+
+            // Visual Display Logic
+            let monthlyRecurring = base + channelCost + premium;
+            
+            const subtextField = document.getElementById('billingSubtext');
+
+            if (billingCycle === 'yearly') {
+                // 1. Calculate Discounted Monthly View (12% off)
+                let discountedMonthly = Math.round(monthlyRecurring * 0.88);
+                priceDisp.innerText = discountedMonthly;
+
+                // 2. Calculate Actual Charge (What hits the credit card)
+                // Note: We add oneTime fee to the description so they know what "Total" means
+                let totalYearlyCharge = Math.round(monthlyRecurring * 12 * 0.88) + oneTime;
+                
+                // 3. Explicit Text
+                subtextField.innerText = `Billed as $${totalYearlyCharge} yearly` + (oneTime > 0 ? ` (includes setup)` : ``);
+                subtextField.className = "text-center text-[#39FF14] text-sm font-medium mb-10 h-6"; // Green text for savings context
+            } else {
+                priceDisp.innerText = monthlyRecurring;
+                let totalFirstBill = monthlyRecurring + oneTime;
+                
+                subtextField.innerText = oneTime > 0 ? `First bill: $${totalFirstBill} (includes setup)` : `Billed monthly`;
+                subtextField.className = "text-center text-slate-400 text-sm font-medium mb-10 h-6";
+            }
+
+            // Scale Animation
+            document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${1 + (monthlyRecurring/600)})`;
+        }
+
+        // Add Listeners
+        Object.values(toggles).forEach(t => t.addEventListener('change', calculate));
+        chanBoxes.forEach(b => b.addEventListener('change', calculate));
+
+        // --- 6. DEPLOYMENT HANDLER ---
+        async function handleDeployment() {
+            console.log(`🚀 Deploying: ${billingCycle.toUpperCase()} Plan...`);
+
+            if (!toggles.S.checked && !toggles.L.checked) {
+                alert("You must select either The Instant Sentinel or The Voice Liaison base module.");
+                return;
+            }
+
+            const overlay = document.getElementById('deploymentOverlay');
+            const overlayText = document.getElementById('overlayText');
+            overlay.style.display = 'flex';
+            document.getElementById('animNode').classList.add('lock-impact');
+
+            try {
+                // ... (Auth & Status Checks remain same) ...
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) { window.location.href = "login.html"; return; }
+
+                overlayText.innerText = "Verifying Account...";
+                const { data: subData } = await supabaseClient.from('entitlements')
+                    .select('status').eq('org_id', session.user.id).maybeSingle();
+
+                if (subData && subData.status === 'active') {
+                    overlayText.innerText = "Engine Active. Redirecting...";
+                    setTimeout(() => window.location.href = "overview.html", 1500);
+                    return;
+                } 
+
+                overlayText.innerText = "Configuring Infrastructure...";
+                const payload = {
+                    services: {
+                        sentinel: toggles.S.checked,
+                        brain: toggles.B.checked,
+                        architect: toggles.A.checked,
+                        voice: toggles.L.checked
+                    },
+                    addons: {
+                        intake: toggles.Intake.checked,
+                        safe_voice: toggles.SafeVoice.checked,
+                        priority: toggles.Priority.checked,
+                        chatbot: toggles.Chatbot.checked,
+                        installation: toggles.Install.checked
+                    },
+                    channels: {
+                        whatsapp: document.querySelector('input[data-id="whatsapp"]').checked,
+                        fb: document.querySelector('input[data-id="fb"]').checked,
+                        apple: document.querySelector('input[data-id="apple"]').checked,
+                        rcs: document.querySelector('input[data-id="rcs"]').checked
+                    }
+                };
+
+                // --- THE FINAL FIX: intent_source: 'pricing' ---
+                const { data, error } = await supabaseClient.rpc('create_checkout_intent', { 
+                    payload: payload,
+                    intent_source: 'pricing', // <--- CHANGED FROM 'checkout' TO 'pricing'
+                    billing_cycle: billingCycle 
+                });
+
+                if (error) throw error;
+
+                window.location.href = `payment.html?intent_id=${data.intent_id}`;
+
+            } catch (err) {
+                console.error("Deployment Error:", err);
+                alert("Deployment Failed: " + err.message);
+                overlay.style.display = 'none';
+            }
+        }
+        
+        // Initial Calc
+        calculate();
+    </script>
+</body>
+</html>
