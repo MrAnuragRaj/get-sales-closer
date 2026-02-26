@@ -3,39 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | GetSalesCloser</title>
+    <title>Sign Up | GetSalesCloser</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-slate-50 flex items-center justify-center min-h-screen">
+<body class="bg-slate-50 flex items-center justify-center min-h-screen py-10">
     <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 w-full max-w-md">
-        <h2 class="text-2xl font-bold text-slate-900 mb-6">Log in to your dashboard</h2>
-        <form id="login-form" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-700">Email Address</label>
-                <input type="email" id="email" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+        <div class="flex items-center gap-2 mb-6">
+            <div class="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-xs">GS</div>
+            <span class="text-xl font-bold text-slate-900">GetSalesCloser</span>
+        </div>
+        
+        <h2 class="text-2xl font-bold text-slate-900 mb-2">Create your account</h2>
+        <p class="text-sm text-slate-500 mb-6">Join the real estate agents closing deals 24/7.</p>
+
+        <div class="grid grid-cols-6 gap-2 mb-6">
+            <button onclick="signInWithProvider('google')" title="Google" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
+            </button>
+            <button onclick="signInWithProvider('azure')" title="Outlook" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-5 h-5">
+            </button>
+            <button onclick="signInWithProvider('linkedin_oidc')" title="LinkedIn" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-[#0077b5]">
+                <i class="fa-brands fa-linkedin text-xl"></i>
+            </button>
+            <button onclick="signInWithProvider('facebook')" title="Facebook" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-[#1877f2]">
+                <i class="fa-brands fa-facebook text-xl"></i>
+            </button>
+            <button onclick="signInWithProvider('twitter')" title="X" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-black">
+                <i class="fa-brands fa-x-twitter text-xl"></i>
+            </button>
+            <button onclick="signInWithProvider('github')" title="GitHub" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-black">
+                <i class="fa-brands fa-github text-xl"></i>
+            </button>
+        </div>
+
+        <div class="relative flex py-3 items-center">
+            <div class="flex-grow border-t border-slate-200"></div>
+            <span class="flex-shrink mx-4 text-slate-400 text-xs uppercase">Or Phone OTP</span>
+            <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <div id="phone-auth-container" class="mb-6 mt-4">
+            <div id="phone-input-group" class="space-y-4">
+                <input type="tel" id="phone" placeholder="+1234567890" class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none transition">
+                <button onclick="sendOTP()" id="otp-btn" class="w-full border border-slate-900 text-slate-900 py-2 rounded-xl font-semibold hover:bg-slate-50 transition">
+                    Send Login Code
+                </button>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700">Password</label>
-                <input type="password" id="password" required class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+            <div id="otp-verify-group" class="hidden space-y-4">
+                <input type="text" id="otp-code" placeholder="6-digit code" class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none transition">
+                <button onclick="verifyOTP()" id="verify-btn" class="w-full bg-slate-900 text-white py-2 rounded-xl font-semibold hover:bg-slate-800 transition">
+                    Verify & Sign In
+                </button>
             </div>
-            <button type="submit" class="w-full bg-slate-900 text-white py-2 rounded-xl font-semibold hover:bg-slate-800 transition">Log In</button>
+        </div>
+
+        <form id="signup-form" class="space-y-4 border-t border-slate-200 pt-4">
+            <input type="text" id="full_name" placeholder="Full Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            <input type="text" id="company" placeholder="Company Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            <input type="email" id="email" placeholder="Email Address" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            <input type="password" id="password" placeholder="Password" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            <button type="submit" class="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold">Sign Up</button>
         </form>
-        <p class="mt-4 text-center text-sm text-slate-500">New here? <a href="signup.html" class="text-blue-600 font-medium">Create account</a></p>
     </div>
 
     <script type="module">
         import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-        const supabase = createClient("https://klbwigcvrdfeeeeotehu.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8");
+        
+        // Initializing with your actual project data
+        const supabase = createClient(
+            "https://klbwigcvrdfeeeeotehu.supabase.co", 
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8"
+        );
 
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const { error } = await supabase.auth.signInWithPassword({
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value
-            });
+        // --- FIXED: REDIRECT LOGIC MATCHING YOUR DATABASE ---
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === "SIGNED_IN" && session) {
+                const user = session.user;
+                console.log("User signed in:", user.id);
 
+                // 1. Check the CORRECT table ('user_subscriptions')
+                // 2. Check the CORRECT column ('status')
+                const { data: subData, error } = await supabase
+                    .from('user_subscriptions') 
+                    .select('status')
+                    .eq('user_id', user.id)
+                    .eq('status', 'active') // Only look for active status
+                    .maybeSingle();
+
+                if (error) {
+                    console.error("Subscription check error:", error);
+                }
+
+                // If subData exists, it means they have an active plan
+                if (subData) {
+                    console.log("Active subscription found. Redirecting to Dashboard.");
+                    window.location.href = "dashboard.html"; // Redirect to the file we created
+                } else {
+                    console.log("No active subscription. Redirecting to Pricing.");
+                    window.location.href = "pricing.html";
+                }
+            }
+        });
+
+        // Functions attached to window so they work with HTML onclick
+        window.signInWithProvider = async (provider) => {
+            console.log("Starting login for:", provider);
+            const options = { redirectTo: window.location.origin + '/login.html' };
+            if (provider === 'azure') options.scopes = 'email';
+            
+            const { error } = await supabase.auth.signInWithOAuth({ provider, options });
             if (error) alert(error.message);
-            else window.location.href = "dashboard.html";
+        };
+
+        window.sendOTP = async () => {
+            const phone = document.getElementById('phone').value;
+            const { error } = await supabase.auth.signInWithOtp({ phone });
+            if (!error) {
+                document.getElementById('phone-input-group').classList.add('hidden');
+                document.getElementById('otp-verify-group').classList.remove('hidden');
+            } else {
+                alert(error.message);
+            }
+        };
+
+        window.verifyOTP = async () => {
+            const phone = document.getElementById('phone').value;
+            const token = document.getElementById('otp-code').value;
+            const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+            if (error) alert(error.message);
+        };
+
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const full_name = document.getElementById('full_name').value;
+            const company = document.getElementById('company').value;
+
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: { data: { full_name, company } }
+            });
+            if (error) alert(error.message);
         });
     </script>
 </body>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Brain | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 h-screen text-white flex flex-col items-center justify-center font-sans">
+
+    <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+        <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
+    </div>
+
+    <div class="w-full max-w-4xl p-6">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-3xl font-bold flex items-center gap-3">
+                <i class="fa-solid fa-brain text-indigo-500"></i> Knowledge Brain
+            </h1>
+            <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="bg-slate-800/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <p class="text-slate-400 mb-8">Teach the AI about your business. Upload documents or add specific instructions to update the core database.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 h-96">
+                <div id="upload-box" class="border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center p-6 hover:bg-slate-800/80 hover:border-indigo-500/50 transition cursor-pointer group">
+                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-indigo-400"></i>
+                    </div>
+                    <h3 class="font-bold text-lg">Upload Business PDF</h3>
+                    <p class="text-sm text-slate-500 mt-2 text-center">Drag & drop manuals, price lists, or brand guidelines here.</p>
+                </div>
+
+                <div class="flex flex-col h-full">
+                    <h3 class="font-bold text-white mb-2">Core Specifications</h3>
+                    <textarea id="text-rule-input" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-slate-300 resize-none focus:outline-none focus:border-indigo-500 transition" 
+                        placeholder="Example: 'Always mention our 30-day refund policy' or 'Don't offer discounts over 15% without approval'."></textarea>
+                    <button id="update-btn" class="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-indigo-500/20 transition">
+                        Update Database
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script>
+        let _currentUser, _sb;
+
+        function initPageLogic(profile, user, sb) {
+            _currentUser = user;
+            _sb = sb;
+
+            // --- PDF UPLOAD LOGIC ---
+            document.getElementById('upload-box').addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'application/pdf';
+                input.onchange = handleFileUpload;
+                input.click();
+            });
+
+            document.getElementById('update-btn').onclick = updateTextRule;
+        }
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const btn = document.getElementById('update-btn');
+            const uploadBox = document.getElementById('upload-box');
+            uploadBox.innerHTML = `<p class="text-indigo-300 text-sm font-semibold">Uploading ${file.name}...</p>`;
+
+            const filePath = `${_currentUser.id}/${Date.now()}_${file.name}`;
+            const { error } = await _sb.storage.from('documents').upload(filePath, file);
+
+            if (error) {
+                alert("Upload Failed: " + error.message);
+                return;
+            }
+
+            const { error: dbError } = await _sb.from('knowledge_base').insert({
+                user_id: _currentUser.id,
+                title: file.name,
+                file_url: filePath,
+                type: 'pdf'
+            });
+
+            if (!dbError) {
+                alert("Success! The Brain is processing this document.");
+                uploadBox.innerHTML = `
+                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-check text-2xl text-green-400"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-green-400">Uploaded!</h3>
+                    <p class="text-sm text-slate-500 mt-2 text-center">Click to upload another file.</p>`;
+            } else {
+                alert("Database Error: " + dbError.message);
+            }
+        }
+
+        async function updateTextRule() {
+            const text = document.getElementById('text-rule-input').value.trim();
+            if (!text) { alert("Please enter text."); return; }
+
+            const { error } = await _sb.from('knowledge_base').insert({
+                user_id: _currentUser.id,
+                title: "Manual Rule",
+                content_text: text,
+                type: 'text_rule'
+            });
+
+            if (!error) {
+                alert("Rule added to Knowledge Base!");
+                document.getElementById('text-rule-input').value = '';
+            } else {
+                alert("Error: " + error.message);
+            }
+        }
+
+        async function checkEntitlement(sb, user, serviceKey) {
+            const { data: membership } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1).single();
+            if (!membership) return false;
+            const { data: service } = await sb.from('org_services').select('status').eq('org_id', membership.org_id).eq('service_key', serviceKey).maybeSingle();
+            return service?.status === 'active';
+        }
+
+        requireAuth({
+            onAuthenticated: async (profile, user, sb) => {
+                const entitled = await checkEntitlement(sb, user, 'brain');
+                if (!entitled) { window.location.href = 'billing.html?lock=brain'; return; }
+                initPageLogic(profile, user, sb);
+            }
+        });
+    </script>
+</body>
+</html>

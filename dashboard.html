@@ -1,143 +1,498 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GetSalesCloser - Dashboard</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GetSalesCloser | Revenue Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-slate-50 text-slate-900">
-    <div class="min-h-screen flex">
-      <aside class="w-72 bg-white border-r border-slate-200 flex flex-col px-6 py-8">
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-semibold">
-            GS
-          </div>
-          <div>
-            <p class="text-sm uppercase tracking-widest text-slate-500">GetSalesCloser</p>
-            <p class="text-xs text-slate-400">Silent Salesman</p>
-          </div>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script> 
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .nav-item { transition: all 0.2s; border-left: 3px solid transparent; cursor: pointer; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.03); }
+        .nav-item.active { background: rgba(99, 102, 241, 0.1); border-left-color: #6366f1; color: #a5b4fc; }
+        .nav-item.locked { opacity: 0.6; cursor: not-allowed; }
+        .nav-item.locked:hover { opacity: 1; background: rgba(234, 179, 8, 0.1); border-left-color: #eab308; }
+        .toggle-checkbox:checked { right: 0; border-color: #68D391; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .hidden { display: none !important; }
+        .lock-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; cursor: pointer; transition: all 0.2s; border-radius: 1rem; }
+        .lock-overlay:hover { background: rgba(15, 23, 42, 0.5); }
+        .window-minimized { height: 60px !important; overflow: hidden !important; margin-top: auto !important; }
+        .window-maximized { position: fixed !important; inset: 20px !important; width: auto !important; height: auto !important; z-index: 50 !important; }
+        .tab-btn.active { border-bottom: 2px solid #6366f1; color: white; }
+        .timeline-line { position: absolute; left: 15px; top: 24px; bottom: 0; width: 2px; background: #334155; z-index: 0; }
+        #brand-img:hover { opacity: 0.8; transform: scale(1.05); }
+        input:disabled + div { opacity: 0.5; cursor: not-allowed; }
+        input:disabled + div:hover { background: transparent; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden selection:bg-indigo-500 selection:text-white">
+
+    <div id="auth-loader" class="modal-overlay">
+        <div class="flex flex-col items-center">
+            <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 text-4xl mb-4"></i>
+            <p class="text-slate-400 text-sm font-bold">Initializing Revenue Doctor...</p>
         </div>
-
-        <nav class="mt-10 space-y-2 text-sm">
-          <a class="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-100 text-slate-900" href="#">
-            <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="7" height="7" rx="2" />
-              <rect x="14" y="3" width="7" height="7" rx="2" />
-              <rect x="3" y="14" width="7" height="7" rx="2" />
-              <rect x="14" y="14" width="7" height="7" rx="2" />
-            </svg>
-            Overview
-          </a>
-          <a class="flex items-center gap-3 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50" href="#">
-            <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M3 21h18" />
-              <path d="M7 21V7l5-4 5 4v14" />
-              <path d="M9 9h6v5H9z" />
-            </svg>
-            Property Vault
-            <span class="ml-auto text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">New</span>
-          </a>
-          <a class="flex items-center gap-3 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50" href="#">
-            <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M4 5h16v14H4z" />
-              <path d="M8 9h8" />
-              <path d="M8 13h6" />
-            </svg>
-            Lead Ledger
-          </a>
-          <a class="flex items-center gap-3 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50" href="#">
-            <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M12 2v4" /><path d="M12 18v4" /><path d="M4.9 4.9l2.8 2.8" /><path d="M16.3 16.3l2.8 2.8" /><path d="M2 12h4" /><path d="M18 12h4" /><path d="M4.9 19.1l2.8-2.8" /><path d="M16.3 7.7l2.8-2.8" />
-              <circle cx="12" cy="12" r="3.5" />
-            </svg>
-            Automation Settings
-          </a>
-        </nav>
-
-        <div class="mt-auto pt-6">
-          <div class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-500/10 via-white to-white px-4 py-4 shadow-[0_0_24px_rgba(99,102,241,0.35)]">
-            <div class="flex items-center justify-between">
-              <p class="font-semibold text-slate-900">Pro Upgrade</p>
-              <svg class="h-4 w-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M12 3l2.7 5.5L21 9l-4.5 4.4L17.8 21 12 17.8 6.2 21l1.3-7.6L3 9l6.3-.5L12 3z" />
-              </svg>
-            </div>
-            <p class="mt-2 text-xs text-slate-500">Unlock Knowledge + Appointments modules to scale rescued leads.</p>
-            <button class="mt-3 w-full rounded-xl bg-slate-900 text-white text-xs py-2">Upgrade Now</button>
-          </div>
-        </div>
-      </aside>
-
-      <main class="flex-1">
-        <header class="px-10 py-8 border-b border-slate-200 bg-white">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-              <div id="user-initials" class="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                ??
-              </div>
-              <div>
-                <p id="user-welcome" class="text-sm text-slate-500">Loading profile...</p>
-                <p id="user-full-name" class="text-xl font-semibold text-slate-900">---</p>
-                <div class="flex items-center gap-2 text-xs text-slate-400">
-                  <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  <span id="user-company">---</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-6">
-              <div class="text-right">
-                <p class="text-xs uppercase tracking-widest text-slate-400">Global AI</p>
-                <p id="toggle-status-text" class="text-sm font-medium text-emerald-600">On</p>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input id="global-ai-toggle" type="checkbox" class="sr-only peer" checked />
-                <div class="w-12 h-7 bg-slate-200 rounded-full peer peer-checked:bg-emerald-500 transition"></div>
-                <span class="absolute left-1 top-1 h-5 w-5 bg-white rounded-full shadow transition peer-checked:translate-x-5"></span>
-              </label>
-            </div>
-          </div>
-        </header>
-
-        <section class="px-10 py-8">
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <p class="text-sm uppercase tracking-widest text-slate-400">Pulse</p>
-              <h2 class="text-2xl font-semibold text-slate-900">Silent Salesman Performance</h2>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-              <p class="text-xs uppercase tracking-widest text-slate-400">Leads Rescued</p>
-              <p id="stat-leads-rescued" class="mt-4 text-4xl font-semibold text-slate-900">0</p>
-            </div>
-            <div class="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-              <p class="text-xs uppercase tracking-widest text-slate-400">Avg. Response Time</p>
-              <p class="mt-4 text-4xl font-semibold text-slate-900">&lt; 2 mins</p>
-            </div>
-            <div class="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-              <p class="text-xs uppercase tracking-widest text-slate-400">Property Coverage</p>
-              <p id="stat-property-coverage" class="mt-4 text-4xl font-semibold text-slate-900">0/0</p>
-            </div>
-          </div>
-        </section>
-
-        <section class="px-10 pb-12">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-semibold text-slate-900">Active AI Conversations</h3>
-          </div>
-
-          <div id="leads-container" class="space-y-4">
-            <div class="text-center py-10 text-slate-400 text-sm animate-pulse">
-              Connecting to AI Pulse...
-            </div>
-          </div>
-        </section>
-      </main>
     </div>
 
-    <script type="module" src="supabase-logic.js"></script>
-  </body>
+    <div id="setup-modal" class="modal-overlay hidden">
+        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-8 shadow-2xl relative">
+            <div class="text-center mb-8"><i class="fa-solid fa-rocket text-3xl text-indigo-500 mb-4"></i><h2 class="text-2xl font-bold text-white">Welcome to GetSalesCloser</h2></div>
+            <form onsubmit="handleOnboarding(event)" class="space-y-4">
+                <input type="text" id="setup-company" required placeholder="Business Name" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white">
+                <select id="setup-industry" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white"><option value="law_firm">Law Firm</option><option value="medical">Medical</option><option value="real_estate">Real Estate</option><option value="other">Other</option></select>
+                <input type="url" id="setup-url" placeholder="Website URL" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white">
+                <input type="file" id="setup-logo-file" accept="image/*" class="w-full text-xs text-slate-400">
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl mt-4">Launch Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="locked-revenue-health-modal" class="modal-overlay hidden" onclick="closeModal('locked-revenue-health-modal')">
+        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-0 shadow-2xl relative overflow-hidden" onclick="event.stopPropagation()">
+            <div class="p-6 bg-gradient-to-r from-indigo-900/50 to-slate-900 border-b border-white/5">
+                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500"><i class="fa-solid fa-lock text-xl"></i></div><div><h2 class="text-lg font-bold text-white">Revenue Health (Beta)</h2><p class="text-xs text-slate-400">Join Early Access</p></div></div>
+            </div>
+            <div class="p-6 text-sm text-slate-300 space-y-4 h-[400px] overflow-y-auto content-area">
+                <h3 class="font-bold text-white text-xs uppercase tracking-wide">Subtitle</h3><p>Your AI-powered revenue diagnostic system</p>
+                <h3 class="font-bold text-white text-xs uppercase tracking-wide mt-2">What this is</h3><p>Revenue Health is your AI Revenue Doctor. It analyzes your sales flow to detect leaks.</p>
+                <button onclick="registerBetaInterest('revenue_health')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg mt-2">🎯 Join Revenue Health Beta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="locked-missed-revenue-modal" class="modal-overlay hidden" onclick="closeModal('locked-missed-revenue-modal')">
+        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-0 shadow-2xl relative overflow-hidden" onclick="event.stopPropagation()">
+            <div class="p-6 bg-gradient-to-r from-indigo-900/50 to-slate-900 border-b border-white/5">
+                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500"><i class="fa-solid fa-lock text-xl"></i></div><div><h2 class="text-lg font-bold text-white">Missed Revenue Intelligence (Beta)</h2><p class="text-xs text-slate-400">Unlock Visibility</p></div></div>
+            </div>
+            <div class="p-6 text-sm text-slate-300 space-y-4 h-[400px] overflow-y-auto content-area">
+                <h3 class="font-bold text-white text-xs uppercase tracking-wide">Subtitle</h3><p>Find revenue you didn’t know you were losing</p>
+                <button onclick="registerBetaInterest('missed_revenue')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg mt-2">🚀 Apply for Missed Revenue Beta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="negotiation-modal" class="modal-overlay hidden">
+        <div class="bg-slate-900 border border-white/10 rounded-xl w-full max-w-5xl h-[85vh] shadow-2xl flex flex-col relative">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950">
+                <div><h2 class="text-xl font-bold text-white">Priority Negotiations</h2><p class="text-xs text-slate-400">Leads requiring status confirmation or follow-up</p></div>
+                <div class="flex gap-3"><button onclick="openAddLead()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus mr-2"></i>Add Lead</button><button onclick="closeModal('negotiation-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+            </div>
+            <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-900/50 border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <div class="col-span-3">Lead Details</div><div class="col-span-2">Risk Score</div><div class="col-span-2">Last Interaction</div><div class="col-span-3">Status Confirmation</div><div class="col-span-2">Next Action</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-2" id="lead-list-container"><div class="text-center text-slate-500 text-xs mt-10">Loading leads...</div></div>
+        </div>
+    </div>
+
+    <div id="action-modal" class="modal-overlay hidden">
+        <div class="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg h-[600px] shadow-2xl relative overflow-hidden flex flex-col">
+            <div class="p-5 bg-slate-950 border-b border-white/10 flex justify-between items-start shrink-0">
+                <div><h2 class="text-lg font-bold text-white">Lead Action Panel</h2><p class="text-xs text-slate-400">Decide next action.</p></div>
+                <button onclick="closeModal('action-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex border-b border-white/10 bg-slate-900/50 shrink-0">
+                <button onclick="switchTab('tab-action')" id="btn-tab-action" class="tab-btn active flex-1 py-3 text-xs font-medium text-slate-400 hover:text-white text-center">Action Panel</button>
+                <button onclick="switchTab('tab-timeline')" id="btn-tab-timeline" class="tab-btn flex-1 py-3 text-xs font-medium text-slate-400 hover:text-white text-center">Timeline</button>
+                <button onclick="switchTab('tab-export')" id="btn-tab-export" class="tab-btn flex-1 py-3 text-xs font-medium text-slate-400 hover:text-white text-center">Export</button>
+            </div>
+            <div id="tab-action" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-white/5">
+                    <div><h3 class="font-bold text-sm text-white" id="act-lead-name">...</h3></div>
+                    <div class="text-right"><span class="text-xs font-bold text-red-400" id="act-risk-score">--</span></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Confirm Status</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 p-2 border border-white/10 rounded hover:bg-white/5 cursor-pointer"><input type="radio" name="lead-status" value="active" checked class="accent-indigo-500"><span class="text-xs text-white">Active</span></label>
+                        <label class="flex items-center gap-2 p-2 border border-white/10 rounded hover:bg-white/5 cursor-pointer"><input type="radio" name="lead-status" value="stalled" class="accent-yellow-500"><span class="text-xs text-white">Stalled</span></label>
+                        <label class="flex items-center gap-2 p-2 border border-white/10 rounded hover:bg-white/5 cursor-pointer"><input type="radio" name="lead-status" value="closed_won" class="accent-green-500"><span class="text-xs text-white">Won</span></label>
+                        <label class="flex items-center gap-2 p-2 border border-white/10 rounded hover:bg-white/5 cursor-pointer"><input type="radio" name="lead-status" value="closed_lost" class="accent-red-500"><span class="text-xs text-white">Lost</span></label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Actions</label>
+                    <div class="space-y-2">
+                        <label id="opt-chat" class="flex items-center gap-3 p-3 bg-slate-800/30 border border-white/5 rounded transition"><input type="checkbox" id="act-check-chat" class="accent-indigo-500 rounded"><div class="flex-1"><span class="block text-xs font-bold text-white">Follow-up via Chat</span><span class="block text-[10px] text-slate-500" id="sub-chat">Instant Sentinel</span></div></label>
+                        <label id="opt-email" class="flex items-center gap-3 p-3 bg-slate-800/30 border border-white/5 rounded transition"><input type="checkbox" id="act-check-email" class="accent-indigo-500 rounded"><div class="flex-1"><span class="block text-xs font-bold text-white">Follow-up via Email</span><span class="block text-[10px] text-slate-500" id="sub-email">Appointment Architect</span></div></label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Execution Timing</label>
+                    <select id="act-timing" class="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-xs text-white"><option value="now">Immediately</option><option value="1h">In 1 Hour</option></select>
+                </div>
+                <button onclick="confirmAction()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3 rounded-lg shadow-lg mt-4">Confirm Action</button>
+            </div>
+            <div id="tab-timeline" class="hidden flex-1 overflow-y-auto p-6"><div id="timeline-container" class="space-y-6 relative ml-2"></div></div>
+            <div id="tab-export" class="hidden flex-1 p-6 flex flex-col justify-center items-center text-center">
+                <button onclick="exportTimelineCSV()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-6 py-3 rounded-lg border border-white/10">Download CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="bg-slate-900 border border-white/10 rounded-xl w-96 p-6 shadow-xl text-center">
+            <h3 class="font-bold text-white mb-2">Confirm Status Change?</h3>
+            <div class="flex gap-3 mt-6"><button onclick="closeModal('confirm-modal')" class="flex-1 bg-slate-800 text-white text-xs py-2 rounded">Cancel</button><button id="btn-confirm-status" class="flex-1 bg-indigo-600 text-white text-xs py-2 rounded">Yes, Confirm</button></div>
+        </div>
+    </div>
+
+    <aside class="w-72 glass-panel flex flex-col justify-between z-20 border-r border-white/5 fixed inset-y-0 left-0">
+        <div>
+            <div class="h-20 flex flex-col justify-center px-6 border-b border-white/5 relative">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 overflow-hidden w-full group" id="brand-container">
+                        <input type="file" id="update-logo-input" accept="image/*" class="hidden" onchange="handleLogoUpdate(this)">
+                        <i class="fa-solid fa-robot text-indigo-400 text-xl cursor-pointer hover:text-white transition" id="brand-icon" onclick="triggerLogoUpdate()" title="Upload Logo"></i>
+                        <img id="brand-img" src="" class="h-8 w-auto max-w-[120px] object-contain bg-white/90 px-1 rounded-sm hidden cursor-pointer hover:opacity-80 transition" onclick="triggerLogoUpdate()" title="Change Logo">
+                        <span class="font-bold tracking-tight text-sm truncate flex-1" id="brand-text">GetSalesCloser</span>
+                    </div>
+                    <div class="relative inline-block w-8 align-middle select-none transition duration-200 ease-in flex-shrink-0 ml-2">
+                        <input type="checkbox" id="branding-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 right-4" onclick="toggleBranding()"/>
+                        <label for="branding-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-700 cursor-pointer"></label>
+                    </div>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-1 pl-1" id="brand-sub">Autonomous Revenue</p>
+            </div>
+
+            <div class="overflow-y-auto h-[calc(100vh-180px)] no-scrollbar py-6">
+                <div class="px-6 mb-6">
+                    <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                        <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voice Usage</span><span class="text-[10px] text-green-400" id="voice-cost">$0.00</span></div>
+                        <div class="w-full bg-slate-900 rounded-full h-1 mb-1"><div class="bg-indigo-500 h-1 rounded-full" style="width: 0%" id="voice-bar"></div></div>
+                        <p class="text-[9px] text-slate-500 text-right" id="voice-mins">0 mins this month</p>
+                    </div>
+                </div>
+                <div class="px-6 mb-2"><p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">AI Revenue Stack</p></div>
+                <nav class="space-y-1" id="revenue-stack-nav"></nav>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-white/5 bg-slate-900/50 absolute bottom-0 left-0 w-72">
+            <button onclick="handleLogout()" class="text-xs text-red-400 hover:text-red-300 w-full text-left mb-4"><i class="fa-solid fa-power-off mr-2"></i> Sign Out</button>
+            <div class="text-xs overflow-hidden">
+                <p class="text-white font-semibold truncate" id="user-name-display">Loading...</p>
+                <div class="flex items-center gap-1 mt-0.5 group cursor-pointer" onclick="copyRefId()" title="Copy Reference ID">
+                    <p class="text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-indigo-500/50 transition" id="user-ref-id">...</p>
+                    <i class="fa-regular fa-copy text-[10px] text-slate-500 group-hover:text-indigo-400"></i>
+                </div>
+                <p class="text-green-400 mt-1">Custom Configuration</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative overflow-hidden ml-72 h-screen">
+        <header class="h-20 glass-header flex items-center justify-between px-8 z-10">
+            <div><h1 class="text-xl font-bold text-white">Deal Commander</h1><p class="text-xs text-slate-400">Revenue Radar & Diagnostics</p></div>
+            <div class="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center"><span class="text-sm font-bold">U</span></div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8 relative">
+            <div class="max-w-6xl mx-auto space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div id="priority-card" class="glass-panel p-5 rounded-2xl border-l-4 border-red-500 relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-white">Priority Action</h3><span id="priority-badge" class="bg-red-500/20 text-red-400 text-[10px] px-2 py-1 rounded font-bold uppercase">Scanning…</span></div>
+                        <p class="text-sm text-slate-300 mb-4" id="priority-text">Scanning pipeline...</p>
+                        <button onclick="openNegotiationsModal()" class="w-full bg-red-600/90 hover:bg-red-500 text-white text-xs font-bold py-2.5 rounded-lg transition shadow-lg">View Negotiation</button>
+                    </div>
+                    <div class="glass-panel p-5 rounded-2xl border border-yellow-500/20 relative group cursor-pointer overflow-hidden" onclick="openModal('locked-missed-revenue-modal')">
+                        <div class="lock-overlay" title="Locked (Beta)"><i class="fa-solid fa-lock text-white text-3xl opacity-80 mb-2"></i><p class="text-xs text-white font-bold opacity-0 group-hover:opacity-100 transition">Locked (Beta)</p></div>
+                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-slate-400">Missed Revenue</h3><i class="fa-solid fa-triangle-exclamation text-yellow-500"></i></div>
+                        <div class="flex items-end gap-2 blur-[4px]"><span class="text-3xl font-bold text-red-400">$4,200</span></div>
+                        <p class="text-xs text-yellow-600 mt-2">Enable Growth Intelligence.</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-2xl border border-white/5 relative group cursor-pointer overflow-hidden" onclick="openModal('locked-revenue-health-modal')">
+                        <div class="lock-overlay"><i class="fa-solid fa-lock text-white text-3xl opacity-80 mb-2"></i><p class="text-xs text-white font-bold opacity-0 group-hover:opacity-100 transition">Locked (Beta)</p></div>
+                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-slate-300">Revenue Health</h3><i class="fa-solid fa-user-doctor text-indigo-500 text-xl"></i></div>
+                        <h3 class="text-3xl font-bold text-yellow-400 blur-[4px]">72%</h3>
+                        <div class="mt-3 blur-[2px]"><div class="flex justify-between text-[9px] text-slate-500 mb-1"><span>Visibility</span><span>30%</span></div><div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-indigo-500 h-1.5 rounded-full" style="width: 30%"></div></div></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col lg:flex-row gap-6 h-[500px] w-full relative">
+                    <div id="win-traffic" class="w-full lg:w-1/3 glass-panel rounded-2xl flex flex-col border border-white/5 transition-all duration-300">
+                        <div class="p-4 border-b border-white/5 bg-slate-900/40 flex justify-between items-center">
+                            <h2 class="font-bold text-xs uppercase tracking-wider text-slate-300">Live Traffic</h2>
+                            <div class="flex gap-2"><button onclick="toggleWin('win-traffic', 'min')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-minus"></i></button><button onclick="toggleWin('win-traffic', 'max')" class="text-slate-400 hover:text-white"><i class="fa-regular fa-square"></i></button></div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2" id="live-traffic-list"></div>
+                    </div>
+                    <div id="win-monitor" class="w-full lg:w-2/3 glass-panel rounded-2xl flex flex-col border border-indigo-500/20 relative overflow-hidden bg-slate-900/50 transition-all duration-300">
+                        <div class="p-4 border-b border-white/5 flex justify-between items-center bg-slate-900/80">
+                            <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold">AI</div><h2 class="font-bold text-sm text-white">System Monitor</h2><span class="text-[10px] text-green-400 uppercase font-bold tracking-wider ml-2">Live</span></div>
+                            <div class="flex gap-2"><button onclick="toggleWin('win-monitor', 'min')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-minus"></i></button><button onclick="toggleWin('win-monitor', 'max')" class="text-slate-400 hover:text-white"><i class="fa-regular fa-square"></i></button></div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="war-room-feed"><div class="text-center text-xs text-slate-500 mt-10">System standing by...</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let sbClient = null;
+        let currentUser = {};
+        let currentProfile = {};
+        let currentOrgId = null;
+        let orgEntitlements = {}; 
+        let selectedLeadId = null;
+        let selectedLeadStatus = null;
+        let isUploading = false;
+        let currentDiagnosis = null;
+
+        const SIDEBAR_CONFIG = {
+            'niche_closer': { label: 'Deal Commander', icon: 'fa-bullseye', locked: false, link: '#', module: 'niche_closer' },
+            'content_roi': { label: 'Growth Intelligence', icon: 'fa-chart-line', locked: true, link: '#', module: 'content_roi' },
+            'b': { label: 'Knowledge Brain', icon: 'fa-brain', locked: false, link: 'Knowledge Brain.html', module: 'brain' },
+            's': { label: 'Instant Sentinel', icon: 'fa-bolt', locked: false, link: 'sentinel.html', module: 'sentinel' },
+            'a': { label: 'Appt. Architect', icon: 'fa-calendar-check', locked: false, link: 'App Architect.html', module: 'architect' },
+            'l': { label: 'Voice Liaison', icon: 'fa-microphone-lines', locked: false, link: 'Voice Liaison.html', module: 'voice' }
+        };
+
+        window.addEventListener('load', () => {
+            requireAuth({
+                requireProfile: true,
+                requireOnboarding: true,
+                onAuthenticated: async (profile, user, client) => {
+                    currentUser = user;
+                    currentProfile = profile;
+                    sbClient = client;
+
+                    updateDashboardUI(profile);
+                    fetchVoiceUsage(user.id);
+                    await fetchOrgContext(user.id);
+                    await fetchOrgEntitlements();
+                    renderSidebar();
+                    runRevenueDiagnosis();
+                    subscribeToInteractions();
+                }
+            });
+        });
+
+        async function fetchOrgContext(uid) {
+            try {
+                const { data } = await sbClient.from('org_members').select('org_id').eq('user_id', uid).limit(1).single();
+                if (data) currentOrgId = data.org_id;
+            } catch (e) { console.error("Org Fetch Error", e); }
+        }
+
+        async function fetchOrgEntitlements() {
+            if (!currentOrgId) return;
+            try {
+                const { data } = await sbClient.from('org_services').select('service_key, status').eq('org_id', currentOrgId);
+                orgEntitlements = {};
+                if (data) data.forEach(s => orgEntitlements[s.service_key] = s.status);
+            } catch (e) { console.error("Entitlement Error", e); }
+        }
+
+        function renderSidebar() {
+            const container = document.getElementById('revenue-stack-nav');
+            container.innerHTML = '';
+            
+            Object.entries(SIDEBAR_CONFIG).forEach(([key, config]) => {
+                const isEntitled = !config.module || orgEntitlements[config.module] === 'active';
+                const isLocked = config.locked || !isEntitled;
+
+                const div = document.createElement('div');
+                div.className = `nav-item flex items-center px-6 py-3 text-slate-400 ${isLocked ? 'locked' : 'active cursor-pointer'}`;
+                div.onclick = () => handleNavClick(key, isLocked);
+                
+                const statusHtml = isLocked 
+                    ? `<i class="fa-solid fa-lock text-[10px] text-slate-600 ml-auto"></i>` 
+                    : `<div class="status-icon ml-auto"><div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]"></div></div>`;
+
+                div.innerHTML = `<i class="fa-solid ${config.icon} w-6 text-center"></i><span class="text-sm font-medium ml-2">${config.label}</span>${statusHtml}`;
+                container.appendChild(div);
+            });
+        }
+
+        function handleNavClick(key, isLocked) { 
+            const config = SIDEBAR_CONFIG[key];
+            if (!config) return;
+            if (key === 'content_roi') { openModal('locked-missed-revenue-modal'); return; }
+            if (isLocked || config.locked) { 
+                // Redirect to Billing with Context
+                window.location.href = `billing.html?lock=${config.module}`; 
+                return; 
+            }
+            if(config.link && config.link !== '#') window.location.href = config.link;
+        }
+
+        async function registerBetaInterest(betaKey) {
+            try {
+                await sbClient.from('beta_interest').insert({
+                    org_id: currentOrgId,
+                    user_id: currentUser.id,
+                    beta_key: betaKey
+                });
+                showBetaThankYou(betaKey);
+            } catch (e) { showBetaThankYou(betaKey); }
+        }
+
+        function showBetaThankYou(betaKey) {
+            const modalId = betaKey === 'revenue_health' ? 'locked-revenue-health-modal' : 'locked-missed-revenue-modal';
+            const modal = document.getElementById(modalId);
+            const contentArea = modal.querySelector('.content-area');
+            contentArea.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-center space-y-4">
+                    <i class="fa-solid fa-circle-check text-green-400 text-5xl"></i>
+                    <h3 class="text-white font-bold text-lg">Thank You!</h3>
+                    <p class="text-slate-300 text-sm">
+                        ${betaKey === 'revenue_health' ? "You’re on the list. We’ll notify you as soon as enrollment opens." : "Application received. We’ll reach out once your account is eligible."}
+                    </p>
+                </div>
+            `;
+        }
+
+        async function openNegotiationsModal() {
+            openModal('negotiation-modal');
+            const container = document.getElementById('lead-list-container');
+            container.innerHTML = '<div class="text-center text-slate-500 text-xs mt-10">Loading...</div>';
+
+            if (!currentOrgId) {
+                container.innerHTML = '<div class="text-center text-red-400 text-xs mt-10">Organization not loaded. Refresh.</div>';
+                return;
+            }
+
+            const { data: leads } = await sbClient.from('leads')
+                .select('*')
+                .eq('org_id', currentOrgId)
+                .not('status', 'in', '("closed_won","closed_lost")')
+                .order('risk_score', { ascending: false });
+
+            container.innerHTML = '';
+            if (!leads || leads.length === 0) { 
+                container.innerHTML = `<div class="text-center text-slate-500 mt-10"><p>No active leads.</p><button onclick="openAddLead()" class="text-indigo-400 underline">Add Lead</button></div>`; 
+                return; 
+            }
+
+            leads.forEach(lead => {
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-12 gap-4 p-4 border-b border-white/5 items-center hover:bg-white/5 transition';
+                const time = lead.last_interaction_at ? new Date(lead.last_interaction_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'New';
+                row.innerHTML = `
+                    <div class="col-span-3"><p class="font-bold text-sm text-white">${lead.name}</p><p class="text-[10px] text-slate-500">${lead.source || 'Manual'}</p></div>
+                    <div class="col-span-2"><span class="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-1 rounded">${lead.risk_score || 0}% Risk</span></div>
+                    <div class="col-span-2 text-xs text-slate-400">${time}</div>
+                    <div class="col-span-3 flex gap-2"><button onclick="openActionModalForStatus('${lead.id}', '${lead.name}', ${lead.risk_score}, '${time}', '${lead.phone}', '${lead.email}', 'closed_won', '${lead.status}')" class="bg-green-600/20 text-green-400 px-2 py-1 rounded text-[10px]">Won</button><button onclick="openActionModalForStatus('${lead.id}', '${lead.name}', ${lead.risk_score}, '${time}', '${lead.phone}', '${lead.email}', 'closed_lost', '${lead.status}')" class="bg-red-600/20 text-red-400 px-2 py-1 rounded text-[10px]">Lost</button><button onclick="openActionModalForStatus('${lead.id}', '${lead.name}', ${lead.risk_score}, '${time}', '${lead.phone}', '${lead.email}', 'active', '${lead.status}')" class="bg-slate-700 text-white px-2 py-1 rounded text-[10px]">Active</button></div>
+                    <div class="col-span-2"><button onclick="openActionModal('${lead.id}', '${lead.name}', ${lead.risk_score}, '${time}', '${lead.phone}', '${lead.email}', '${lead.status}')" class="text-xs text-indigo-400 hover:underline">Take Action &rarr;</button></div>`;
+                container.appendChild(row);
+            });
+        }
+
+        // Logic Reuse
+        function openActionModalForStatus(id, name, risk, time, phone, email, newStatus, currentStatus) { openActionModal(id, name, risk, time, phone, email, currentStatus); const radio = document.querySelector(`input[name="lead-status"][value="${newStatus}"]`); if (radio) radio.checked = true; }
+        function openActionModal(id, name, risk, time, phone, email, currentStatus) { selectedLeadId = id; selectedLeadStatus = currentStatus; document.getElementById('act-lead-name').innerText = name; document.getElementById('act-risk-score').innerText = (risk || 0) + "% Risk"; const chatCheck = document.getElementById('act-check-chat'); const emailCheck = document.getElementById('act-check-email'); const chatContainer = document.getElementById('container-chat'); const emailContainer = document.getElementById('container-email'); const hasPhone = phone && phone !== 'null'; const hasEmail = email && email !== 'null'; const canChat = orgEntitlements['sentinel'] === 'active'; const canEmail = orgEntitlements['architect'] === 'active'; chatCheck.disabled = false; chatContainer.classList.remove('opacity-50', 'cursor-not-allowed'); emailCheck.disabled = false; emailContainer.classList.remove('opacity-50', 'cursor-not-allowed'); document.getElementById('sub-chat').innerText = "Instant Sentinel"; document.getElementById('sub-email').innerText = "Appointment Architect"; if (!hasPhone) { chatCheck.disabled = true; chatContainer.classList.add('opacity-50', 'cursor-not-allowed'); document.getElementById('sub-chat').innerText = "No Phone Number"; } else if (!canChat) { chatCheck.disabled = true; chatContainer.classList.add('opacity-50', 'cursor-not-allowed'); document.getElementById('sub-chat').innerText = "Service Inactive"; } if (!hasEmail) { emailCheck.disabled = true; emailContainer.classList.add('opacity-50', 'cursor-not-allowed'); document.getElementById('sub-email').innerText = "No Email Address"; } else if (!canEmail) { emailCheck.disabled = true; emailContainer.classList.add('opacity-50', 'cursor-not-allowed'); document.getElementById('sub-email').innerText = "Service Inactive"; } switchTab('tab-action'); openModal('action-modal'); loadTimeline(id); }
+        async function confirmAction() { if (!selectedLeadId) return; const status = document.querySelector('input[name="lead-status"]:checked').value; if (status === 'closed_won' || status === 'closed_lost') { document.getElementById('btn-confirm-status').onclick = () => executeActionWrite(status); openModal('confirm-modal'); return; } executeActionWrite(status); }
+        async function executeActionWrite(status) { closeModal('confirm-modal'); const now = new Date(); const actions = { chat: document.getElementById('act-check-chat').checked, email: document.getElementById('act-check-email').checked }; await sbClient.from('leads').update({ status: status, last_interaction_at: now }).eq('id', selectedLeadId); await sbClient.from('lead_actions').insert({ user_id: currentUser.id, lead_id: selectedLeadId, status_selected: status, actions: actions, scheduled_at: document.getElementById('act-timing').value === 'now' ? now : null }); if (status !== selectedLeadStatus) await logTimelineEvent(selectedLeadId, 'status_change', { from: selectedLeadStatus, to: status }); if (actions.chat || actions.email) await logTimelineEvent(selectedLeadId, 'action_logged', { actions: actions }); alert("Action logged successfully."); closeModal('action-modal'); openNegotiationsModal(); }
+        async function logTimelineEvent(leadId, type, payload) { await sbClient.from('lead_timeline_events').insert({ user_id: currentUser.id, lead_id: leadId, event_type: type, actor_type: 'user', payload: payload }); }
+        async function loadTimeline(leadId) { const container = document.getElementById('timeline-container'); container.innerHTML = '<div class="text-xs text-slate-500">Loading history...</div>'; const { data } = await sbClient.from('lead_timeline_events').select('*').eq('lead_id', leadId).order('occurred_at', { ascending: false }); container.innerHTML = '<div class="timeline-line"></div>'; if (!data || data.length === 0) { container.innerHTML += '<div class="text-xs text-slate-500 pl-6">No history yet.</div>'; return; } data.forEach(event => { const div = document.createElement('div'); div.className = 'relative pl-6 pb-4'; let icon = 'fa-circle'; let color = 'text-slate-500'; let title = event.event_type; if (event.event_type === 'lead_created') { icon = 'fa-plus'; color = 'text-green-400'; title = 'Lead Created'; } if (event.event_type === 'status_change') { icon = 'fa-refresh'; color = 'text-blue-400'; title = 'Status Updated'; } if (event.event_type === 'action_logged') { icon = 'fa-bolt'; color = 'text-indigo-400'; title = 'Action Taken'; } div.innerHTML = `<i class="fa-solid ${icon} ${color} text-[10px] absolute left-[11px] top-1 bg-slate-900 z-10"></i><p class="text-xs font-bold text-white">${title}</p><p class="text-[10px] text-slate-400">${new Date(event.occurred_at).toLocaleString()}</p><p class="text-[10px] text-slate-500 mt-1">${JSON.stringify(event.payload).substring(0, 50)}...</p>`; container.appendChild(div); }); }
+        async function exportTimelineCSV() { try { const { data, error } = await sbClient.rpc('export_lead_timeline', { p_lead_id: selectedLeadId }); if (error || !data || data.length === 0) { alert("No data to export."); return; } const headers = ["occurred_at", "event_type", "actor_type", "payload"]; const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + data.map(row => headers.map(fieldName => { let val = row[fieldName]; if (typeof val === 'object') val = JSON.stringify(val).replace(/"/g, '""'); return `"${val}"`; }).join(",")).join("\n"); const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `lead_${selectedLeadId}_history.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch(e) { alert("Export failed: " + e.message); } }
+        async function handleAddLead(e) { e.preventDefault(); const name = document.getElementById('new-lead-name').value; const { error, data } = await sbClient.from('leads').insert({ user_id: currentUser.id, org_id: currentOrgId, name: name, status: 'new', risk_score: 50 }).select(); if (!error && data) { await logTimelineEvent(data[0].id, 'lead_created', { source: 'manual' }); closeModal('add-lead-modal'); openNegotiationsModal(); } }
+        
+        function switchTab(tabId) { ['tab-action', 'tab-timeline', 'tab-export'].forEach(t => document.getElementById(t).classList.add('hidden')); ['btn-tab-action', 'btn-tab-timeline', 'btn-tab-export'].forEach(b => b.classList.remove('active')); document.getElementById(tabId).classList.remove('hidden'); document.getElementById('btn-' + tabId).classList.add('active'); }
+        function toggleWin(id, action) { const el = document.getElementById(id); el.classList.remove('window-minimized', 'window-maximized'); if (action === 'min') el.classList.add('window-minimized'); if (action === 'max') el.classList.add('window-maximized'); }
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function openAddLead() { openModal('add-lead-modal'); }
+        async function fetchVoiceUsage(uid) { try { const { data } = await sbClient.from('voice_usage').select('minutes_used, cost').eq('user_id', uid); if (data && data.length > 0) { const totalMins = data.reduce((a, c) => a + (c.minutes_used || 0), 0); const totalCost = data.reduce((a, c) => a + (c.cost || 0), 0); document.getElementById('voice-cost').innerText = `$${totalCost.toFixed(2)}`; document.getElementById('voice-mins').innerText = `${Math.round(totalMins)} mins this month`; document.getElementById('voice-bar').style.width = Math.min(100, (totalMins/500)*100) + '%'; } } catch(e) {} }
+        async function toggleBranding() { const checkbox = document.getElementById('branding-toggle'); const mode = checkbox.checked; applyBrandingUI(mode); try { await sbClient.from('profiles').update({ branding_mode: mode }).eq('id', currentUser.id); currentProfile.branding_mode = mode; } catch(e) {} }
+        function applyBrandingUI(mode) { const txt = document.getElementById('brand-text'); const sub = document.getElementById('brand-sub'); const img = document.getElementById('brand-img'); const icon = document.getElementById('brand-icon'); if (mode) { txt.innerText = currentProfile.company || "Company"; sub.innerText = "Powered by GetSalesCloser"; if (currentProfile.logo_url) { icon.classList.add('hidden'); img.classList.remove('hidden'); } } else { txt.innerText = "GetSalesCloser"; sub.innerText = "Autonomous Revenue"; icon.classList.remove('hidden'); img.classList.add('hidden'); } }
+        async function handleLogoUpdate(input) { if (isUploading || input.files.length === 0) return; isUploading = true; const loader = document.createElement('div'); loader.id = 'logo-loader'; loader.className = 'absolute inset-0 bg-black/80 flex items-center justify-center text-xs text-white z-50 rounded-md'; loader.innerText = 'Uploading...'; document.getElementById('brand-container').appendChild(loader); try { const file = input.files[0]; const fileExt = file.name.split('.').pop(); const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`; await sbClient.storage.from('logos').upload(fileName, file); const { data } = sbClient.storage.from('logos').getPublicUrl(fileName); await sbClient.from('profiles').update({ logo_url: data.publicUrl }).eq('id', currentUser.id); currentProfile.logo_url = data.publicUrl; document.getElementById('brand-img').src = data.publicUrl; if (document.getElementById('branding-toggle').checked) applyBrandingUI(true); } catch(e) { alert("Upload failed: " + e.message); } finally { document.getElementById('logo-loader').remove(); isUploading = false; } }
+        function updateDashboardUI(profile) { document.getElementById('user-name-display').innerText = profile.full_name || "User"; document.getElementById('user-ref-id').innerText = profile.reference_id || "..."; if(profile.logo_url) document.getElementById('brand-img').src = profile.logo_url; const toggle = document.getElementById('branding-toggle'); if (profile.branding_mode) { toggle.checked = true; applyBrandingUI(true); } else { toggle.checked = false; applyBrandingUI(false); } }
+        function triggerLogoUpdate() { document.getElementById('update-logo-input').click(); }
+        function handleLogout() { sbClient.auth.signOut().then(() => window.location.href = 'login.html'); }
+        function copyRefId() { navigator.clipboard.writeText(document.getElementById('user-ref-id').innerText); alert("Copied"); }
+
+        // --- REVENUE DOCTOR ---
+        async function runRevenueDiagnosis() {
+            try {
+                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                const { data: interactions } = await sbClient
+                    .from('interactions')
+                    .select('lead_id, direction, created_at')
+                    .gte('created_at', sevenDaysAgo)
+                    .order('created_at', { ascending: true });
+
+                let avgDelayMinutes = null;
+
+                if (interactions && interactions.length > 0) {
+                    const byLead = {};
+                    interactions.forEach(i => {
+                        if (!byLead[i.lead_id]) byLead[i.lead_id] = [];
+                        byLead[i.lead_id].push(i);
+                    });
+
+                    const delays = [];
+                    Object.values(byLead).forEach(msgs => {
+                        for (let i = 0; i < msgs.length - 1; i++) {
+                            if (msgs[i].direction === 'inbound' && msgs[i + 1].direction === 'outbound') {
+                                const delta = (new Date(msgs[i + 1].created_at) - new Date(msgs[i].created_at)) / 60000;
+                                if (delta > 0 && delta < 1440) delays.push(delta);
+                            }
+                        }
+                    });
+
+                    if (delays.length > 0) {
+                        avgDelayMinutes = Math.round(delays.reduce((a, b) => a + b, 0) / delays.length);
+                    }
+                }
+
+                const noData = avgDelayMinutes === null;
+                const chatDelay = avgDelayMinutes ?? 0;
+                const hasIssue = chatDelay > 15;
+
+                const priorityText = document.getElementById('priority-text');
+                const priorityBadge = document.getElementById('priority-badge');
+                const priorityCard = document.getElementById('priority-card');
+
+                if (noData) {
+                    priorityText.innerText = 'No interaction data yet. Add leads and start engaging to see live diagnostics.';
+                    priorityBadge.innerText = 'Awaiting Data';
+                    priorityBadge.className = 'bg-slate-700 text-slate-400 text-[10px] px-2 py-1 rounded font-bold uppercase';
+                    priorityCard.className = priorityCard.className.replace('border-red-500', 'border-slate-600');
+                } else if (hasIssue) {
+                    priorityText.innerText = `⚠️ ${chatDelay}-min avg response delay detected. Leads are cooling — act now.`;
+                    priorityBadge.innerText = 'Urgent';
+                    priorityBadge.className = 'bg-red-500/20 text-red-400 text-[10px] px-2 py-1 rounded font-bold uppercase';
+                } else {
+                    priorityText.innerText = `Pipeline healthy. Avg response: ${chatDelay} min over last 7 days.`;
+                    priorityBadge.innerText = 'Healthy';
+                    priorityBadge.className = 'bg-green-500/20 text-green-400 text-[10px] px-2 py-1 rounded font-bold uppercase';
+                    priorityCard.className = priorityCard.className.replace('border-red-500', 'border-green-500');
+                }
+
+                currentDiagnosis = { hasIssue, chatDelay, noData };
+            } catch (err) {
+                console.error('Revenue Doctor error:', err.message);
+            }
+        }
+
+        // --- REAL-TIME INTERACTIONS FEED ---
+        function subscribeToInteractions() {
+            sbClient.channel('public:interactions')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interactions' }, payload => {
+                    const feed = document.getElementById('war-room-feed');
+                    if (feed.innerText.includes('standing by')) feed.innerHTML = '';
+                    const isAI = payload.new.direction === 'outbound';
+                    const div = document.createElement('div');
+                    div.className = `flex gap-3 ${isAI ? 'flex-row-reverse' : ''} mb-3`;
+                    div.innerHTML = `<div class="bg-${isAI ? 'indigo-600/20' : 'slate-800'} p-3 rounded-2xl text-xs text-slate-300 border border-white/5 max-w-[80%]">${payload.new.content || ''}</div>`;
+                    feed.appendChild(div);
+                    feed.scrollTop = feed.scrollHeight;
+                })
+                .subscribe();
+        }
+    </script>
+</body>
 </html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>System Diagnostic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-white p-10 font-mono">
+
+    <h1 class="text-2xl font-bold mb-6">System Diagnostic Tool</h1>
+    
+    <div class="space-y-4">
+        <div id="test-1" class="p-4 rounded bg-slate-800 border border-slate-700">
+            <span class="text-slate-400">Test 1: Supabase SDK Load...</span>
+            <span class="status font-bold ml-2 text-yellow-500">Pending</span>
+        </div>
+
+        <div id="test-2" class="p-4 rounded bg-slate-800 border border-slate-700">
+            <span class="text-slate-400">Test 2: Client Initialization...</span>
+            <span class="status font-bold ml-2 text-yellow-500">Pending</span>
+        </div>
+
+        <div id="test-3" class="p-4 rounded bg-slate-800 border border-slate-700">
+            <span class="text-slate-400">Test 3: Network Connection (Auth)...</span>
+            <span class="status font-bold ml-2 text-yellow-500">Pending</span>
+        </div>
+
+        <div id="test-4" class="p-4 rounded bg-slate-800 border border-slate-700">
+            <span class="text-slate-400">Test 4: Database Read Permission (RLS)...</span>
+            <span class="status font-bold ml-2 text-yellow-500">Pending</span>
+        </div>
+    </div>
+
+    <div id="result-box" class="mt-8 p-4 bg-black rounded border border-red-500 hidden">
+        <h3 class="text-red-500 font-bold mb-2">DIAGNOSIS:</h3>
+        <p id="error-msg" class="text-sm text-slate-300"></p>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://klbwigcvrdfeeeeotehu.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8";
+
+        function updateStatus(id, status, isError = false) {
+            const el = document.querySelector(`#${id} .status`);
+            el.innerText = status;
+            el.className = `status font-bold ml-2 ${isError ? 'text-red-500' : 'text-green-500'}`;
+        }
+
+        function showDiagnosis(msg) {
+            const box = document.getElementById('result-box');
+            document.getElementById('error-msg').innerText = msg;
+            box.classList.remove('hidden');
+        }
+
+        async function runDiagnostics() {
+            // TEST 1: SDK
+            if (window.supabase) {
+                updateStatus('test-1', 'PASSED');
+            } else {
+                updateStatus('test-1', 'FAILED', true);
+                showDiagnosis("The Supabase Script cannot load. Your network (or an ad-blocker) is blocking 'cdn.jsdelivr.net'.");
+                return;
+            }
+
+            // TEST 2: Client Init
+            let supabase;
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                updateStatus('test-2', 'PASSED');
+            } catch (e) {
+                updateStatus('test-2', 'FAILED', true);
+                showDiagnosis("Client Init Failed: " + e.message);
+                return;
+            }
+
+            // TEST 3: Network / Auth
+            // We use a timeout race to detect hangs
+            try {
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Network Timed Out (5s)")), 5000)
+                );
+                
+                const authPromise = supabase.auth.getSession();
+                
+                const { data, error } = await Promise.race([authPromise, timeoutPromise]);
+
+                if (error) throw error;
+                updateStatus('test-3', 'PASSED');
+
+                if (!data.session) {
+                    updateStatus('test-4', 'SKIPPED (No Session)', true);
+                    showDiagnosis("Connection successful, but you are not logged in. Please go to login.html.");
+                    return;
+                }
+
+                // TEST 4: Database RLS
+                const { data: profile, error: dbError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.session.user.id)
+                    .single();
+
+                if (dbError) {
+                    updateStatus('test-4', 'FAILED', true);
+                    showDiagnosis("Database Permission Error: " + dbError.message + " code: " + dbError.code);
+                } else {
+                    updateStatus('test-4', 'PASSED');
+                    showDiagnosis("✅ ALL SYSTEMS NORMAL. The issue is likely in the Dashboard UI code, not the database.");
+                    document.getElementById('result-box').classList.replace('border-red-500', 'border-green-500');
+                    document.querySelector('#result-box h3').className = "text-green-500 font-bold mb-2";
+                }
+
+            } catch (e) {
+                updateStatus('test-3', 'FAILED', true);
+                showDiagnosis("Network Error: " + e.message + ". Check your internet connection or Firewall.");
+            }
+        }
+
+        // Run immediately
+        runDiagnostics();
+    </script>
+</body>
+</html>

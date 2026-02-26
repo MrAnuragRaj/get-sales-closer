@@ -1,0 +1,23 @@
+.vercel
+.env*.local
+.env
+.claude/
+
+# Node binaries (local install)
+node_modules/
+node.exe
+corepack
+corepack.cmd
+npm
+npm.cmd
+npm.ps1
+npx
+npx.cmd
+npx.ps1
+nodevars.bat
+install_tools.bat
+
+# Supabase CLI binary and temp files
+supabase.exe
+supabase/.temp/
+**/*.tmp.*

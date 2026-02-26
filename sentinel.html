@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Sentinel | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 h-screen text-white flex flex-col font-sans overflow-hidden">
+
+    <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+        <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
+    </div>
+
+    <div class="h-20 border-b border-white/5 bg-slate-900 flex items-center justify-between px-8">
+        <h1 class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-bolt text-indigo-500"></i> Instant Sentinel
+        </h1>
+        <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition">
+            <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
+        </a>
+    </div>
+
+    <div class="flex-1 flex overflow-hidden">
+        <div class="w-1/3 border-r border-white/5 bg-slate-800/30 flex flex-col">
+            <div class="p-6">
+                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Active Leads</h2>
+            </div>
+            <div class="overflow-y-auto flex-1" id="lead-list-container">
+                </div>
+        </div>
+
+        <div class="w-2/3 p-8 flex flex-col bg-slate-900 relative">
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                <i class="fa-regular fa-hand-pointer text-4xl mb-4 opacity-50"></i>
+                <p>Select a lead to view surveillance data.</p>
+            </div>
+
+            <div id="detail-view" class="hidden h-full flex-col">
+                <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white" id="detail-name">Lead Name</h2>
+                        <p class="text-xs text-slate-400" id="detail-company">Company Info</p>
+                    </div>
+                    <button class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded shadow-lg">View Full CRM Profile</button>
+                </div>
+                
+                <div class="flex-1 bg-slate-950 rounded-xl p-6 overflow-y-auto mb-6 border border-white/5 space-y-4" id="chat-history">
+                    </div>
+
+                <div class="p-5 bg-green-500/10 border border-green-500/20 rounded-xl flex justify-between items-center">
+                    <div>
+                        <span class="block text-green-400 font-bold text-sm mb-1"><i class="fa-solid fa-chart-pie mr-2"></i>Conversion Probability</span>
+                        <p class="text-xs text-green-300/70">Calculated based on recent sentiment analysis.</p>
+                    </div>
+                    <span class="text-3xl font-bold text-white" id="detail-score">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+<script>
+    let _sb;
+
+    // 1. Load Leads
+    async function loadLeads(sb) {
+        const { data: leads } = await sb.from('leads').select('*').order('last_contacted_at', { ascending: false });
+        const listContainer = document.getElementById('lead-list-container');
+        listContainer.innerHTML = '';
+
+        if (leads && leads.length > 0) {
+            leads.forEach(lead => {
+                const probColor = lead.probability_score > 80 ? 'text-green-400' : 'text-yellow-400';
+                const colorBase = lead.probability_score > 80 ? 'green' : 'yellow';
+                const div = document.createElement('div');
+                div.className = "p-4 border-b border-white/5 hover:bg-white/5 cursor-pointer flex justify-between items-center group transition";
+                div.onclick = () => showDetail(lead.id, lead.name, lead.email);
+                div.innerHTML = `
+                    <div><h4 class="font-bold text-white text-sm group-hover:text-indigo-400">${lead.name}</h4><p class="text-xs text-slate-400 capitalize">${lead.status}</p></div>
+                    <div class="text-right"><span class="text-xs font-bold ${probColor} bg-${colorBase}-900/20 px-2 py-1 rounded">${lead.probability_score || 0}% Prob.</span></div>
+                `;
+                listContainer.appendChild(div);
+            });
+        } else {
+            listContainer.innerHTML = '<div class="p-4 text-xs text-slate-500">No active leads found.</div>';
+        }
+    }
+
+    // 2. Show Details
+    async function showDetail(leadId, name, email) {
+        document.getElementById('empty-state').classList.add('hidden');
+        const view = document.getElementById('detail-view');
+        view.classList.remove('hidden');
+        view.classList.add('flex');
+
+        document.getElementById('detail-name').innerText = name;
+        document.getElementById('detail-company').innerText = email || 'No contact info';
+
+        const { data: chats } = await _sb.from('interactions').select('*').eq('lead_id', leadId).order('created_at', { ascending: true });
+        const container = document.getElementById('chat-history');
+        container.innerHTML = '';
+
+        if (chats) {
+            chats.forEach(chat => {
+                const isAI = chat.direction === 'outbound';
+                const align = isAI ? 'self-end' : 'self-start';
+                const color = isAI ? 'bg-indigo-900/30 border-indigo-500/20' : 'bg-slate-800 border-white/5';
+                const div = document.createElement('div');
+                div.className = 'flex flex-col space-y-1 mb-2';
+                div.innerHTML = `<div class="${color} ${align} p-3 rounded-2xl text-sm max-w-[70%] border text-slate-300">${chat.content}</div>`;
+                container.appendChild(div);
+            });
+        }
+    }
+
+    async function checkEntitlement(sb, user, serviceKey) {
+        const { data: membership } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1).single();
+        if (!membership) return false;
+        const { data: service } = await sb.from('org_services').select('status').eq('org_id', membership.org_id).eq('service_key', serviceKey).maybeSingle();
+        return service?.status === 'active';
+    }
+
+    requireAuth({
+        onAuthenticated: async (profile, user, sb) => {
+            const entitled = await checkEntitlement(sb, user, 'sentinel');
+            if (!entitled) { window.location.href = 'billing.html?lock=sentinel'; return; }
+            _sb = sb;
+            loadLeads(sb);
+        }
+    });
+</script>
+</body>
+</html>

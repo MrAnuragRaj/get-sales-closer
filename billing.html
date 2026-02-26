@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade Engine | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="auth.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; scroll-behavior: smooth; }
+        .gilroy { font-weight: 800; letter-spacing: -0.03em; }
+        .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
+        .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
+        .btn-dopamine:disabled { background: #334155; cursor: not-allowed; opacity: 0.5; box-shadow: none; }
+        
+        .deployment-overlay { position: fixed; inset: 0; background: #020617; z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .lock-impact { animation: impact-pulse 0.6s ease-out forwards; }
+        
+        @keyframes impact-pulse {
+            0% { transform: rotate(45deg) scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+            50% { transform: rotate(45deg) scale(1.5); box-shadow: 0 0 60px 30px rgba(57, 255, 20, 0.5); }
+            100% { transform: rotate(45deg) scale(1.2); box-shadow: 0 0 30px 10px rgba(57, 255, 20, 0.8); }
+        }
+
+        .owned-state { opacity: 0.5; pointer-events: none; border-color: #39FF14; background: rgba(57, 255, 20, 0.05); }
+        .owned-badge { display: inline-block; color: #39FF14; font-size: 10px; font-weight: bold; background: rgba(57, 255, 20, 0.1); padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+
+    <div id="auth-loader" class="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-[1000]">
+        <div class="h-8 w-8 border-4 border-[#39FF14] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Identity...</p>
+    </div>
+
+    <div id="setup-modal" class="fixed inset-0 bg-black/90 hidden z-[2000] flex items-center justify-center">
+        <div class="glass-card p-8 rounded-2xl max-w-md text-center">
+            <h2 class="text-xl font-bold text-white mb-4">Setup Required</h2>
+            <p class="text-slate-400 mb-6">Please complete your organization profile to access billing.</p>
+            <button onclick="window.location.href='onboarding.html'" class="btn-dopamine px-6 py-2 rounded-lg text-white font-bold">Complete Setup</button>
+        </div>
+    </div>
+
+    <div id="deploymentOverlay" class="deployment-overlay">
+        <div id="animNode" class="h-16 w-16 bg-[#39FF14] rotate-45 mb-8"></div>
+        <h2 class="gilroy text-2xl text-white tracking-tighter uppercase">Generating Secure Intent...</h2>
+    </div>
+
+    <div class="absolute top-6 left-6 z-10">
+        <button onclick="window.location.href='dashboard.html'" class="text-slate-400 hover:text-white text-xs font-bold flex items-center gap-2 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Back to Dashboard
+        </button>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-8 py-20">
+        <div class="text-center mb-12">
+            <h1 class="text-5xl gilroy text-white mb-4 uppercase">Unlock Capability</h1>
+            <p class="text-slate-400 italic">Add the missing pieces to your sales infrastructure.</p>
+        </div>
+
+        <div class="glass-card p-10 rounded-[3rem] w-full relative">
+            <div class="flex items-center justify-center gap-1 text-white mb-10">
+                <span class="text-3xl font-bold mt-2">$</span>
+                <span id="priceDisplay" class="text-8xl font-black gilroy">--</span>
+                <span class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
+            </div>
+            
+            <div class="space-y-4 mb-10">
+                <div id="card_S" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                        <span id="badge_S" class="hidden owned-badge">ACTIVE</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggleS" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                </div>
+                <div id="card_B" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span>
+                        <span id="badge_B" class="hidden owned-badge">ACTIVE</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+                <div id="card_A" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span>
+                        <span id="badge_A" class="hidden owned-badge">ACTIVE</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleA" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+                <div id="card_L" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="text-left flex items-center gap-2">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span>
+                        <span id="badge_L" class="hidden owned-badge">ACTIVE</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                </div>
+
+                <div class="pt-8 pb-4 text-left">
+                    <p class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4">Premium Add-ons</p>
+                    <div class="space-y-4">
+                        <div id="card_Intake" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake Assurance</span>
+                                <span id="badge_Intake" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="card_SafeVoice" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Compliance-Safe Voice Handling</span>
+                                <span id="badge_SafeVoice" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="card_Priority" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing</span>
+                                <span id="badge_Priority" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="deployBtn" class="w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300 btn-dopamine disabled:opacity-50 disabled:cursor-not-allowed">Generate Invoice</button>
+        </div>
+    </div>
+
+    <script>
+        // ===========================================
+        // BILLING.HTML — PRODUCTION LOGIC
+        // ===========================================
+
+        let owned = { services: new Set(), addons: new Set() };
+        let intentInFlight = false;
+        let globalSupabase = null;
+
+        // --- DOM REFS ---
+        const toggles = {
+            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'),
+            A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
+            Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
+            Priority: document.getElementById('togglePriority')
+        };
+        const cards = {
+            S: document.getElementById('card_S'), B: document.getElementById('card_B'),
+            A: document.getElementById('card_A'), L: document.getElementById('card_L'),
+            Intake: document.getElementById('card_Intake'), SafeVoice: document.getElementById('card_SafeVoice'),
+            Priority: document.getElementById('card_Priority')
+        };
+        const badges = {
+            S: document.getElementById('badge_S'), B: document.getElementById('badge_B'),
+            A: document.getElementById('badge_A'), L: document.getElementById('badge_L'),
+            Intake: document.getElementById('badge_Intake'), SafeVoice: document.getElementById('badge_SafeVoice'),
+            Priority: document.getElementById('badge_Priority')
+        };
+        const deployBtn = document.getElementById('deployBtn');
+        const overlay = document.getElementById('deploymentOverlay');
+
+        // --- 1. BOOTSTRAP VIA AUTH.JS ---
+        window.addEventListener('load', () => {
+            // Require Auth will handle redirect & loading state
+            requireAuth({
+                requireProfile: true, // We need org_id from profile (or metadata)
+                requireOnboarding: true,
+                onAuthenticated: async (profile, user, sb) => {
+                    globalSupabase = sb;
+                    await init(profile);
+                }
+            });
+        });
+
+        async function init(profile) {
+            await fetchOwnedEntitlements();
+            lockOwnedUI();
+            
+            // Interaction Listeners
+            Object.values(toggles).forEach(el => {
+                if (el && !el.disabled) el.addEventListener('change', updateButtonState);
+            });
+            deployBtn.addEventListener('click', generateIntent);
+            updateButtonState();
+        }
+
+        // --- 2. FETCH TRUTH (VIA RPC) ---
+        async function fetchOwnedEntitlements() {
+            try {
+                const { data, error } = await globalSupabase.rpc('get_active_entitlements');
+                
+                if (error) throw error;
+
+                const map = {
+                    'sentinel': 'S', 
+                    'brain': 'B', 
+                    'architect': 'A', 
+                    'voice': 'L',
+                    'intake': 'Intake', 
+                    'safe_voice': 'SafeVoice', 
+                    'priority': 'Priority'
+                };
+
+                // data.keys is the flat array of owned service_keys
+                (data?.keys || []).forEach(key => {
+                    const uiKey = map[key];
+                    if (!uiKey) return; // Ignore unknown keys
+
+                    // Categorize based on UI Key
+                    if (['S', 'B', 'A', 'L'].includes(uiKey)) {
+                        owned.services.add(uiKey);
+                    } else {
+                        owned.addons.add(uiKey);
+                    }
+                });
+
+            } catch (e) {
+                console.error("Entitlement sync failed:", e);
+                alert("Could not verify your current plan. Please refresh.");
+            }
+        }
+
+        // --- 3. UI LOCKDOWN ---
+        function lockOwnedUI() {
+            Object.entries(toggles).forEach(([key, el]) => {
+                if (!el) return;
+                const isOwned = owned.services.has(key) || owned.addons.has(key);
+                if (isOwned) {
+                    el.checked = true;
+                    el.disabled = true;
+                    if (cards[key]) cards[key].classList.add('owned-state');
+                    if (badges[key]) badges[key].classList.remove('hidden');
+                }
+            });
+        }
+
+        function updateButtonState() {
+            const hasNew = Object.values(toggles).some(el => el.checked && !el.disabled);
+            deployBtn.disabled = !hasNew;
+            deployBtn.innerText = hasNew ? "Generate Invoice" : "No Changes Selected";
+        }
+
+        // --- 4. GENERATE INTENT (SECURE RPC) ---
+        async function generateIntent() {
+            if (intentInFlight) return;
+            
+            // Build Payload
+            const payload = {
+                services: {
+                    sentinel: toggles.S.checked && !owned.services.has('S'),
+                    brain: toggles.B.checked && !owned.services.has('B'),
+                    architect: toggles.A.checked && !owned.services.has('A'),
+                    voice: toggles.L.checked && !owned.services.has('L')
+                },
+                addons: {
+                    intake: toggles.Intake.checked && !owned.addons.has('Intake'),
+                    safe_voice: toggles.SafeVoice.checked && !owned.addons.has('SafeVoice'),
+                    priority: toggles.Priority.checked && !owned.addons.has('Priority')
+                }
+            };
+
+            const hasSelection = Object.values(payload.services).some(Boolean) || 
+                               Object.values(payload.addons).some(Boolean);
+
+            if (!hasSelection) return;
+
+            // Start Transaction
+            intentInFlight = true;
+            deployBtn.innerText = "Processing...";
+            deployBtn.disabled = true;
+            overlay.style.display = 'flex';
+            document.getElementById('animNode').classList.add('lock-impact');
+
+            // Prevent Refresh
+            window.onbeforeunload = () => "Processing billing transaction...";
+
+            try {
+                const { data, error } = await globalSupabase.rpc('create_checkout_intent', {
+                    payload: { 
+                        services: payload.services, 
+                        addons: payload.addons, 
+                        channels: {} 
+                    },
+                    intent_source: 'billing',
+                    billing_cycle: 'monthly'
+                });
+
+                if (error) throw error;
+
+                // Success Redirect
+                window.onbeforeunload = null;
+                window.location.href = `payment.html?intent_id=${data.intent_id}`;
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to generate invoice.");
+                overlay.style.display = 'none';
+                intentInFlight = false;
+                window.onbeforeunload = null;
+                updateButtonState();
+            }
+        }
+    </script>
+</body>
+</html>

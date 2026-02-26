@@ -3,80 +3,437 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GetSalesCloser | The AI Silent Salesman for Real Estate</title>
+    <title>GetSalesCloser | Lock Your Lead Leak.</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-900 text-white font-sans selection:bg-blue-500/30">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
 
-    <nav class="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto">
-        <div class="flex items-center gap-2">
-            <div class="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">GS</div>
-            <span class="text-xl font-bold tracking-tight text-white">GetSalesCloser</span>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; scroll-behavior: smooth; }
+        .gilroy { font-weight: 800; letter-spacing: -0.03em; }
+        .cyber-glow { box-shadow: 0 0 20px 2px rgba(57, 255, 20, 0.6); }
+        .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
+        .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
+        .tooltip-box { visibility: hidden; opacity: 0; transition: opacity 0.3s; z-index: 100; pointer-events: none; }
+        .tooltip-trigger:hover + .tooltip-box { visibility: visible; opacity: 1; }
+        
+        /* FUNNEL & PARTICLE ANIMATIONS */
+        .funnel-container { position: relative; width: 150px; height: 180px; margin: 0 auto; }
+        .funnel-shape { 
+            width: 100%; height: 100%; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            clip-path: polygon(0% 0%, 100% 0%, 65% 100%, 35% 100%);
+            border-top: 2px solid #00D1FF;
+        }
+        .leak-particle {
+            position: absolute; width: 4px; height: 4px; background: #ef4444; border-radius: 50%;
+            animation: leak-fall 1.5s infinite linear; opacity: 0;
+        }
+        @keyframes leak-fall {
+            0% { transform: translateY(40px) translateX(0); opacity: 1; }
+            100% { transform: translateY(180px) translateX(-20px); opacity: 0; }
+        }
+        .roi-stat-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; }
+
+        /* DEPLOYMENT ANIMATIONS */
+        .lock-impact { animation: impact-pulse 0.6s ease-out forwards; }
+        @keyframes impact-pulse {
+            0% { transform: rotate(45deg) scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+            50% { transform: rotate(45deg) scale(1.5); box-shadow: 0 0 60px 30px rgba(57, 255, 20, 0.5); }
+            100% { transform: rotate(45deg) scale(1.2); box-shadow: 0 0 30px 10px rgba(57, 255, 20, 0.8); }
+        }
+        .deployment-overlay { position: fixed; inset: 0; background: #020617; z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .iti { width: 100%; }
+        .iti__country-list { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
+        @keyframes scan { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+        .scanning { animation: scan 1.5s infinite; }
+    </style>
+</head>
+<body class="text-slate-200">
+
+    <div id="deploymentOverlay" class="deployment-overlay">
+        <div id="animNode" class="h-16 w-16 bg-[#39FF14] rotate-45 mb-8"></div>
+        <h2 class="gilroy text-2xl text-white tracking-tighter uppercase">Initializing Engine...</h2>
+    </div>
+
+    <nav class="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+        <div class="flex items-center gap-3">
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+                <path d="M10 20 L40 45" stroke="#00D1FF" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                <path d="M10 80 L40 55" stroke="#00D1FF" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                <path d="M90 50 L60 50" stroke="#00D1FF" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                <path d="M50 40 L50 60 L58.66 65 L67.32 60 L67.32 50 L58.66 45 Z" fill="#39FF14" class="cyber-glow"/>
+            </svg>
+            <span class="text-2xl font-extrabold tracking-tighter text-white italic">GetSales<span class="text-[#00D1FF]">Closer</span></span>
         </div>
-        <div class="flex gap-6 items-center">
-            <a href="login.html" class="text-slate-400 hover:text-white transition text-sm font-medium">Log In</a>
-            <a href="signup.html" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-semibold transition shadow-lg shadow-blue-500/20">Start Free Trial</a>
+        <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400">
+            <button onclick="toggleROIPopup()" class="hover:text-[#00D1FF] transition">How it Works</button>
+            <a href="#pricing" class="hover:text-[#00D1FF] transition">Pricing</a>
         </div>
+        <a href="login.html" class="bg-slate-800 hover:bg-slate-700 px-6 py-2 rounded-lg font-bold text-sm border border-slate-700 transition">Login</a>
     </nav>
 
-    <header class="max-w-5xl mx-auto px-8 py-24 text-center">
-        <div class="inline-block px-4 py-1.5 mb-6 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest">
-            Now Live for US Real Estate
+    <section class="relative pt-20 pb-32 px-8 text-center max-w-5xl mx-auto">
+        <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-4">Elite Sales Infrastructure</p>
+        <h1 class="text-5xl md:text-7xl gilroy text-white mb-6 leading-tight">Stop Leaking Leads. <br><span class="text-[#00D1FF]">Start Locking Appointments.</span></h1>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button onclick="toggleAuditPopup()" class="btn-dopamine w-full sm:w-auto text-white px-10 py-5 rounded-xl font-extrabold text-lg shadow-xl uppercase">Get My Free Speed-to-Lead Audit</button>
+            <button onclick="openDemoSelector()" class="bg-slate-900 text-slate-300 px-10 py-5 rounded-xl font-bold text-lg border border-slate-800 hover:bg-slate-800 transition">Watch Demo</button>
         </div>
-        <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tighter">
-            Close Deals While <br class="hidden md:block"> <span class="text-blue-500">You Sleep.</span>
-        </h1>
-        <p class="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            The first AI "Silent Salesman" that captures, engages, and books your leads instantly. Stop losing commissions to the 3:00 AM "Opportunity Gap."
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="signup.html" class="bg-white text-slate-900 px-8 py-4 rounded-2xl text-lg font-bold hover:bg-slate-200 transition">Get Started for $49/mo</a>
-            <button class="bg-slate-800 text-white px-8 py-4 rounded-2xl text-lg font-bold hover:bg-slate-700 transition border border-slate-700">Watch Demo</button>
-        </div>
-    </header>
+    </section>
 
-    <section class="max-w-7xl mx-auto px-8 py-20 border-t border-slate-800">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div class="space-y-4">
-                <div class="h-12 w-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-500 mb-4">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <section id="pricing" class="py-24 px-8 border-t border-slate-900 bg-slate-950/50">
+        <div class="max-w-3xl mx-auto text-center">
+            <h2 class="text-4xl gilroy text-white mb-4">Configure Your Engine</h2>
+            <div class="glass-card p-10 rounded-[3rem] inline-block w-full relative">
+                <div class="flex justify-center mb-8"><div id="centralNode" class="h-10 w-10 bg-[#39FF14] rotate-45 cyber-glow transition-transform duration-500"></div></div>
+                <div class="flex items-center justify-center gap-1 text-white mb-10"><span class="text-3xl font-bold mt-2">$</span><span id="priceDisplay" class="text-7xl font-black gilroy">0</span><span class="text-slate-500 font-bold ml-2">/mo</span></div>
+                
+                <div class="space-y-4 mb-10 text-left">
+                    <div class="relative flex flex-col p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="flex items-center justify-between">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleS" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="channelMenu" class="hidden mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
+                            <label class="flex items-center gap-2"><input type="checkbox" checked class="chan-box accent-[#00D1FF]"> SMS Channel (Base)</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> WhatsApp Business</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> FB Messenger</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> RCS Android</label>
+                        </div>
+                    </div>
+
+                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+
+                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleA" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+
+                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+
+                    <div class="pt-8 space-y-4">
+                        <p class="text-blue-400 font-bold text-[9px] uppercase tracking-widest">Premium High-Stakes Compliance Suite</p>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake ($149)</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Safe Voice Handling ($199)</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing ($99)</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                    </div>
                 </div>
-                <h3 class="text-xl font-bold">2-Minute Response Time</h3>
-                <p class="text-slate-400 leading-relaxed">Don't let leads go cold. Our AI responds within minutes to every inquiry, 24/7/365.</p>
-            </div>
-            <div class="space-y-4">
-                <div class="h-12 w-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-500 mb-4">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                </div>
-                <h3 class="text-xl font-bold">PDF Intelligence</h3>
-                <p class="text-slate-400 leading-relaxed">Upload your property USPs, HOA bylaws, and floor plans. The AI learns them instantly.</p>
-            </div>
-            <div class="space-y-4">
-                <div class="h-12 w-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-500 mb-4">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                </div>
-                <h3 class="text-xl font-bold">Auto-Booking</h3>
-                <p class="text-slate-400 leading-relaxed">Let the AI sync with your calendar and book property tours while you're focused on closing.</p>
+
+                <button id="deployBtn" onclick="handleDeployment()" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300">Deploy My Closer</button>
             </div>
         </div>
     </section>
 
-    <section class="bg-blue-600/5 py-24">
-        <div class="max-w-5xl mx-auto px-8 text-center">
-            <h2 class="text-3xl font-bold mb-12 italic">"GetSalesCloser rescued 14 leads for me in my first month—leads that usually would have vanished by morning."</h2>
-            <div class="flex items-center justify-center gap-4">
-                <div class="h-12 w-12 rounded-full bg-slate-700"></div>
-                <div class="text-left">
-                    <p class="font-bold">Avery Rodriguez</p>
-                    <p class="text-sm text-slate-500 uppercase tracking-widest">Meridian Homes Realty</p>
+    <div id="roiPopup" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 md:p-10 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div class="glass-card max-w-6xl w-full p-8 md:p-12 rounded-[3rem] relative shadow-2xl">
+            <button onclick="toggleROIPopup()" class="absolute top-8 right-8 text-slate-500 hover:text-white transition text-2xl">✕</button>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                <div class="lg:col-span-5 space-y-8">
+                    <div>
+                        <h3 class="text-3xl gilroy text-white mb-2 italic">The Economic Reality</h3>
+                        <p class="text-slate-400 text-sm">Based on data from <span class="text-[#00D1FF]">HBR</span> & <span class="text-[#39FF14]">Forbes</span>.</p>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between mb-2"><label class="roi-stat-label">Avg. Deal Value ($)</label><span id="valLead" class="text-[#00D1FF] font-bold">$1,000</span></div>
+                            <input type="range" id="inputLeadValue" min="100" max="10000" step="100" value="1000" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#00D1FF]" oninput="calculateROI()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2"><label class="roi-stat-label">Monthly Leads</label><span id="valCount" class="text-[#00D1FF] font-bold">50</span></div>
+                            <input type="range" id="inputLeadCount" min="10" max="500" step="10" value="50" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#00D1FF]" oninput="calculateROI()">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2"><label class="roi-stat-label">Response Time (Min)</label><span id="valTime" class="text-red-500 font-bold">30 min</span></div>
+                            <input type="range" id="inputResponseTime" min="1" max="120" step="1" value="30" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500" oninput="calculateROI()">
+                            <p id="hbrAlert" class="text-[10px] text-red-400 mt-2 font-bold uppercase hidden italic underline">⚠️ HBR Alert: 70% Lead Value Decay detected after 5 mins</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-7 bg-slate-900/40 rounded-[2rem] p-8 border border-slate-800 flex flex-col md:flex-row items-center gap-8">
+                    <div class="flex-1 text-center">
+                        <div class="funnel-container"><div class="funnel-shape"></div><div id="leakContainer"></div><div class="absolute inset-0 flex items-center justify-center"><span id="leakPercent" class="text-red-500 font-black text-xl">70% LEAK</span></div></div>
+                        <p class="roi-stat-label mt-4">Lead Leakage Rate</p>
+                    </div>
+                    <div class="flex-1 w-full max-w-[250px]">
+                        <canvas id="roiChart"></canvas>
+                        <div class="mt-6 text-center">
+                            <p class="roi-stat-label">Net Profit Recovery</p>
+                            <h4 id="roiTotal" class="text-4xl font-black text-[#39FF14] gilroy">$0</h4>
+                        </div>
+                    </div>
                 </div>
             </div>
+            <div class="mt-12 flex flex-col sm:flex-row gap-6 items-center justify-between border-t border-slate-800 pt-8">
+                <div class="flex gap-8 text-left">
+                    <div><p class="roi-stat-label">ROI Multiplier</p><p id="roiMultiplier" class="text-2xl font-bold text-white">0x</p></div>
+                    <div><p class="roi-stat-label">Annual Recovery</p><p id="annualRoi" class="text-2xl font-bold text-[#00D1FF]">$0</p></div>
+                </div>
+                <button onclick="window.location.href='login.html'" class="btn-dopamine px-12 py-5 rounded-xl text-white font-black uppercase tracking-widest shadow-2xl">Secure My Revenue Now</button>
+            </div>
         </div>
-    </section>
+    </div>
 
-    <footer class="py-12 border-t border-slate-800 text-center text-slate-500 text-sm">
-        <p>&copy; 2026 GetSalesCloser. Built for the modern real estate empire.</p>
+    <div id="demoSelector" class="fixed inset-0 z-[101] hidden flex items-center justify-center p-6 bg-slate-950/95">
+        <div class="glass-card max-w-md w-full p-8 rounded-[2rem] text-center">
+            <h3 class="text-xl gilroy text-white mb-6">How would you describe your business?</h3>
+            <select id="businessType" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl text-white outline-none mb-6">
+                <option value="Law firm">Law firm</option>
+                <option value="Medical practitioner">Medical practitioner</option>
+                <option value="Spa owner">Spa owner</option>
+                <option value="Solar">Solar</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="others">Others</option>
+            </select>
+            <div class="flex gap-4">
+                <button onclick="closeDemoSelector()" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl font-bold">Cancel</button>
+                <button onclick="launchVideoDemo()" class="flex-1 btn-dopamine text-white py-3 rounded-xl font-bold">Watch Video</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="videoPopup" class="fixed inset-0 z-[102] hidden flex items-center justify-center p-4 bg-black/90">
+        <div class="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
+            <button onclick="closeVideoDemo()" class="absolute top-4 right-4 z-[103] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md">✕</button>
+            <iframe id="demoIframe" class="w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <div id="auditPopup" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/90">
+        <div class="glass-card max-w-lg w-full p-8 rounded-[2.5rem] relative">
+            <button onclick="toggleAuditPopup()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition">✕</button>
+            <h3 class="text-2xl gilroy text-white mb-6 text-center italic">Run Your Speed-to-Lead Audit</h3>
+            <form id="auditForm" class="space-y-4">
+                <input type="text" id="fullNameInput" placeholder="Full Name" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition">
+                <div class="w-full"><input id="phone" type="tel" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none text-white focus:border-[#00D1FF] transition"></div>
+                <div class="relative"><input type="url" id="auditUrl" placeholder="Business Website URL" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition"><div id="scanMsg" class="absolute right-4 top-4 hidden"><span class="text-[10px] text-[#39FF14] scanning font-bold uppercase">Scanning DNA...</span></div></div>
+                <div id="dnaTag" class="hidden py-3 px-4 bg-[#00D1FF]/10 border border-[#00D1FF]/30 rounded-xl flex items-center justify-between">
+                    <div><p class="text-[10px] text-slate-500 uppercase font-bold mb-1">Detected Industry</p><span id="dnaLabel" class="text-xs font-bold text-[#00D1FF]">ANALYZING...</span></div>
+                    <button type="button" onclick="resetDNA()" class="text-[10px] underline text-slate-500 hover:text-white">Correction?</button>
+                </div>
+                <div class="flex items-start gap-3 py-2 text-left"><input type="checkbox" required class="mt-1 accent-[#00D1FF]"><label class="text-[10px] text-slate-500 leading-tight">I consent to receive automated audit results via SMS/Call. I understand these calls are powered by AI. [TCPA/GDPR Compliant]</label></div>
+                <button type="submit" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest">Start Relentless Audit</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="priceNotice" class="hidden fixed bottom-10 right-10 z-[200] glass-card p-6 rounded-2xl border-l-4 border-[#39FF14] max-w-sm animate-bounce">
+        <p id="noticeText" class="text-xs font-bold text-white leading-tight uppercase tracking-wider"></p>
+    </div>
+
+    <footer class="bg-[#020617] border-t border-slate-900 py-16 px-8 mt-20">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div>
+                <div class="flex items-center gap-2 mb-4 text-white"><div class="h-4 w-4 bg-[#39FF14] rotate-45 cyber-glow"></div><span class="font-bold text-xl italic">GetSalesCloser</span></div>
+                <p class="text-slate-500 text-sm leading-relaxed">Elite AI infrastructure engineered for high-ticket closing precision. A product of YogMaya Industries.</p>
+            </div>
+            <div>
+                <h4 class="text-white font-bold mb-6">Support</h4>
+                <ul class="text-slate-500 text-sm space-y-3"><li>Merchant: Anurag Raj</li><li>Email: anurag@getsalescloser.com</li></ul>
+            </div>
+            <div>
+                <h4 class="text-white font-bold mb-6">Legal</h4>
+                <ul class="text-slate-500 text-sm space-y-3">
+                    <li><a href="privacy.html" class="hover:text-[#00D1FF]">Privacy Policy</a></li>
+                    <li><a href="terms.html" class="hover:text-[#00D1FF]">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-900 text-center"><p class="text-slate-600 text-xs">© 2026 GetSalesCloser. All rights reserved.</p></div>
     </footer>
 
+    <script>
+        // CORE UI LOGIC
+        function handleDeployment() {
+            const btn = document.getElementById('deployBtn');
+            if (btn.disabled) return; 
+            
+            document.getElementById('deploymentOverlay').style.display = 'flex';
+            document.getElementById('animNode').classList.add('lock-impact');
+            setTimeout(() => { window.location.href = "login.html"; }, 2000);
+        }
+    
+        const phoneInput = document.querySelector("#phone");
+        const iti = window.intlTelInput(phoneInput, { initialCountry: "us", separateDialCode: true, utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
+    
+        // DNA Detection
+        const auditUrl = document.getElementById('auditUrl');
+        auditUrl.addEventListener('blur', () => {
+            let val = auditUrl.value.trim();
+            if(val && !val.match(/^https?:\/\//)) { val = 'https://' + val; auditUrl.value = val; }
+            if(val) {
+                document.getElementById('scanMsg').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('scanMsg').classList.add('hidden');
+                    document.getElementById('dnaTag').classList.remove('hidden');
+                    const lowerVal = val.toLowerCase();
+                    if (lowerVal.includes('hosp') || lowerVal.includes('health') || lowerVal.includes('medical')) { document.getElementById('dnaLabel').innerText = 'HEALTHCARE / MEDICAL'; }
+                    else if (lowerVal.includes('law')) { document.getElementById('dnaLabel').innerText = 'LEGAL'; }
+                    else { document.getElementById('dnaLabel').innerText = 'HIGH-TICKET SERVICE'; }
+                }, 1800);
+            }
+        });
+        function resetDNA() { document.getElementById('dnaTag').classList.add('hidden'); auditUrl.value = ""; auditUrl.focus(); }
+    
+        function toggleAuditPopup() { document.getElementById('auditPopup').classList.toggle('hidden'); }
+        function openDemoSelector() { document.getElementById('demoSelector').classList.remove('hidden'); }
+        function closeDemoSelector() { document.getElementById('demoSelector').classList.add('hidden'); }
+        function launchVideoDemo() { document.getElementById('demoIframe').src = "https://www.youtube.com/embed/HEGQOuo66jY?autoplay=1"; closeDemoSelector(); document.getElementById('videoPopup').classList.remove('hidden'); }
+        function closeVideoDemo() { document.getElementById('demoIframe').src = ""; document.getElementById('videoPopup').classList.add('hidden'); }
+        
+        // ROI Logic
+        let roiChart;
+        function toggleROIPopup() {
+            const popup = document.getElementById('roiPopup');
+            popup.classList.toggle('hidden');
+            if (!popup.classList.contains('hidden')) { setTimeout(initROIChart, 100); calculateROI(); }
+        }
+    
+        function initROIChart() {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            if (roiChart) roiChart.destroy();
+            roiChart = new Chart(ctx, {
+                type: 'doughnut', data: { labels: ['Lost', 'Recovered', 'Cost'], datasets: [{ data: [70, 25, 5], backgroundColor: ['#ef4444', '#39FF14', '#1e293b'], borderWidth: 0 }] },
+                options: { cutout: '80%', plugins: { legend: { display: false } } }
+            });
+        }
+    
+        function calculateROI() {
+            const val = parseFloat(document.getElementById('inputLeadValue').value);
+            const count = parseInt(document.getElementById('inputLeadCount').value);
+            const time = parseInt(document.getElementById('inputResponseTime').value);
+            document.getElementById('valLead').innerText = `$${val.toLocaleString()}`;
+            document.getElementById('valCount').innerText = count;
+            document.getElementById('valTime').innerText = `${time} min`;
+            document.getElementById('valTime').className = time > 5 ? 'text-red-500 font-bold' : 'text-[#39FF14] font-bold';
+            document.getElementById('hbrAlert').classList.toggle('hidden', time <= 5);
+    
+            const leakRate = time <= 5 ? 0.05 : 0.71;
+            const lostRev = (count * leakRate * val * 0.20);
+            const recoveredRev = lostRev * 0.90;
+            const netMonthly = recoveredRev - 249;
+            document.getElementById('leakPercent').innerText = `${Math.round(leakRate * 100)}% LEAK`;
+            document.getElementById('roiTotal').innerText = `$${Math.round(netMonthly).toLocaleString()}`;
+            document.getElementById('annualRoi').innerText = `$${Math.round(netMonthly * 12).toLocaleString()}`;
+            document.getElementById('roiMultiplier').innerText = `${Math.max(0, (netMonthly / 249)).toFixed(1)}x`;
+    
+            const leakContainer = document.getElementById('leakContainer');
+            leakContainer.innerHTML = '';
+            if (time > 5) { for (let i = 0; i < 15; i++) { const p = document.createElement('div'); p.className = 'leak-particle'; p.style.left = Math.random() * 100 + '%'; p.style.animationDelay = Math.random() * 1 + 's'; leakContainer.appendChild(p); } }
+            if (roiChart) { roiChart.data.datasets[0].data = [lostRev, recoveredRev, 249]; roiChart.update(); }
+        }
+    
+        // --- STRICT PRICING & VALIDATION LOGIC ---
+        const toggles = { 
+            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'), 
+            A: document.getElementById('toggleA'), L: document.getElementById('toggleL'), 
+            Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
+            Priority: document.getElementById('togglePriority')
+        };
+        const priceDisp = document.getElementById('priceDisplay');
+        const chanBoxes = document.querySelectorAll('.chan-box');
+        const noticeBox = document.getElementById('priceNotice');
+        const noticeText = document.getElementById('noticeText');
+        const deployBtn = document.getElementById('deployBtn');
+    
+        function showNotice(msg) {
+            noticeText.innerText = msg;
+            noticeBox.classList.remove('hidden');
+            setTimeout(() => noticeBox.classList.add('hidden'), 6000);
+        }
+    
+        function calculate(event) {
+            const { S, B, A, L, Intake, SafeVoice, Priority } = Object.fromEntries(
+                Object.entries(toggles).map(([k, v]) => [k, v ? v.checked : false])
+            );
+            
+            document.getElementById('channelMenu').classList.toggle('hidden', !S);
+            let base = 0;
+            let count = Array.from(chanBoxes).filter(x => x.checked).length;
+    
+            // --- 1. VALIDATION & BUTTON STATE ---
+            const isInvalidAddon = (B || A) && !S && !L;
+            const hasBaseService = S || L;
+    
+            if (isInvalidAddon) {
+                deployBtn.disabled = true;
+                deployBtn.classList.remove('btn-dopamine');
+                deployBtn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                if (event) showNotice("⚠️ PLEASE CLUB THIS SERVICE WITH THE INSTANT SENTINEL OR THE VOICE LIAISON FOR DEPLOYMENT.");
+            } else if (!hasBaseService) {
+                deployBtn.disabled = true;
+                deployBtn.classList.remove('btn-dopamine');
+                deployBtn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+            } else {
+                deployBtn.disabled = false;
+                deployBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                deployBtn.classList.add('btn-dopamine');
+            }
+    
+            // --- 2. PRICING HIERARCHY ---
+            if (L) {
+                if (S && B && A) {
+                    base = 349; 
+                    if(event && event.target.id === 'toggleA') showNotice("🔥 ELITE STATUS: YOU CAN NOW CHOOSE ALL SENTINEL OPTIONS NOW!");
+                }
+                else if (S && A) {
+                    base = 349;
+                    base += Math.max(0, (count - 3) * 10);
+                    if(event && event.target.id === 'toggleA') showNotice("⚡ PERK: CHOOSE ONE MORE SENTINEL FOR FREE!");
+                }
+                else if (B) { base = 299; }
+                else if (A) { base = 249; }
+                else { base = 249; }
+            }
+            else if (S) {
+                if (B && A) { base = 199; }
+                else if (B) { base = 149; }
+                else if (A) { base = 149; }
+                else {
+                    base = 49; 
+                    base += Math.max(0, (count - 2) * 10);
+                    if (event && event.target.id === 'toggleS' && S) { showNotice("💎 DUO DEAL: CHOOSE ANY TWO CHANNELS FOR $49"); }
+                }
+            }
+            else {
+                if (B) base += 99;
+                if (A) base += 99;
+            }
+    
+            let premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0);
+            const total = base + premium;
+    
+            let start = parseInt(priceDisp.innerText) || 0;
+            function animate(t) {
+                if(!window.startTimeAnimate) window.startTimeAnimate = t;
+                let progress = Math.min((t - window.startTimeAnimate)/300, 1);
+                priceDisp.innerText = Math.floor(progress * (total - start) + start);
+                if(progress < 1) requestAnimationFrame(animate); else window.startTimeAnimate = null;
+            }
+            requestAnimationFrame(animate);
+            if(document.getElementById('centralNode')) { document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${1 + (total > 0 ? (total/600) : 0)})`; }
+        }
+    
+        // FIX: Added closing parenthesis here
+        Object.values(toggles).forEach(t => { if(t) t.addEventListener('change', (e) => calculate(e)); });
+        chanBoxes.forEach(b => b.addEventListener('change', (e) => calculate(e)));
+    </script>
 </body>
 </html>

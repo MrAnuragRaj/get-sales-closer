@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Checkout | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+        .gilroy { font-weight: 800; letter-spacing: -0.03em; }
+        .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
+        .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
+        .btn-dopamine:hover { box-shadow: 0 0 20px rgba(0, 209, 255, 0.4); }
+        .btn-dopamine:disabled { filter: grayscale(1); cursor: not-allowed; opacity: 0.7; }
+        .method-card { border: 1px solid #1e293b; background: #0f172a; transition: all 0.2s; cursor: pointer; }
+        .method-card:hover { border-color: #475569; }
+        .method-card.selected { border-color: #39FF14; background: rgba(57, 255, 20, 0.05); }
+        .bank-details-box { background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-6 relative">
+
+    <div id="bankOverlay" class="fixed inset-0 z-[90] bg-[#020617]/95 backdrop-blur-xl flex flex-col items-center justify-center hidden p-4 overflow-y-auto">
+        <div class="max-w-2xl w-full glass-card rounded-3xl p-8 border border-[#39FF14]/30 relative my-10">
+            <button onclick="closeBankOverlay()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-xl">✕</button>
+            
+            <div class="text-center mb-6">
+                <div class="inline-block bg-[#39FF14]/10 text-[#39FF14] text-xs font-bold px-3 py-1 rounded-full mb-2 animate-pulse">⏳ Action Required</div>
+                <h2 class="text-2xl gilroy text-white">Bank Transfer Instructions</h2>
+                <p class="text-slate-400 text-sm mt-2">Please transfer the exact amount below. Please Note: Activation might take Upto 72 hours to complete.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-900 rounded-xl p-4 border border-slate-800">
+                    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Payable Amount (8% OFF)</div>
+                    <div class="text-2xl font-bold text-white" id="modalAmount">...</div>
+                </div>
+                <div class="bg-slate-900 rounded-xl p-4 border border-[#39FF14] relative">
+                    <div class="text-xs text-[#39FF14] uppercase tracking-widest mb-1 font-bold">MANDATORY Reference ID</div>
+                    <div class="text-xl font-mono font-bold text-white tracking-wider" id="modalRef">...</div>
+                    <div class="text-[10px] text-slate-400 mt-1">You MUST include this in the bank note/memo.</div>
+                </div>
+            </div>
+
+            <div id="bankDetailsContent" class="space-y-4 text-sm text-slate-300 mb-8"></div>
+
+            <div class="flex flex-col gap-3">
+                <button id="sentBtn" onclick="markAsSent()" class="w-full bg-[#39FF14] hover:bg-green-400 text-black font-bold py-4 rounded-xl transition shadow-lg shadow-green-900/20">
+                    I have sent the payment
+                </button>
+                <button onclick="closeBankOverlay()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-md w-full glass-card rounded-[3rem] p-8 text-center relative">
+        <div class="mb-6">
+            <h1 class="gilroy text-2xl uppercase tracking-tighter text-white">Secure Checkout</h1>
+            <p class="text-blue-400 text-[10px] font-bold tracking-[0.2em] uppercase mt-1">GetSalesCloser Infrastructure</p>
+        </div>
+
+        <div class="bg-slate-900/50 rounded-2xl p-5 mb-6 text-left border border-slate-800">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-slate-400 text-xs">Billing Cycle</span>
+                <span class="text-white text-sm font-bold capitalize" id="summaryCycle">...</span>
+            </div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-slate-400 text-xs">Reference ID</span>
+                <span class="text-blue-400 text-xs font-mono tracking-wider" id="summaryRef">...</span>
+            </div>
+            <div class="h-px bg-slate-800 my-3"></div>
+            <div class="flex justify-between items-center">
+                <span class="text-slate-300 text-sm font-bold">Base Total</span>
+                <span class="text-white text-lg font-bold" id="summaryBase">...</span>
+            </div>
+        </div>
+
+        <div class="space-y-3 mb-8 text-left">
+            <div id="methodCard" onclick="selectMethod('card')" class="method-card rounded-xl p-4 flex items-start gap-3 selected">
+                <div class="w-4 h-4 rounded-full border border-slate-600 mt-1 bg-slate-800 flex items-center justify-center">
+                    <div class="w-2 h-2 rounded-full bg-[#39FF14] opacity-100" id="dotCard"></div>
+                </div>
+                <div>
+                    <span class="text-white font-bold text-sm block">Credit/Debit Card</span>
+                    <span class="text-[10px] text-slate-400">Instant activation.</span>
+                </div>
+            </div>
+
+            <div id="methodBank" onclick="selectMethod('bank')" class="method-card rounded-xl p-4 flex items-start gap-3">
+                <div class="w-4 h-4 rounded-full border border-slate-600 mt-1 bg-slate-800 flex items-center justify-center">
+                    <div class="w-2 h-2 rounded-full bg-[#39FF14] opacity-0" id="dotBank"></div>
+                </div>
+                <div class="w-full">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="text-white font-bold text-sm block">Bank Transfer (ACH/Wire)</span>
+                        <span class="bg-[#39FF14] text-black text-[10px] font-bold px-2 py-0.5 rounded">-8% OFF</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400">Save fees. Best for amounts > $1,000.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <div class="text-slate-400 text-xs mb-1">Total Payable Amount</div>
+            <div class="text-4xl font-black text-white gilroy tracking-tight" id="finalPayable">...</div>
+            <div id="discountTag" class="text-[#39FF14] text-xs font-bold mt-2 h-4"></div>
+        </div>
+
+        <button id="payBtn" onclick="initiatePayment()" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl">
+            Proceed to Payment
+        </button>
+    </div>
+
+    <script>
+        // --- 1. CONFIG & CLIENT CREATION ---
+        console.log("PAYMENT.JS LOADED"); // Debug Log
+
+        const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co'; 
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+        
+        // 🛡️ FIX: Rename client to avoid collision with global 'supabase'
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        const params = new URLSearchParams(window.location.search);
+        const intentId = params.get('intent_id');
+        
+        let intent = null;
+        let selectedMethod = 'card';
+        let baseAmount = 0;
+        let payableAmount = 0;
+        let currentAttemptId = null;
+
+        const INR_CONVERSION_RATE = 100; 
+
+        // --- INIT ---
+        async function init() {
+            console.log("INIT STARTED. Intent ID:", intentId); // Debug Log
+
+            if (!intentId) { alert("No invoice ID found."); window.location.href = "pricing.html"; return; }
+
+            // 🛡️ FIX: Use 'supabaseClient' not 'supabase'
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { window.location.href = "login.html"; return; }
+
+            console.log("SESSION FOUND:", session.user.id);
+
+            // 1. Fetch Data
+            const { data, error } = await supabaseClient
+                .from('billing_intents')
+                .select('id, reference_id, pricing_snapshot, billing_cycle, status')
+                .eq('id', intentId)
+                .single();
+
+            if (error || !data) { 
+                console.error("FETCH ERROR:", error);
+                alert("Invoice not found or access denied."); 
+                return; 
+            }
+            
+            console.log("FETCH SUCCESS:", data);
+
+            if (data.status === 'paid') { 
+                window.location.href = "overview.html"; 
+                return; 
+            }
+
+            intent = data;
+            
+            // 2. DEFENSIVE SNAPSHOT ACCESS
+            const snap = intent.pricing_snapshot || {};
+            const rawAmount = snap.final_invoice_amount ?? 
+                              snap.final_amount ?? 
+                              snap.total_amount ?? 
+                              (snap.breakdown ? snap.breakdown.final : null);
+
+            if (!rawAmount) {
+                console.error("CRITICAL: No amount found in snapshot", snap);
+                alert("Invoice data is incomplete.");
+                return;
+            }
+
+            baseAmount = Number(rawAmount);
+            
+            // 3. Render UI Safely
+            document.getElementById('summaryCycle').innerText = intent.billing_cycle || 'Monthly';
+            document.getElementById('summaryRef').innerText = intent.reference_id || '---';
+            document.getElementById('modalRef').innerText = intent.reference_id || '---';
+            document.getElementById('summaryBase').innerText = `$${baseAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+            console.log("UI RENDERED. BASE AMOUNT:", baseAmount);
+
+            // 4. Trigger Initial Selection
+            selectMethod('card');
+        }
+
+        // --- SELECTION ---
+        function selectMethod(method) {
+            selectedMethod = method;
+            const cardEl = document.getElementById('methodCard');
+            const bankEl = document.getElementById('methodBank');
+            
+            if (method === 'card') {
+                cardEl.classList.add('selected'); document.getElementById('dotCard').style.opacity = '1';
+                bankEl.classList.remove('selected'); document.getElementById('dotBank').style.opacity = '0';
+                payableAmount = baseAmount;
+                document.getElementById('discountTag').innerText = "";
+                document.getElementById('payBtn').innerText = "Pay Securely via Card";
+            } else {
+                bankEl.classList.add('selected'); document.getElementById('dotBank').style.opacity = '1';
+                cardEl.classList.remove('selected'); document.getElementById('dotCard').style.opacity = '0';
+                payableAmount = Math.round(baseAmount * 0.92 * 100) / 100;
+                document.getElementById('discountTag').innerText = "⚡ 8% Discount Applied";
+                document.getElementById('payBtn').innerText = "View Bank Instructions";
+            }
+            
+            const displayAmount = `$${payableAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+            document.getElementById('finalPayable').innerText = displayAmount;
+            document.getElementById('modalAmount').innerText = displayAmount;
+        }
+
+        // --- PAYMENT FLOW ---
+        async function initiatePayment() {
+            const btn = document.getElementById('payBtn');
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+
+            try {
+                // 🛡️ FIX: Use 'supabaseClient'
+                const { data: attempt, error } = await supabaseClient
+                    .from('payment_attempts')
+                    .insert({
+                        intent_id: intent.id,
+                        method: selectedMethod === 'bank' ? 'bank_transfer' : 'card',
+                        base_amount: baseAmount,
+                        discount_pct: selectedMethod === 'bank' ? 8 : 0,
+                        payable_amount: payableAmount
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    if (error.code === '23505') { 
+                        alert("You already have a pending payment attempt. Please check your dashboard.");
+                    } else {
+                        throw error;
+                    }
+                    btn.disabled = false;
+                    return; 
+                }
+                
+                currentAttemptId = attempt.id;
+
+                if (selectedMethod === 'bank') {
+                    openBankModal();
+                    btn.disabled = false;
+                    btn.innerText = "View Bank Instructions";
+                } else {
+                    // 3. Razorpay (Native USD Mode)
+                    // We charge directly in USD. 
+                    // NOTE: Ensure "International Payments" is enabled on your Razorpay Dashboard.
+                    
+                    const rzpOptions = {
+                        "key": "rzp_live_S5RKZd60WPDXaV", // ⚠️ CRITICAL: YOUR REAL LIVE KEY ID
+                        "amount": Math.round(payableAmount * 100), // Amount in Cents (USD)
+                        "currency": "USD", 
+                        "name": "GetSalesCloser",
+                        "description": `Inv: ${intent.reference_id}`,
+                        "image": "https://your-logo-url.com/logo.png", // Optional: Add your logo here
+                        "handler": async function (response){
+                            // Success! Redirect to success page
+                            window.location.href = `success.html?ref=${intent.reference_id}`;
+                        },
+                        "notes": {
+                            "intent_id": intent.id,
+                            "attempt_id": attempt.id
+                        },
+                        "theme": { "color": "#39FF14" }
+                    };
+                    
+                    const rzp1 = new Razorpay(rzpOptions);
+                    
+                    rzp1.on('payment.failed', function (response){
+                        console.error("Razorpay Error:", response.error);
+                        alert("Payment Failed: " + response.error.description);
+                        btn.disabled = false;
+                        btn.innerText = "Pay Securely via Card";
+                    });
+                    
+                    rzp1.open();
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Error initializing payment: " + err.message);
+                btn.disabled = false;
+                btn.innerText = "Proceed to Payment";
+            }
+        }
+
+        // --- BANK LOGIC ---
+        function openBankModal() {
+            const container = document.getElementById('bankDetailsContent');
+            const threshold = 6844;
+            let html = '';
+
+            if (payableAmount < threshold) {
+                html = `
+                    <div class="bank-details-box p-4 rounded-lg">
+                        <div class="font-bold text-white mb-2 border-b border-slate-700 pb-2">JPMorgan Chase & Co. (Primary)</div>
+                        <div class="grid grid-cols-2 gap-y-2">
+                            <span class="text-slate-500">Beneficiary:</span> <span class="text-white select-all">YOGMAYA INDUSTRIES</span>
+                            <span class="text-slate-500">Account No:</span> <span class="text-white font-mono select-all">20000045901953</span>
+                            <span class="text-slate-500">Routing (ACH):</span> <span class="text-white font-mono select-all">028000024</span>
+                            <span class="text-slate-500">SWIFT/BIC:</span> <span class="text-white font-mono select-all">CHASUS33XXX</span>
+                        </div>
+                    </div>`;
+            } else {
+                html = `
+                    <div class="bank-details-box p-4 rounded-lg border-blue-500/30">
+                        <div class="font-bold text-blue-400 mb-2 border-b border-blue-900 pb-2">Community Federal Savings Bank</div>
+                        <div class="grid grid-cols-2 gap-y-2">
+                            <span class="text-slate-500">Beneficiary:</span> <span class="text-white select-all">YogMaya Industries</span>
+                            <span class="text-slate-500">Account No:</span> <span class="text-white font-mono select-all">8336604237</span>
+                            <span class="text-slate-500">Routing (ACH):</span> <span class="text-white font-mono select-all">026073150</span>
+                        </div>
+                    </div>`;
+            }
+            container.innerHTML = html;
+            document.getElementById('bankOverlay').classList.remove('hidden');
+        }
+
+        function closeBankOverlay() {
+            document.getElementById('bankOverlay').classList.add('hidden');
+        }
+
+        // --- UPDATE DB STATUS ---
+        async function markAsSent() {
+            const btn = document.getElementById('sentBtn');
+            btn.disabled = true;
+            btn.innerText = "Verifying...";
+
+            try {
+                // 🛡️ FIX: Use 'supabaseClient'
+                const { error } = await supabaseClient
+                    .from('payment_attempts')
+                    .update({ status: 'pending_verification' })
+                    .eq('id', currentAttemptId);
+
+                if (error) throw error;
+
+                window.location.href = `success.html?ref=${intent.reference_id}&status=awaiting_bank`;
+
+            } catch (err) {
+                console.error(err);
+                alert("Connection error. Please try again.");
+                btn.disabled = false;
+                btn.innerText = "I have sent the payment";
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Liaison | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 h-screen text-white flex flex-col font-sans">
+
+    <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+        <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
+    </div>
+
+    <div class="h-20 border-b border-white/5 bg-slate-900 flex items-center justify-between px-8">
+        <h1 class="text-xl font-bold flex items-center gap-3">
+            <i class="fa-solid fa-microphone-lines text-indigo-500"></i> Voice Liaison Logs
+        </h1>
+        <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition">
+            <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
+        </a>
+    </div>
+
+    <div class="flex-1 p-8 overflow-y-auto">
+        <div class="max-w-5xl mx-auto bg-slate-800/40 rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+            <table class="w-full text-left text-sm text-slate-400">
+                <thead class="bg-slate-950 text-xs uppercase font-bold text-slate-500 border-b border-white/5">
+                    <tr>
+                        <th class="p-5">Lead Name</th>
+                        <th class="p-5">Time</th>
+                        <th class="p-5">Duration</th>
+                        <th class="p-5">Sentiment</th>
+                        <th class="p-5">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5" id="voice-table-body">
+                   </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script>
+        async function loadVoiceLogs(sb) {
+            const { data: logs } = await sb
+                .from('interactions')
+                .select('*, leads(name)')
+                .eq('type', 'voice')
+                .order('created_at', { ascending: false });
+
+            const tbody = document.getElementById('voice-table-body');
+            tbody.innerHTML = '';
+
+            if (logs && logs.length > 0) {
+                logs.forEach(log => {
+                    const sentimentColor = log.sentiment === 'positive' ? 'text-green-400 bg-green-400/10' : (log.sentiment === 'negative' ? 'text-red-400 bg-red-400/10' : 'text-slate-300 bg-slate-700/50');
+                    const duration = log.duration_seconds ? `${Math.floor(log.duration_seconds / 60)}m ${log.duration_seconds % 60}s` : '0m 0s';
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-indigo-500/5 transition group";
+                    row.innerHTML = `
+                        <td class="p-5 text-white font-medium flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs">${(log.leads?.name || 'U').substring(0, 2).toUpperCase()}</div>
+                            ${log.leads?.name || 'Unknown Lead'}
+                        </td>
+                        <td class="p-5">${new Date(log.created_at).toLocaleString()}</td>
+                        <td class="p-5 font-mono text-xs">${duration}</td>
+                        <td class="p-5"><span class="${sentimentColor} px-2 py-1 rounded text-xs font-bold capitalize">${log.sentiment || 'neutral'}</span></td>
+                        <td class="p-5"><button class="text-indigo-400 hover:text-white font-medium underline transition" onclick="alert('${(log.content || 'No transcript available.').replace(/'/g, "\\'")}')">View Transcript</button></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-5 text-center">No voice logs found.</td></tr>';
+            }
+        }
+
+        async function checkEntitlement(sb, user, serviceKey) {
+            const { data: membership } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1).single();
+            if (!membership) return false;
+            const { data: service } = await sb.from('org_services').select('status').eq('org_id', membership.org_id).eq('service_key', serviceKey).maybeSingle();
+            return service?.status === 'active';
+        }
+
+        requireAuth({
+            onAuthenticated: async (profile, user, sb) => {
+                const entitled = await checkEntitlement(sb, user, 'voice');
+                if (!entitled) { window.location.href = 'billing.html?lock=voice'; return; }
+                loadVoiceLogs(sb);
+            }
+        });
+    </script>
+
+</body>
+</html>

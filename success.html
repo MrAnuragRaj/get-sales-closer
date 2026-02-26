@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setup Status | GetSalesCloser</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background: #020617;
+      color: white;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .glass-card { 
+        background: rgba(15, 23, 42, 0.6); 
+        backdrop-filter: blur(12px); 
+        border: 1px solid rgba(255, 255, 255, 0.1); 
+    }
+    .btn-dopamine { 
+        background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); 
+        transition: all 0.3s ease; 
+        color: white;
+    }
+    .btn-dopamine:hover { 
+        box-shadow: 0 0 20px rgba(0, 209, 255, 0.4); 
+        transform: translateY(-1px);
+    }
+  </style>
+</head>
+
+<body class="h-screen flex items-center justify-center px-6">
+  
+  <div id="main-container" class="bg-slate-900 border border-slate-800 rounded-2xl p-10 max-w-md w-full text-center">
+    <div id="spinner" class="mx-auto mb-6 h-16 w-16 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+
+    <h1 id="title" class="text-2xl font-bold mb-2">
+      Activating Your License…
+    </h1>
+
+    <p id="message" class="text-slate-400">
+      Securely verifying payment and provisioning access.
+    </p>
+
+    <p id="debug" class="mt-6 text-xs font-mono text-slate-500">
+      WAITING FOR ENTITLEMENT
+    </p>
+  </div>
+
+  <script>
+    /* -------------------------------------------------------
+       CONFIG (ES5 Safe)
+    ------------------------------------------------------- */
+    var SUPABASE_URL = 'https://klbwigcvrdfeeeeotehu.supabase.co'; 
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+
+    var POLL_INTERVAL_MS = 2500;
+    var MAX_POLLS = 12;
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* -------------------------------------------------------
+       LOGIC CONTROLLER
+    ------------------------------------------------------- */
+    var params = new URLSearchParams(window.location.search);
+    var status = params.get('status');
+    var refId = params.get('ref') || 'Unknown';
+
+    // 1. CHECK BANK STATUS IMMEDIATELY
+    if (status === 'awaiting_bank') {
+        renderBankPendingScreen();
+        // Script naturally stops here for Bank Flow
+    } else {
+        // 2. START POLLING (Card Mode)
+        startPolling();
+    }
+
+    /* -------------------------------------------------------
+       RENDERER: BANK PENDING SCREEN
+    ------------------------------------------------------- */
+    function renderBankPendingScreen() {
+        document.body.innerHTML = 
+            '<div class="min-h-screen w-full flex items-center justify-center bg-[#020617] text-white px-6">' +
+                '<div class="max-w-lg w-full glass-card rounded-3xl p-8 text-center shadow-2xl">' +
+                    '<div class="mb-6">' +
+                        '<div class="mx-auto w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">' +
+                            '<svg class="w-8 h-8 text-blue-400 animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">' +
+                                '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" />' +
+                                '<circle cx="12" cy="12" r="9" />' +
+                            '</svg>' +
+                        '</div>' +
+                    '</div>' +
+                    '<h1 class="text-2xl font-extrabold mb-2 tracking-tight">Payment Under Verification</h1>' +
+                    '<div class="text-xs font-mono text-blue-400 mb-4 tracking-wider">REF: ' + refId + '</div>' +
+                    '<p class="text-slate-300 text-sm mb-6 leading-relaxed">We have received your request. Our finance team is currently matching your bank transfer with this reference ID.</p>' +
+                    '<div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 text-left text-sm text-slate-400 mb-6">' +
+                        '<div class="flex gap-3 mb-2">' +
+                            '<span class="text-xl">⏳</span>' +
+                            '<div><strong class="text-white block">Verification Timeline</strong><span class="text-xs">Up to 72 hours (Business Days)</span></div>' +
+                        '</div>' +
+                        '<div class="flex gap-3">' +
+                            '<span class="text-xl">📧</span>' +
+                            '<div><strong class="text-white block">What happens next?</strong><span class="text-xs">You will receive an activation email immediately upon approval.</span></div>' +
+                        '</div>' +
+                    '</div>' +
+                    // UPDATED REDIRECT HERE:
+                    '<button onclick="window.location.href=\'dashboard.html\'" class="btn-dopamine w-full py-4 rounded-xl font-bold uppercase tracking-widest text-sm">Go to Dashboard</button>' +
+                    '<p class="mt-4 text-[10px] text-slate-500">You can safely close this window. No further action is required.</p>' +
+                '</div>' +
+            '</div>';
+    }
+
+    /* -------------------------------------------------------
+       LOGIC: CARD POLLING (ES5 Safe)
+    ------------------------------------------------------- */
+    var ui = {
+      spinner: document.getElementById("spinner"),
+      title: document.getElementById("title"),
+      message: document.getElementById("message"),
+      debug: document.getElementById("debug"),
+    };
+
+    var polls = 0;
+
+    function startPolling() {
+      // 🛡️ SAFETY NET
+      if (status === 'awaiting_bank') return;
+
+      supabase.auth.getSession().then(function(response) {
+        var session = response.data && response.data.session;
+        
+        if (!session) {
+          ui.title.innerText = "Authentication Required";
+          ui.message.innerText = "Please log in to check your status.";
+          ui.spinner.classList.add("hidden");
+          return;
+        }
+
+        poll();
+      });
+    }
+
+    function poll() {
+      polls++;
+
+      // ⚡ TIMEOUT HANDLER (30 Seconds)
+      if (polls > MAX_POLLS) {
+        ui.spinner.classList.add("hidden");
+        ui.title.innerText = "Activation Pending";
+        ui.message.innerText = "Your payment is received, but the system is taking longer than usual to sync. Please check your dashboard in a few minutes.";
+        ui.debug.innerText = "TIMEOUT";
+        // UPDATED REDIRECT HERE:
+        ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+        return;
+      }
+
+      ui.debug.innerText = "SYNCING... (ATTEMPT " + polls + ")";
+
+      // Poll billing_intents by reference_id — flips to 'paid' when Razorpay webhook processes.
+      supabase
+        .from("billing_intents")
+        .select("status")
+        .eq("reference_id", refId)
+        .maybeSingle()
+        .then(function(response) {
+            var data = response.data;
+            var error = response.error;
+
+            if (error) {
+                console.error("Polling error:", error);
+                setTimeout(poll, POLL_INTERVAL_MS);
+                return;
+            }
+
+            if (data && data.status === "paid") {
+                ui.spinner.classList.add("hidden");
+                ui.title.innerText = "Setup Complete!";
+                ui.message.innerText = "Redirecting you to your dashboard…";
+                ui.debug.innerText = "LICENSE ACTIVE";
+                
+                setTimeout(function() {
+                    // UPDATED REDIRECT HERE:
+                    window.location.href = "dashboard.html";
+                }, 1500);
+
+                return;
+            }
+
+            // Retry
+            setTimeout(poll, POLL_INTERVAL_MS);
+        })
+        .catch(function(err) {
+            console.error("Unexpected error:", err);
+            setTimeout(poll, POLL_INTERVAL_MS);
+        });
+    }
+  </script>
+</body>
+</html>

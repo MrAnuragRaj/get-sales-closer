@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        /* 🔒 HIDE CONTENT BY DEFAULT to prevent flash of unauthenticated content */
+        #dashboard-content { display: none; }
+        #loading-screen { display: flex; }
+    </style>
+</head>
+<body class="p-10">
+
+    <div id="loading-screen" class="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center z-50">
+        <div class="h-12 w-12 border-4 border-[#39FF14] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Clearance...</p>
+    </div>
+
+    <div id="dashboard-content" class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl font-black text-white uppercase tracking-tighter">Finance Command</h1>
+            <button onclick="logout()" class="text-slate-400 hover:text-white text-sm">Log Out</button>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-yellow-400 animate-pulse"></div>
+                <h2 class="text-xl font-bold text-white">Pending Bank Transfers</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Date</th>
+                            <th class="p-4">Reference ID</th>
+                            <th class="p-4">Amount (USD)</th>
+                            <th class="p-4">Plan Details</th>
+                            <th class="p-4 rounded-tr-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transferTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="5" class="p-8 text-center italic opacity-50">Scanning...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-green-400"></div>
+                <h2 class="text-xl font-bold text-white">Active Entitlements</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Active Since</th>
+                            <th class="p-4">Reference ID</th>
+                            <th class="p-4">Services</th>
+                            <th class="p-4 rounded-tr-lg">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="entitlementTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="4" class="p-8 text-center italic opacity-50">Scanning...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // --- AUTH + ADMIN GUARD (Runs Immediately) ---
+        (async function init() {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Check is_admin flag on profile
+            const { data: profile, error: profileErr } = await supabase
+                .from('profiles')
+                .select('is_admin')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profileErr || !profile || !profile.is_admin) {
+                // ❌ Not an admin — redirect to dashboard
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            // ✅ Admin confirmed — reveal UI and fetch data
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('dashboard-content').style.display = 'block';
+
+            fetchPendingTransfers();
+            fetchActiveEntitlements();
+        })();
+
+        // 1. FETCH PENDING TRANSFERS
+        async function fetchPendingTransfers() {
+            const { data, error } = await supabase
+                .from('billing_intents')
+                .select('id, created_at, reference_id, pricing_snapshot, services, status')
+                .eq('status', 'awaiting_bank')
+                .order('created_at', { ascending: false });
+
+            const tbody = document.getElementById('transferTable');
+            tbody.innerHTML = '';
+
+            if (error) {
+                // This catches the RLS error if a non-admin user logs in!
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-red-400 font-bold">⛔ ACCESS DENIED: You are not an Admin.</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-600">No pending transfers found.</td></tr>`;
+                return;
+            }
+
+            data.forEach(intent => {
+                // [Same render logic as before...]
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/50 transition";
+                row.innerHTML = `
+                    <td class="p-4 font-mono text-xs">${new Date(intent.created_at).toLocaleDateString()}</td>
+                    <td class="p-4 font-mono text-white select-all">${intent.reference_id}</td>
+                    <td class="p-4 font-bold text-[#39FF14]">$${intent.pricing_snapshot.bank_usd}</td>
+                    <td class="p-4 text-xs max-w-xs truncate font-mono text-blue-300">${JSON.stringify(intent.pricing_snapshot.services || intent.services || {})}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="approve(event, '${intent.id}')" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg text-xs transition disabled:opacity-50">
+                            Confirm Receipt
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 2. FETCH ACTIVE ENTITLEMENTS
+        async function fetchActiveEntitlements() {
+            const { data, error } = await supabase
+                .from('billing_intents')
+                .select('id, created_at, reference_id, services, pricing_snapshot, status')
+                .eq('status', 'paid')
+                .order('created_at', { ascending: false });
+
+            const tbody = document.getElementById('entitlementTable');
+            tbody.innerHTML = '';
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-red-400">⛔ Access Denied.</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-600">No active entitlements found.</td></tr>`;
+                return;
+            }
+
+            data.forEach(ent => {
+                const services = ent.pricing_snapshot?.services || ent.services || {};
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/50";
+                row.innerHTML = `
+                    <td class="p-4 font-mono text-xs">${new Date(ent.created_at).toLocaleDateString()}</td>
+                    <td class="p-4 font-mono text-white">${ent.reference_id || 'N/A'}</td>
+                    <td class="p-4 text-xs font-mono text-blue-300 max-w-xs truncate">${JSON.stringify(services)}</td>
+                    <td class="p-4"><span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs font-bold uppercase">${ent.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 3. APPROVE ACTION
+        async function approve(event, intentId) {
+            if (!confirm("Are you sure you received this money in your bank account?")) return;
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+
+            const { data, error } = await supabase.rpc('approve_bank_transfer', { p_intent_id: intentId });
+
+            if (error || data.status === 'error') {
+                alert("Error: " + (error?.message || data?.reason));
+                btn.disabled = false;
+                btn.innerText = originalText;
+                return;
+            }
+
+            alert("✅ Payment Approved & Access Granted!");
+            fetchPendingTransfers(); 
+            fetchActiveEntitlements();
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
