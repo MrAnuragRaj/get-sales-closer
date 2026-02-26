@@ -77,31 +77,36 @@
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8"
         );
 
-        // --- FIXED: REDIRECT LOGIC MATCHING YOUR DATABASE ---
+        // Post-login redirect: check org_members → org_services (actual entitlement schema)
         supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === "SIGNED_IN" && session) {
                 const user = session.user;
-                console.log("User signed in:", user.id);
 
-                // 1. Check the CORRECT table ('user_subscriptions')
-                // 2. Check the CORRECT column ('status')
-                const { data: subData, error } = await supabase
-                    .from('user_subscriptions') 
-                    .select('status')
+                // Check if user belongs to an org
+                const { data: membership } = await supabase
+                    .from('org_members')
+                    .select('org_id')
                     .eq('user_id', user.id)
-                    .eq('status', 'active') // Only look for active status
+                    .limit(1)
                     .maybeSingle();
 
-                if (error) {
-                    console.error("Subscription check error:", error);
-                }
+                if (membership) {
+                    // Check if org has at least one active service
+                    const { data: activeService } = await supabase
+                        .from('org_services')
+                        .select('service_key')
+                        .eq('org_id', membership.org_id)
+                        .eq('status', 'active')
+                        .limit(1)
+                        .maybeSingle();
 
-                // If subData exists, it means they have an active plan
-                if (subData) {
-                    console.log("Active subscription found. Redirecting to Dashboard.");
-                    window.location.href = "dashboard.html"; // Redirect to the file we created
+                    if (activeService) {
+                        window.location.href = "dashboard.html";
+                    } else {
+                        window.location.href = "pricing.html";
+                    }
                 } else {
-                    console.log("No active subscription. Redirecting to Pricing.");
+                    // Brand new user — no org yet, send to pricing to configure + buy
                     window.location.href = "pricing.html";
                 }
             }

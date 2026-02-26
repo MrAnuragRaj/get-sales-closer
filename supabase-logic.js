@@ -75,7 +75,7 @@ async function fetchAndDisplayLeads() {
   
   const { data: leads, error } = await supabase
     .from('leads')
-    .select('*, properties(nickname)')
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -106,13 +106,13 @@ async function fetchAndDisplayLeads() {
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-semibold text-slate-900">Lead ID: ${lead.id.slice(0, 8)}...</p>
-          <p class="text-xs text-slate-400">Listing: ${lead.properties?.nickname || 'Unknown Property'}</p>
+          <p class="text-xs text-slate-400">Source: ${lead.source || 'Unknown'}</p>
         </div>
         ${statusBadge}
       </div>
       <div class="mt-4 text-sm text-slate-600">
         <p class="font-medium text-slate-800 italic">Latest Interaction:</p>
-        <p class="mt-1 line-clamp-2">${lead.conversation_history[lead.conversation_history.length - 1]?.content || 'Starting conversation...'}</p>
+        <p class="mt-1 line-clamp-2">Last active: ${lead.last_interaction_at ? new Date(lead.last_interaction_at).toLocaleString() : 'No interactions yet'}</p>
       </div>
     `;
     container.appendChild(card);
