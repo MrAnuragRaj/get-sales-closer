@@ -154,6 +154,15 @@ Locked modules redirect to: `billing.html?lock={module}`
 | 8 | ~~`dashboard.html` Priority Action card~~ | ✅ Done | `runRevenueDiagnosis()` now updates card text + badge + border color based on real interaction delay |
 | 9 | ~~`dashboard.html` war-room-feed~~ | ✅ Done | `subscribeToInteractions()` added — new interactions stream in via Supabase Realtime |
 
+### 🟢 Security & UI Hardening (2026-02-26 Session 4)
+
+| # | Task | File(s) | Notes |
+|---|---|---|---|
+| 12 | ~~XSS in war-room feed~~ | ✅ Fixed | `subscribeToInteractions()` now uses `textContent` instead of `innerHTML` for `payload.new.content`; `loadLiveTraffic()` also uses `textContent` for all user data |
+| 13 | ~~payment.html auth guard~~ | ✅ Fixed | Auth-loader overlay added (z-100); hidden only after successful session + intent fetch; `overview.html` dead redirect fixed → `dashboard.html` |
+| 14 | ~~Live Traffic window~~ | ✅ Done | `loadLiveTraffic()` fetches top-15 active leads by `last_interaction_at`, renders with status badge + risk dot + timeAgo; auto-refreshes on each Realtime interaction event |
+| 15 | ~~System Monitor pre-load~~ | ✅ Done | `loadRecentInteractions()` pre-populates `#war-room-feed` with last 10 org interactions on page load; Realtime appends new ones live |
+
 ### 🟢 Low Priority / Nice to Have
 
 | # | Task | File(s) | Notes |

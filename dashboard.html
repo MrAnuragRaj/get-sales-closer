@@ -275,6 +275,8 @@
                     renderSidebar();
                     runRevenueDiagnosis();
                     subscribeToInteractions();
+                    loadLiveTraffic();
+                    loadRecentInteractions();
                 }
             });
         });
@@ -484,14 +486,111 @@
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interactions' }, payload => {
                     const feed = document.getElementById('war-room-feed');
                     if (feed.innerText.includes('standing by')) feed.innerHTML = '';
-                    const isAI = payload.new.direction === 'outbound';
+                    const isAI = payload.new.direction === 'outbound' || payload.new.direction === 'system';
                     const div = document.createElement('div');
                     div.className = `flex gap-3 ${isAI ? 'flex-row-reverse' : ''} mb-3`;
-                    div.innerHTML = `<div class="bg-${isAI ? 'indigo-600/20' : 'slate-800'} p-3 rounded-2xl text-xs text-slate-300 border border-white/5 max-w-[80%]">${payload.new.content || ''}</div>`;
+                    const bubble = document.createElement('div');
+                    bubble.className = `bg-${isAI ? 'indigo-600/20' : 'slate-800'} p-3 rounded-2xl text-xs text-slate-300 border border-white/5 max-w-[80%]`;
+                    bubble.textContent = payload.new.content || '';
+                    div.appendChild(bubble);
                     feed.appendChild(div);
                     feed.scrollTop = feed.scrollHeight;
+                    loadLiveTraffic();
                 })
                 .subscribe();
+        }
+
+        // --- LIVE TRAFFIC ---
+        function timeAgo(date) {
+            const s = Math.floor((new Date() - date) / 1000);
+            if (s < 60) return 'just now';
+            if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+            if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+            return `${Math.floor(s / 86400)}d ago`;
+        }
+
+        async function loadLiveTraffic() {
+            if (!currentOrgId) return;
+            const container = document.getElementById('live-traffic-list');
+            try {
+                const { data: leads } = await sbClient
+                    .from('leads')
+                    .select('id, name, status, risk_score, last_interaction_at')
+                    .eq('org_id', currentOrgId)
+                    .order('last_interaction_at', { ascending: false })
+                    .limit(15);
+
+                container.innerHTML = '';
+                if (!leads || leads.length === 0) {
+                    container.innerHTML = '<div class="text-center text-xs text-slate-500 mt-10 px-4">No leads yet.</div>';
+                    return;
+                }
+
+                const statusColors = {
+                    new: 'text-blue-400 bg-blue-400/10',
+                    active: 'text-green-400 bg-green-400/10',
+                    closed_won: 'text-emerald-400 bg-emerald-400/10',
+                    closed_lost: 'text-red-400 bg-red-400/10',
+                    paused: 'text-yellow-400 bg-yellow-400/10'
+                };
+
+                leads.forEach(lead => {
+                    const initials = (lead.name || 'U').substring(0, 2).toUpperCase();
+                    const statusClass = statusColors[lead.status] || 'text-slate-400 bg-slate-700/50';
+                    const lastActive = lead.last_interaction_at ? timeAgo(new Date(lead.last_interaction_at)) : 'No activity';
+                    const risk = lead.risk_score || 0;
+                    const riskColor = risk > 70 ? 'bg-red-500' : risk > 40 ? 'bg-yellow-500' : 'bg-green-500';
+
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 transition';
+                    div.innerHTML = `
+                        <div class="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0" data-i></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-white truncate" data-n></p>
+                            <p class="text-[10px] text-slate-500 truncate" data-t></p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1 shrink-0">
+                            <span class="${statusClass} text-[9px] px-1.5 py-0.5 rounded font-bold capitalize" data-s></span>
+                            <div class="flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full ${riskColor}"></div><span class="text-[9px] text-slate-500">${risk}%</span></div>
+                        </div>`;
+                    div.querySelector('[data-i]').textContent = initials;
+                    div.querySelector('[data-n]').textContent = lead.name || 'Unknown';
+                    div.querySelector('[data-t]').textContent = lastActive;
+                    div.querySelector('[data-s]').textContent = (lead.status || 'new').replace(/_/g, ' ');
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                container.innerHTML = '<div class="text-center text-xs text-red-400 mt-10 px-4">Load error.</div>';
+            }
+        }
+
+        // --- SYSTEM MONITOR PRE-LOAD ---
+        async function loadRecentInteractions() {
+            if (!currentOrgId) return;
+            const feed = document.getElementById('war-room-feed');
+            try {
+                const { data: recent } = await sbClient
+                    .from('interactions')
+                    .select('content, direction')
+                    .eq('org_id', currentOrgId)
+                    .in('type', ['sms', 'voice', 'email'])
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (!recent || recent.length === 0) return;
+                feed.innerHTML = '';
+                [...recent].reverse().forEach(interaction => {
+                    const isAI = interaction.direction === 'outbound' || interaction.direction === 'system';
+                    const div = document.createElement('div');
+                    div.className = `flex gap-3 ${isAI ? 'flex-row-reverse' : ''} mb-3`;
+                    const bubble = document.createElement('div');
+                    bubble.className = `bg-${isAI ? 'indigo-600/20' : 'slate-800'} p-3 rounded-2xl text-xs text-slate-300 border border-white/5 max-w-[80%]`;
+                    bubble.textContent = interaction.content || '';
+                    div.appendChild(bubble);
+                    feed.appendChild(div);
+                });
+                feed.scrollTop = feed.scrollHeight;
+            } catch (e) {}
         }
     </script>
 </body>

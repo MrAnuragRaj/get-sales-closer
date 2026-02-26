@@ -24,6 +24,11 @@
 </head>
 <body class="flex items-center justify-center min-h-screen p-6 relative">
 
+    <div id="auth-loader" class="fixed inset-0 bg-[#020617] flex flex-col items-center justify-center z-[100]">
+        <div class="h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
+    </div>
+
     <div id="bankOverlay" class="fixed inset-0 z-[90] bg-[#020617]/95 backdrop-blur-xl flex flex-col items-center justify-center hidden p-4 overflow-y-auto">
         <div class="max-w-2xl w-full glass-card rounded-3xl p-8 border border-[#39FF14]/30 relative my-10">
             <button onclick="closeBankOverlay()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-xl">✕</button>
@@ -165,9 +170,9 @@
             
             console.log("FETCH SUCCESS:", data);
 
-            if (data.status === 'paid') { 
-                window.location.href = "overview.html"; 
-                return; 
+            if (data.status === 'paid') {
+                window.location.href = "dashboard.html";
+                return;
             }
 
             intent = data;
@@ -197,6 +202,9 @@
 
             // 4. Trigger Initial Selection
             selectMethod('card');
+
+            // 5. Reveal page
+            document.getElementById('auth-loader').style.display = 'none';
         }
 
         // --- SELECTION ---
