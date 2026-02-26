@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-02-27 (Session 5)
+> Last updated: 2026-02-27 (Session 5 → 6)
 > Purpose: Tracks project state, decisions, completed work, and remaining tasks for Claude Code sessions.
 
 ---
@@ -209,12 +209,47 @@ if (service?.status !== 'active') window.location.href = 'billing.html?lock={key
 | P7 | Admin AI Prompt Editor (inline edit per org×channel) | ✅ Done |
 | P8 | Admin Rate Limit & Security panel (exec stats + billing lock + kill switch) | ✅ Done |
 
-### 🟢 LOW — Remaining Nice to Have
+### ✅ ALL LOW PRIORITY ITEMS COMPLETE
 
-| # | Task | File(s) | Notes |
-|---|---|---|---|
-| P9 | `conversation_state` TTL cleanup | Supabase scheduled job | No expiry policy; old voice contexts can bleed into new calls for the same lead |
-| P10 | `pricing.html` → `auth.js` pattern | `pricing.html` | Currently uses inline session check instead of standard `requireAuth()`; functional but inconsistent |
+| # | Task | Status |
+|---|---|---|
+| P9 | `conversation_state` TTL — pg_cron job, daily 3am UTC, 90-day expiry | ✅ Done (cron job id=8) |
+| P10 | `pricing.html` → `auth.js` pattern | ✅ Done |
+
+---
+
+## 🧪 END-TO-END TEST PLAN (Next Session)
+
+**Status: NOT STARTED — must be done before launch**
+
+### 1. Auth Flow
+- [ ] `index.html` → Deploy My Closer → lands on `pricing.html` (not login)
+- [ ] `pricing.html` visited while logged out → redirects to `login.html`
+- [ ] New account signup → lands on `pricing.html`
+- [ ] Existing account with active services → lands on `dashboard.html`
+
+### 2. Pricing → Payment
+- [ ] Select modules on `pricing.html` → Deploy → redirects to `payment.html?intent_id=...`
+- [ ] Razorpay or Bank Transfer → `billing_intents` row created in Supabase
+
+### 3. Dashboard
+- [ ] Live Traffic panel loads
+- [ ] System Monitor / war-room feed shows recent interactions
+- [ ] Revenue Doctor Priority Action card shows real data
+- [ ] Sidebar module links correct (locked ones show lock icon)
+
+### 4. Module Pages
+- [ ] **Sentinel** — lead list loads; "View Full CRM Profile" modal opens with data
+- [ ] **Voice Liaison** — call log loads; Replay button appears on rows with recordings
+- [ ] **Knowledge Brain** — PDF upload works; text rule saves; Stored Knowledge list shows entries; delete works
+- [ ] **App Architect** — appointment list loads
+
+### 5. Admin Panel
+- [ ] Only `anurag@yogmayaindustries.com` can access (others redirect to dashboard)
+- [ ] Bank Transfers table loads
+- [ ] Active Entitlements table loads
+- [ ] AI Prompt Editor — prompts show per org×channel; inline edit → save works
+- [ ] Rate Limit panel — org rows with task counts + billing lock status
 
 ---
 
