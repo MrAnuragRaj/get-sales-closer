@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-02-26 (Session 4)
+> Last updated: 2026-02-27 (Session 5)
 > Purpose: Tracks project state, decisions, completed work, and remaining tasks for Claude Code sessions.
 
 ---
@@ -38,7 +38,7 @@ Business model: Freemium with tiered module-based pricing.
 
 | File | Purpose | Status |
 |---|---|---|
-| `index.html` | Landing page, ROI calculator, dynamic pricing engine | ✅ Complete — needs CTA links to `pricing.html` or `login.html` |
+| `index.html` | Landing page, ROI calculator, dynamic pricing engine | ✅ Complete — CTAs wired to `pricing.html` |
 | `login.html` | Multi-channel auth (OTP + OAuth) — post-login redirect via `org_members → org_services` | ✅ Fixed (Session 4) |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ Complete |
 | `dashboard.html` | "Deal Commander" main UI — all widgets wired to real data | ✅ Complete |
@@ -48,7 +48,7 @@ Business model: Freemium with tiered module-based pricing.
 | `billing.html` | Upgrade/manage plan engine for existing subscribers | ✅ Complete |
 | `payment.html` | Razorpay checkout + bank transfer — auth guard added | ✅ Fixed (Session 4) |
 | `success.html` | Post-payment verification (polls billing_intents for 'paid') | ✅ Working |
-| `admin.html` | Finance Command — bank transfers + entitlements (admin-only) | ✅ Complete |
+| `admin.html` | Finance Command — bank transfers + entitlements + AI Prompt Editor + Rate Limit panel (admin-only) | ✅ Complete |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + chat surveillance | ✅ Complete |
 | `Voice Liaison.html` | Call logs + sentiment + Replay button (VAPI recordings) | ✅ Complete |
 | `Knowledge Brain.html` | AI knowledge base — PDF upload + text rules + read/delete view | ✅ Complete |
@@ -94,7 +94,7 @@ dashboard.html
 | `task_sweeper` | ✅ Complete | Cleans up stale tasks |
 | `voice_turn` | ✅ Complete | VAPI voice turn handler |
 | `webhook_cal` | ✅ Complete | Cal.com webhook handler |
-| `invoice-reminder-worker` | ✅ Complete | Invoice reminders ⚠️ defaults to DRY_RUN=true — must set DRY_RUN=false in prod |
+| `invoice-reminder-worker` | ✅ Complete | `REMINDER_DRY_RUN=false` set in prod secrets (Session 5) — live emails enabled |
 | `org_channels_*` (5 functions) | ✅ Complete | Channel management |
 | `context_builder` | ✅ Complete | Context assembly for AI |
 | `create-checkout-intent` | ✅ Complete | Razorpay checkout intent |
@@ -116,12 +116,13 @@ guardrails/prompt_packager.ts, security.ts, retry_policy.ts, strike_time.ts — 
 `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts`,
 `decision_plans`, `organizations`
 
-### ⚠️ Tables That MUST Be Verified / Created in Supabase
-| Table | Status | Impact |
-|---|---|---|
-| `org_billing_profiles` | ⚠️ **SQL MIGRATION PENDING** — run `supabase/migrations/20260226_org_billing_profiles.sql` | **CRITICAL** — missing table causes fail-closed on ALL voice execution |
-| `decision_plans` | ⚠️ Must be seeded manually — no frontend write path | `decision_engine` + `execution_planner` read it; empty = no campaign execution |
-| `active_org_prompts` | ⚠️ Must be seeded per org | `brain.ts` reads for AI system prompt; empty = generic fallback prompt only |
+### Tables Confirmed & Seeded (Session 5)
+| Table | Status |
+|---|---|
+| `org_billing_profiles` | ✅ Created + RLS applied |
+| `decision_plans` | ✅ Confirmed exists, indexes applied |
+| `org_prompts` | ✅ Seeded 33 rows (11 orgs × 3 channels); `active_org_prompts` view reads it |
+| `organizations.ai_credits_balance` | ✅ Set to 999999 for admin org |
 
 ### ❌ Removed from Schema (were dead references)
 | Reference | Removed From | Reason |
@@ -195,29 +196,24 @@ if (service?.status !== 'active') window.location.href = 'billing.html?lock={key
 
 ## Pending Work (TODO)
 
-### 🔴 CRITICAL — Requires Action (Cannot be done from code)
+### ✅ ALL CRITICAL + HIGH PRIORITY ITEMS COMPLETE (Session 5)
 
-| # | Task | Owner | Notes |
-|---|---|---|---|
-| P1 | **Run `org_billing_profiles` SQL migration** | Anurag (Supabase SQL Editor) | File: `supabase/migrations/20260226_org_billing_profiles.sql` — MUST run or ALL voice calls fail |
-| P2 | **Seed `decision_plans` table** | Anurag | `decision_engine` + `execution_planner` read this; if empty, no campaign executions fire |
-| P3 | **Seed `active_org_prompts` per org** | Anurag | `brain.ts` uses this for AI system prompt; without it, AI uses generic fallback only |
+| # | Task | Status |
+|---|---|---|
+| P1 | `org_billing_profiles` SQL migration | ✅ Done |
+| P2 | `org_prompts` seeded (11 orgs × 3 channels) | ✅ Done |
+| P3 | `ai_credits_balance = 999999` | ✅ Done |
+| P4 | `REMINDER_DRY_RUN=false` in Supabase secrets | ✅ Done |
+| P5 | Landing page CTAs → `pricing.html` | ✅ Done |
+| P6 | `decision_plans` indexes confirmed | ✅ Done |
+| P7 | Admin AI Prompt Editor (inline edit per org×channel) | ✅ Done |
+| P8 | Admin Rate Limit & Security panel (exec stats + billing lock + kill switch) | ✅ Done |
 
-### 🟡 HIGH — Code + Config
-
-| # | Task | File(s) | Notes |
-|---|---|---|---|
-| P4 | **Set `REMINDER_DRY_RUN=false`** in Supabase secrets | `invoice-reminder-worker` | Defaults to `true` — invoice reminders silently do nothing in prod until this env var is set |
-| P5 | **Link `pricing.html` from `index.html`** | `index.html` | Landing page CTAs currently don't route to `pricing.html`; new users have no clear path from landing to purchase |
-| P6 | **Link `pricing.html` from landing nav** | `index.html` | "Get Started" / "Deploy Now" buttons on landing need to route: logged-out → `login.html`, logged-in → `pricing.html` |
-
-### 🟢 LOW — Nice to Have
+### 🟢 LOW — Remaining Nice to Have
 
 | # | Task | File(s) | Notes |
 |---|---|---|---|
-| P7 | `conversation_state` TTL cleanup | Supabase scheduled job | No expiry policy; old voice contexts can bleed into new calls for the same lead |
-| P8 | Admin UI for `active_org_prompts` | New page or `admin.html` extension | Currently only seedable via SQL; admins should be able to edit org AI prompts from UI |
-| P9 | Rate limit visibility | `admin.html` | `enforce_rate_limit_v1` RPC failures have no frontend visibility; useful for admin debugging |
+| P9 | `conversation_state` TTL cleanup | Supabase scheduled job | No expiry policy; old voice contexts can bleed into new calls for the same lead |
 | P10 | `pricing.html` → `auth.js` pattern | `pricing.html` | Currently uses inline session check instead of standard `requireAuth()`; functional but inconsistent |
 
 ---
@@ -278,10 +274,12 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
 UPDATE profiles SET is_admin = true WHERE email = 'anurag@yogmayaindustries.com';
 ```
 
-### Pending (MUST RUN)
-- **`supabase/migrations/20260226_org_billing_profiles.sql`** — creates `org_billing_profiles` table
-  - Run in: Supabase Dashboard → SQL Editor
-  - Impact if skipped: ALL voice calls fail-closed permanently
+### Session 5 — Applied (2026-02-27)
+- `org_billing_profiles` table created with RLS
+- `org_prompts` seeded: 11 orgs × 3 channels (sms/email/voice), safety_level='moderate'
+- `organizations.ai_credits_balance = 999999` for admin org
+- `decision_plans` indexes confirmed
+- Admin RLS policies added: `org_prompts` (select+update), `execution_tasks` (select), `org_billing_profiles` (select), `org_settings` (select+update)
 
 ---
 
