@@ -7,7 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+    <script src="auth.js"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; scroll-behavior: smooth; }
         .gilroy { font-weight: 800; letter-spacing: -0.03em; }
@@ -154,20 +155,12 @@
     </div>
 
     <script>
-        // --- 1. SUPABASE CONFIG ---
-        const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co'; 
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8'; 
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        // --- PAGE LOAD AUTH CHECK ---
-        (async () => {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                window.location.href = "login.html";
-                return;
-            }
-            document.getElementById('auth-loader').style.display = 'none';
-        })();
+        // --- 1. AUTH (via auth.js) ---
+        let supabaseClient = null;
+        requireAuth({
+            requireOnboarding: false,
+            onAuthenticated: (profile, user, sb) => { supabaseClient = sb; }
+        });
 
         // --- 2. STATE ---
         let billingCycle = 'monthly'; // Default
@@ -300,15 +293,12 @@
             document.getElementById('animNode').classList.add('lock-impact');
 
             try {
-                // ... (Auth & Status Checks remain same) ...
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (!session) { window.location.href = "login.html"; return; }
-
                 overlayText.innerText = "Verifying Account...";
+                const { data: { user } } = await supabaseClient.auth.getUser();
                 const { data: membership } = await supabaseClient
                     .from('org_members')
                     .select('org_id')
-                    .eq('user_id', session.user.id)
+                    .eq('user_id', user.id)
                     .limit(1)
                     .maybeSingle();
 
