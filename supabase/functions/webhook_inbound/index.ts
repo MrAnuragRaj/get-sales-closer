@@ -333,6 +333,17 @@ serve(async (req) => {
           null,
         );
 
+        const recordingUrl = pick<string | null>(
+          json,
+          [
+            "message.artifact.recordingUrl",
+            "message.artifact.stereoRecordingUrl",
+            "message.call.artifact.recordingUrl",
+            "message.recordingUrl",
+          ],
+          null,
+        );
+
         const { data: settleRes, error: settleErr } = await supabase.rpc("settle_voice_call_tokens_v2", {
           p_provider: "vapi",
           p_provider_call_id: callId,
@@ -366,6 +377,7 @@ serve(async (req) => {
                 call_id: callId,
                 duration_seconds: durationSeconds,
                 transcript: transcript ?? null,
+                recording_url: recordingUrl ?? null,
                 settlement: settleRes ?? null,
                 task_id: hintedTaskId ?? null,
                 phone_number_id: providerNumberId ?? null,

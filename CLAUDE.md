@@ -159,7 +159,7 @@ Locked modules redirect to: `billing.html?lock={module}`
 | # | Task | File(s) | Notes |
 |---|---|---|---|
 | 10 | ~~`dashboard.js` dead code~~ | 🗑️ Deleted | Never loaded by any page; confirmed no HTML references it |
-| 11 | Voice Liaison — "Replay" button | `Voice Liaison.html` | Needs VAPI recording URL to work |
+| 11 | ~~Voice Liaison — "Replay" button~~ | ✅ Done | `webhook_inbound` extracts `recordingUrl` from VAPI end-of-call-report, stores in `interactions.metadata.recording_url`; Replay button appears per-row, opens audio player modal |
 
 ---
 

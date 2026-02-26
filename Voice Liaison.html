@@ -41,6 +41,18 @@
         </div>
     </div>
 
+    <!-- Replay Modal -->
+    <div id="replay-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden" onclick="if(event.target===this)closeReplay()">
+        <div class="bg-slate-800 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-white font-bold flex items-center gap-2"><i class="fa-solid fa-headphones text-indigo-400"></i> Call Recording</h3>
+                <button onclick="closeReplay()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <audio id="replay-audio" controls class="w-full rounded-lg bg-slate-900" src=""></audio>
+            <p class="text-slate-500 text-xs mt-3 text-center">Recording provided by VAPI</p>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script>
@@ -68,13 +80,30 @@
                         <td class="p-5">${new Date(log.created_at).toLocaleString()}</td>
                         <td class="p-5 font-mono text-xs">${duration}</td>
                         <td class="p-5"><span class="${sentimentColor} px-2 py-1 rounded text-xs font-bold capitalize">${log.sentiment || 'neutral'}</span></td>
-                        <td class="p-5"><button class="text-indigo-400 hover:text-white font-medium underline transition" onclick="alert('${(log.content || 'No transcript available.').replace(/'/g, "\\'")}')">View Transcript</button></td>
+                        <td class="p-5 flex items-center gap-3">
+                            <button class="text-indigo-400 hover:text-white font-medium underline transition" onclick="alert('${(log.content || 'No transcript available.').replace(/'/g, "\\'")}')">View Transcript</button>
+                            ${log.metadata?.recording_url ? `<button class="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium transition" onclick="openReplay('${log.metadata.recording_url}')"><i class='fa-solid fa-play mr-1'></i>Replay</button>` : ''}
+                        </td>
                     `;
                     tbody.appendChild(row);
                 });
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" class="p-5 text-center">No voice logs found.</td></tr>';
             }
+        }
+
+        function openReplay(url) {
+            const audio = document.getElementById('replay-audio');
+            audio.src = url;
+            audio.load();
+            document.getElementById('replay-modal').classList.remove('hidden');
+        }
+
+        function closeReplay() {
+            const audio = document.getElementById('replay-audio');
+            audio.pause();
+            audio.src = '';
+            document.getElementById('replay-modal').classList.add('hidden');
         }
 
         async function checkEntitlement(sb, user, serviceKey) {
