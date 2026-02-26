@@ -9,6 +9,22 @@
 </head>
 <body class="bg-slate-900 h-screen text-white flex flex-col font-sans overflow-hidden">
 
+    <!-- CRM Profile Modal -->
+    <div id="crm-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden items-center justify-center p-4" onclick="if(event.target===this)closeCRMProfile()">
+        <div class="bg-slate-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-6 border-b border-white/5">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-id-card text-indigo-400"></i>
+                    <span id="modal-name">CRM Profile</span>
+                </h2>
+                <button onclick="closeCRMProfile()" class="text-slate-500 hover:text-white text-xl transition">&times;</button>
+            </div>
+            <div class="overflow-y-auto flex-1 p-6 space-y-6" id="modal-body">
+                <p class="text-slate-500 text-sm text-center py-6">Loading...</p>
+            </div>
+        </div>
+    </div>
+
     <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
         <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
         <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
@@ -44,7 +60,7 @@
                         <h2 class="text-2xl font-bold text-white" id="detail-name">Lead Name</h2>
                         <p class="text-xs text-slate-400" id="detail-company">Company Info</p>
                     </div>
-                    <button class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded shadow-lg">View Full CRM Profile</button>
+                    <button onclick="openCRMProfile()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded shadow-lg transition">View Full CRM Profile</button>
                 </div>
                 
                 <div class="flex-1 bg-slate-950 rounded-xl p-6 overflow-y-auto mb-6 border border-white/5 space-y-4" id="chat-history">
@@ -64,7 +80,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
 <script>
-    let _sb;
+    let _sb, _currentLeadId;
 
     // 1. Load Leads
     async function loadLeads(sb) {
@@ -92,6 +108,7 @@
 
     // 2. Show Details
     async function showDetail(leadId, name, email) {
+        _currentLeadId = leadId;
         document.getElementById('empty-state').classList.add('hidden');
         const view = document.getElementById('detail-view');
         view.classList.remove('hidden');
@@ -115,6 +132,68 @@
                 container.appendChild(div);
             });
         }
+    }
+
+    // 3. CRM Profile Modal
+    async function openCRMProfile() {
+        if (!_currentLeadId) return;
+        const modal = document.getElementById('crm-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('modal-body').innerHTML = '<p class="text-slate-500 text-sm text-center py-6">Loading...</p>';
+
+        const [{ data: lead }, { data: timeline }] = await Promise.all([
+            _sb.from('leads').select('*').eq('id', _currentLeadId).single(),
+            _sb.from('lead_timeline_events').select('*').eq('lead_id', _currentLeadId).order('created_at', { ascending: false }).limit(20)
+        ]);
+
+        if (!lead) {
+            document.getElementById('modal-body').innerHTML = '<p class="text-red-400 text-sm text-center py-6">Failed to load lead data.</p>';
+            return;
+        }
+
+        document.getElementById('modal-name').innerText = lead.name || 'CRM Profile';
+
+        const field = (label, value) => value
+            ? `<div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">${label}</p><p class="text-sm text-white">${value}</p></div>`
+            : '';
+
+        const scoreColor = (lead.probability_score || 0) > 70 ? 'text-green-400' : (lead.probability_score || 0) > 40 ? 'text-yellow-400' : 'text-red-400';
+        const statusBadge = `<span class="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">${lead.status || 'unknown'}</span>`;
+
+        const timelineHtml = (timeline && timeline.length > 0)
+            ? timeline.map(ev => {
+                const d = new Date(ev.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                return `<div class="flex gap-3 items-start">
+                    <div class="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0"></div>
+                    <div><p class="text-xs text-slate-300">${ev.description || ev.event_type || 'Event'}</p><p class="text-[10px] text-slate-500 mt-0.5">${d}</p></div>
+                </div>`;
+            }).join('')
+            : '<p class="text-slate-500 text-xs">No timeline events yet.</p>';
+
+        document.getElementById('modal-body').innerHTML = `
+            <div class="grid grid-cols-2 gap-4 bg-slate-900/50 rounded-xl p-4 border border-white/5">
+                ${field('Email', lead.email)}
+                ${field('Phone', lead.phone)}
+                ${field('Company', lead.company)}
+                ${field('Source', lead.source)}
+                <div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">Status</p>${statusBadge}</div>
+                <div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">Conversion Probability</p><p class="text-sm font-bold ${scoreColor}">${lead.probability_score || 0}%</p></div>
+                ${field('Last Contacted', lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleString('en-IN') : null)}
+                ${field('Lead Since', lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null)}
+                ${field('Notes', lead.notes)}
+            </div>
+            <div>
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Activity Timeline</h3>
+                <div class="space-y-3">${timelineHtml}</div>
+            </div>
+        `;
+    }
+
+    function closeCRMProfile() {
+        const modal = document.getElementById('crm-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
 
     async function checkEntitlement(sb, user, serviceKey) {

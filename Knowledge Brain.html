@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-slate-900 h-screen text-white flex flex-col items-center justify-center font-sans">
+<body class="bg-slate-900 min-h-screen text-white flex flex-col items-center font-sans py-10">
 
     <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
         <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -46,6 +46,21 @@
                 </div>
             </div>
         </div>
+
+        <!-- Knowledge Base List -->
+        <div class="mt-8 bg-slate-800/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-400 text-base"></i> Stored Knowledge
+                </h2>
+                <button onclick="loadKnowledgeBase()" class="text-slate-400 hover:text-white text-sm flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <div id="kb-list">
+                <p class="text-slate-500 text-sm text-center py-6">Loading...</p>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -67,6 +82,89 @@
             });
 
             document.getElementById('update-btn').onclick = updateTextRule;
+            loadKnowledgeBase();
+        }
+
+        async function loadKnowledgeBase() {
+            const list = document.getElementById('kb-list');
+            list.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">Loading...</p>';
+
+            const { data: entries, error } = await _sb
+                .from('knowledge_base')
+                .select('id, title, type, content_text, created_at')
+                .eq('user_id', _currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                list.innerHTML = `<p class="text-red-400 text-sm text-center py-6">Failed to load: ${error.message}</p>`;
+                return;
+            }
+
+            if (!entries || entries.length === 0) {
+                list.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">No entries yet. Upload a PDF or add a rule above.</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+            entries.forEach(entry => {
+                const isPdf = entry.type === 'pdf';
+                const icon = isPdf ? 'fa-file-pdf text-red-400' : 'fa-align-left text-indigo-400';
+                const badge = isPdf
+                    ? 'bg-red-500/10 text-red-400'
+                    : 'bg-indigo-500/10 text-indigo-400';
+                const preview = !isPdf && entry.content_text
+                    ? `<p class="text-slate-500 text-xs mt-1 truncate max-w-lg">${entry.content_text}</p>`
+                    : '';
+                const date = new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+                const row = document.createElement('div');
+                row.id = `kb-entry-${entry.id}`;
+                row.className = 'flex items-center justify-between gap-4 py-4 border-b border-white/5 last:border-0';
+                row.innerHTML = `
+                    <div class="flex items-center gap-4 min-w-0">
+                        <div class="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid ${icon}"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-sm text-white truncate">${entry.title}</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badge} uppercase flex-shrink-0">${isPdf ? 'PDF' : 'Rule'}</span>
+                            </div>
+                            ${preview}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 flex-shrink-0">
+                        <span class="text-slate-500 text-xs hidden sm:block">${date}</span>
+                        <button onclick="deleteEntry('${entry.id}', '${(entry.file_url || '').replace(/'/g, "\\'")}')"
+                            class="text-slate-600 hover:text-red-400 transition text-sm" title="Delete">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        async function deleteEntry(id, fileUrl) {
+            if (!confirm('Delete this entry? This cannot be undone.')) return;
+
+            if (fileUrl) {
+                await _sb.storage.from('documents').remove([fileUrl]);
+            }
+
+            const { error } = await _sb.from('knowledge_base').delete().eq('id', id).eq('user_id', _currentUser.id);
+            if (error) {
+                alert('Delete failed: ' + error.message);
+                return;
+            }
+
+            const el = document.getElementById(`kb-entry-${id}`);
+            if (el) el.remove();
+
+            const list = document.getElementById('kb-list');
+            if (!list.children.length) {
+                list.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">No entries yet. Upload a PDF or add a rule above.</p>';
+            }
         }
 
         async function handleFileUpload(e) {
@@ -100,6 +198,7 @@
                     </div>
                     <h3 class="font-bold text-lg text-green-400">Uploaded!</h3>
                     <p class="text-sm text-slate-500 mt-2 text-center">Click to upload another file.</p>`;
+                loadKnowledgeBase();
             } else {
                 alert("Database Error: " + dbError.message);
             }
@@ -119,6 +218,7 @@
             if (!error) {
                 alert("Rule added to Knowledge Base!");
                 document.getElementById('text-rule-input').value = '';
+                loadKnowledgeBase();
             } else {
                 alert("Error: " + error.message);
             }

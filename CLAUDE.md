@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-02-26 (Session 2)
+> Last updated: 2026-02-26 (Session 3)
 > Purpose: Tracks project state, decisions, completed work, and remaining tasks for Claude Code sessions.
 
 ---
@@ -42,7 +42,7 @@ Business model: Freemium with tiered module-based pricing.
 | `login.html` | Multi-channel auth (OTP + OAuth) | ✅ Complete |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ Complete |
 | `dashboard.html` | "Deal Commander" main UI | ✅ Complete |
-| `dashboard.js` | ⚠️ DEAD CODE — not loaded by dashboard.html. All logic lives inline in dashboard.html | ⚠️ Dead file |
+| `dashboard.js` | ~~Deleted~~ — was dead code, never loaded by dashboard.html | 🗑️ Deleted |
 | `supabase-logic.js` | Lead/profile management | ✅ Complete |
 | `billing.html` | Upgrade/feature toggle engine | ✅ Complete |
 | `payment.html` | Razorpay checkout + bank transfer | ✅ Complete |
@@ -50,7 +50,7 @@ Business model: Freemium with tiered module-based pricing.
 | `admin.html` | Finance Command — bank transfers + entitlements | ✅ Fixed (see changelog) |
 | `sentinel.html` | Instant Sentinel — lead list + chat surveillance | ✅ Fixed (see changelog) |
 | `Voice Liaison.html` | Call logs + sentiment analysis | ✅ Fixed (see changelog) |
-| `Knowledge Brain.html` | AI knowledge base — PDF upload + text rules | ✅ Fixed (see changelog) |
+| `Knowledge Brain.html` | AI knowledge base — PDF upload + text rules + read/delete view | ✅ Complete |
 | `App Architect.html` | Appointment scheduling viewer | ✅ Fixed (see changelog) |
 | `overview.html` | ~~Deleted~~ — was an old prototype with wrong table names and dead nav links | 🗑️ Deleted |
 | `billing.html` | Plan management | ✅ Complete |
@@ -149,8 +149,8 @@ Locked modules redirect to: `billing.html?lock={module}`
 | # | Task | File(s) | Notes |
 |---|---|---|---|
 | 5 | ~~Entitlement lock on module pages~~ | ✅ Done | All 4 module pages now check `org_services` and redirect to `billing.html?lock={key}` if inactive |
-| 6 | Knowledge Brain — read view of existing entries | `Knowledge Brain.html` | Currently only write (upload/save) — no list of existing docs/rules displayed |
-| 7 | Sentinel — "View Full CRM Profile" button | `sentinel.html` | Button has no `onclick` — needs to link to a lead detail page |
+| 6 | ~~Knowledge Brain — read view of existing entries~~ | ✅ Done | "Stored Knowledge" section added below write panel — lists all entries with type badge, date, preview text; delete button removes from DB + storage |
+| 7 | ~~Sentinel — "View Full CRM Profile" button~~ | ✅ Done | In-page modal opens on click — shows all lead fields (email, phone, company, source, status, score, dates, notes) + `lead_timeline_events` list; dismiss via × or backdrop click |
 | 8 | ~~`dashboard.html` Priority Action card~~ | ✅ Done | `runRevenueDiagnosis()` now updates card text + badge + border color based on real interaction delay |
 | 9 | ~~`dashboard.html` war-room-feed~~ | ✅ Done | `subscribeToInteractions()` added — new interactions stream in via Supabase Realtime |
 
@@ -158,7 +158,7 @@ Locked modules redirect to: `billing.html?lock={module}`
 
 | # | Task | File(s) | Notes |
 |---|---|---|---|
-| 10 | `dashboard.js` — dead code file | `dashboard.js` | Never loaded. Can be deleted or its Revenue Doctor logic moved into dashboard.html |
+| 10 | ~~`dashboard.js` dead code~~ | 🗑️ Deleted | Never loaded by any page; confirmed no HTML references it |
 | 11 | Voice Liaison — "Replay" button | `Voice Liaison.html` | Needs VAPI recording URL to work |
 
 ---
@@ -175,6 +175,20 @@ UPDATE profiles SET is_admin = true WHERE email = 'anurag@yogmayaindustries.com'
 ---
 
 ## Changelog
+
+### 2026-02-26 — Session 3
+
+**Fixed:**
+- `dashboard.js`: Deleted — confirmed dead code, no HTML file ever loads it
+- `sentinel.html`: Wired "View Full CRM Profile" button — opens in-page modal with all lead fields + activity timeline from `lead_timeline_events`; parallel Supabase queries for speed; dismiss via × or backdrop click; `_currentLeadId` tracked in `showDetail()`
+- `Knowledge Brain.html`: Added "Stored Knowledge" read view below the write panel
+  - Fetches all `knowledge_base` rows for the current user, ordered by newest first
+  - Displays type (PDF / Rule), title, content preview (for text rules), date
+  - Delete button removes row from `knowledge_base` table and (for PDFs) from `documents` storage bucket
+  - List auto-refreshes after each successful upload or rule save
+  - Empty state and error state handled gracefully
+
+---
 
 ### 2026-02-26 — Session 1
 
