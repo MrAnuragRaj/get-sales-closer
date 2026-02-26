@@ -71,6 +71,61 @@
                 </table>
             </div>
         </div>
+
+        <!-- P7: AI PROMPT EDITOR -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-purple-400 animate-pulse"></div>
+                <h2 class="text-xl font-bold text-white">AI Prompt Editor</h2>
+                <span class="text-xs text-slate-500 ml-auto">Active prompt per org × channel</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Org ID</th>
+                            <th class="p-4">Channel</th>
+                            <th class="p-4">Safety</th>
+                            <th class="p-4">Ver</th>
+                            <th class="p-4">System Prompt</th>
+                            <th class="p-4 rounded-tr-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="promptsTbody" class="divide-y divide-slate-800">
+                        <tr><td colspan="6" class="p-8 text-center italic opacity-50">Loading prompts...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- P8: RATE LIMIT & SECURITY OVERVIEW -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 mb-10">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-red-400"></div>
+                    <h2 class="text-xl font-bold text-white">Rate Limit & Security</h2>
+                </div>
+                <span class="text-xs text-slate-500">Last 7 days · execution_tasks</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Org ID</th>
+                            <th class="p-4 text-center">Total</th>
+                            <th class="p-4 text-center">Sent</th>
+                            <th class="p-4 text-center text-yellow-400">Blocked</th>
+                            <th class="p-4 text-center text-red-400">Failed</th>
+                            <th class="p-4 text-center">Billing Lock</th>
+                            <th class="p-4 rounded-tr-lg text-center">Kill Switch</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rateLimitTbody" class="divide-y divide-slate-800">
+                        <tr><td colspan="7" class="p-8 text-center italic opacity-50">Loading security stats...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -106,6 +161,8 @@
 
             fetchPendingTransfers();
             fetchActiveEntitlements();
+            fetchOrgPrompts();
+            fetchRateLimitStats();
         })();
 
         // 1. FETCH PENDING TRANSFERS
@@ -209,6 +266,211 @@
         async function logout() {
             await supabase.auth.signOut();
             window.location.href = 'login.html';
+        }
+
+        // P7: AI PROMPT EDITOR
+        async function fetchOrgPrompts() {
+            const tbody = document.getElementById('promptsTbody');
+            const { data, error } = await supabase
+                .from('active_org_prompts')
+                .select('id, org_id, channel, system_prompt, version, safety_level')
+                .order('org_id')
+                .order('channel');
+
+            tbody.innerHTML = '';
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-600">No prompts found.</td></tr>`;
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.id = `prompt-row-${row.id}`;
+                tr.className = 'hover:bg-slate-800/50 transition';
+
+                const channelBadge = {
+                    sms:   'bg-blue-500/10 text-blue-300',
+                    email: 'bg-purple-500/10 text-purple-300',
+                    voice: 'bg-green-500/10 text-green-300',
+                }[row.channel] ?? 'bg-slate-700 text-slate-300';
+
+                const safetyBadge = {
+                    strict:   'bg-red-500/10 text-red-400',
+                    moderate: 'bg-yellow-500/10 text-yellow-400',
+                    off:      'bg-slate-700 text-slate-400',
+                }[row.safety_level] ?? 'bg-slate-700 text-slate-400';
+
+                tr.innerHTML = `
+                    <td class="p-4 font-mono text-xs text-slate-500">${row.org_id.slice(0,8)}…</td>
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${channelBadge}">${row.channel}</span></td>
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${safetyBadge}">${row.safety_level}</span></td>
+                    <td class="p-4 text-center font-mono text-xs">v${row.version}</td>
+                    <td class="p-4 text-xs text-slate-300 max-w-xs">
+                        <div id="prompt-display-${row.id}" class="truncate" title="${row.system_prompt.replace(/"/g,'&quot;')}">${row.system_prompt}</div>
+                        <textarea id="prompt-edit-${row.id}" class="hidden w-full bg-slate-800 border border-purple-500/50 rounded-lg p-2 text-xs text-slate-200 resize-y mt-1 focus:outline-none focus:ring-1 focus:ring-purple-500" rows="4">${row.system_prompt}</textarea>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button id="prompt-btn-edit-${row.id}" onclick="startEditPrompt('${row.id}')" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1 px-3 rounded text-xs transition">Edit</button>
+                        <button id="prompt-btn-save-${row.id}" onclick="savePrompt('${row.id}')" class="hidden bg-purple-600 hover:bg-purple-500 text-white font-bold py-1 px-3 rounded text-xs transition">Save</button>
+                        <button id="prompt-btn-cancel-${row.id}" onclick="cancelEditPrompt('${row.id}', \`${row.system_prompt.replace(/`/g,'\\`')}\`)" class="hidden bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-1 px-3 rounded text-xs transition ml-1">Cancel</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function startEditPrompt(id) {
+            document.getElementById(`prompt-display-${id}`).classList.add('hidden');
+            document.getElementById(`prompt-edit-${id}`).classList.remove('hidden');
+            document.getElementById(`prompt-btn-edit-${id}`).classList.add('hidden');
+            document.getElementById(`prompt-btn-save-${id}`).classList.remove('hidden');
+            document.getElementById(`prompt-btn-cancel-${id}`).classList.remove('hidden');
+        }
+
+        function cancelEditPrompt(id, original) {
+            document.getElementById(`prompt-edit-${id}`).value = original;
+            document.getElementById(`prompt-display-${id}`).classList.remove('hidden');
+            document.getElementById(`prompt-edit-${id}`).classList.add('hidden');
+            document.getElementById(`prompt-btn-edit-${id}`).classList.remove('hidden');
+            document.getElementById(`prompt-btn-save-${id}`).classList.add('hidden');
+            document.getElementById(`prompt-btn-cancel-${id}`).classList.add('hidden');
+        }
+
+        async function savePrompt(id) {
+            const newPrompt = document.getElementById(`prompt-edit-${id}`).value.trim();
+            if (!newPrompt) return alert('Prompt cannot be empty.');
+
+            const btn = document.getElementById(`prompt-btn-save-${id}`);
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            const { error } = await supabase
+                .from('org_prompts')
+                .update({ system_prompt: newPrompt, updated_at: new Date().toISOString() })
+                .eq('id', id);
+
+            if (error) {
+                alert('Save failed: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = 'Save';
+                return;
+            }
+
+            document.getElementById(`prompt-display-${id}`).textContent = newPrompt;
+            document.getElementById(`prompt-display-${id}`).title = newPrompt;
+            cancelEditPrompt(id, newPrompt);
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        }
+
+        // P8: RATE LIMIT & SECURITY STATS
+        async function fetchRateLimitStats() {
+            const tbody = document.getElementById('rateLimitTbody');
+            const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+            const [tasksRes, billingRes] = await Promise.all([
+                supabase
+                    .from('execution_tasks')
+                    .select('org_id, status')
+                    .gte('created_at', since),
+                supabase
+                    .from('org_billing_profiles')
+                    .select('org_id, billing_lock_status')
+            ]);
+
+            tbody.innerHTML = '';
+
+            if (tasksRes.error && billingRes.error) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-red-400">⛔ ${tasksRes.error.message}</td></tr>`;
+                return;
+            }
+
+            // Group execution_tasks by org_id
+            const taskMap = {};
+            for (const t of (tasksRes.data ?? [])) {
+                if (!taskMap[t.org_id]) taskMap[t.org_id] = { total: 0, sent: 0, blocked: 0, failed: 0 };
+                taskMap[t.org_id].total++;
+                if (t.status === 'sent' || t.status === 'succeeded') taskMap[t.org_id].sent++;
+                else if (t.status === 'blocked') taskMap[t.org_id].blocked++;
+                else if (t.status === 'failed' || t.status === 'failed_permanent' || t.status === 'failed_security_policy') taskMap[t.org_id].failed++;
+            }
+
+            // Build billing lock map
+            const lockMap = {};
+            for (const b of (billingRes.data ?? [])) {
+                lockMap[b.org_id] = b.billing_lock_status;
+            }
+
+            // Merge all org_ids
+            const allOrgs = new Set([...Object.keys(taskMap), ...Object.keys(lockMap)]);
+
+            if (allOrgs.size === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-600">No data in last 7 days.</td></tr>`;
+                return;
+            }
+
+            allOrgs.forEach(orgId => {
+                const t = taskMap[orgId] ?? { total: 0, sent: 0, blocked: 0, failed: 0 };
+                const lock = lockMap[orgId] ?? 'none';
+
+                const lockBadge = {
+                    none:        'bg-green-500/10 text-green-400',
+                    soft_lock:   'bg-yellow-500/10 text-yellow-400',
+                    hard_lock:   'bg-red-500/10 text-red-400',
+                    manual_lock: 'bg-red-700/20 text-red-300',
+                }[lock] ?? 'bg-slate-700 text-slate-400';
+
+                const blockedClass = t.blocked > 0 ? 'text-yellow-400 font-bold' : 'text-slate-500';
+                const failedClass  = t.failed  > 0 ? 'text-red-400 font-bold'    : 'text-slate-500';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="p-4 font-mono text-xs text-slate-400">${orgId.slice(0,8)}…</td>
+                    <td class="p-4 text-center font-mono">${t.total}</td>
+                    <td class="p-4 text-center font-mono text-green-400">${t.sent}</td>
+                    <td class="p-4 text-center font-mono ${blockedClass}">${t.blocked}</td>
+                    <td class="p-4 text-center font-mono ${failedClass}">${t.failed}</td>
+                    <td class="p-4 text-center"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${lockBadge}">${lock.replace('_',' ')}</span></td>
+                    <td class="p-4 text-center">
+                        <button onclick="toggleKillSwitch('${orgId}', this)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-1 px-3 rounded transition">Check</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function toggleKillSwitch(orgId, btn) {
+            btn.disabled = true;
+            btn.textContent = '…';
+            const { data, error } = await supabase
+                .from('org_settings')
+                .select('kill_switch_enabled')
+                .eq('org_id', orgId)
+                .maybeSingle();
+
+            if (error) { btn.textContent = 'ERR'; btn.disabled = false; return; }
+
+            const current = data?.kill_switch_enabled ?? false;
+            if (!confirm(`Kill switch for org ${orgId.slice(0,8)} is currently ${current ? 'ON' : 'OFF'}.\n${current ? 'Disable' : 'Enable'} it?`)) {
+                btn.textContent = current ? '🔴 ON' : '🟢 OFF';
+                btn.disabled = false;
+                return;
+            }
+
+            const { error: updErr } = await supabase
+                .from('org_settings')
+                .update({ kill_switch_enabled: !current })
+                .eq('org_id', orgId);
+
+            if (updErr) { alert('Update failed: ' + updErr.message); }
+            btn.textContent = !current ? '🔴 ON' : '🟢 OFF';
+            btn.disabled = false;
         }
     </script>
 </body>
