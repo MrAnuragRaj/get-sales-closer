@@ -142,7 +142,15 @@
         // no Web Lock contention, no autoRefreshToken network calls — all known hang sources)
         (async () => {
             try {
-                const raw = localStorage.getItem('sb-klbwigcvrdfeeeeotehu-auth-token');
+                // Scan all localStorage keys — handles any Supabase JS version's key format
+                let raw = null;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+                        raw = localStorage.getItem(k);
+                        if (raw) break;
+                    }
+                }
                 if (!raw) { window.location.replace('login.html'); return; }
 
                 const sess = JSON.parse(raw);
@@ -150,10 +158,17 @@
                 const userId = sess?.user?.id;
                 if (!token || !userId) { window.location.replace('login.html'); return; }
 
-                const r = await fetch(
-                    `${supabaseUrl}/rest/v1/profiles?select=is_admin&id=eq.${userId}&limit=1`,
-                    { headers: { apikey: supabaseKey, Authorization: `Bearer ${token}` } }
-                );
+                // 8-second timeout — spinner can never stay frozen regardless of network
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 8000);
+                let r;
+                try {
+                    r = await fetch(
+                        `${supabaseUrl}/rest/v1/profiles?select=is_admin&id=eq.${userId}&limit=1`,
+                        { headers: { apikey: supabaseKey, Authorization: `Bearer ${token}` }, signal: ctrl.signal }
+                    );
+                } finally { clearTimeout(tid); }
+
                 if (!r.ok) { window.location.replace('login.html'); return; }
 
                 const rows = await r.json();
