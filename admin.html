@@ -135,6 +135,8 @@
 
         // supabase client is assigned to window.supabase inside the IIFE after auth
         // passes — avoids any global-scope naming conflict with the CDN's UMD export.
+        // _adminToken holds the validated JWT so functions.invoke can pass it explicitly.
+        let _adminToken = '';
 
         // Helper: update the visible loading-screen message so we know exactly
         // which step the code reaches. Also logs to console for DevTools.
@@ -215,6 +217,8 @@
                     setTimeout(() => window.location.replace('dashboard.html'), 1500);
                     return;
                 }
+
+                _adminToken = token; // store for use in functions.invoke calls
 
                 setStatus('Step 5 — initialising dashboard…');
                 // Create Supabase client HERE — after auth passes — so any SDK
@@ -395,7 +399,8 @@
 
             try {
                 const { data, error } = await supabase.functions.invoke('notify-partial-payment', {
-                    body: { intent_id: intentId, amount_paid: amountPaid }
+                    body: { intent_id: intentId, amount_paid: amountPaid },
+                    headers: { Authorization: `Bearer ${_adminToken}` }
                 });
                 if (error) throw error;
                 if (data?.error) throw new Error(data.error);
