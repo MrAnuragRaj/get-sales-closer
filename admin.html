@@ -39,7 +39,7 @@
                         <tr>
                             <th class="p-4 rounded-tl-lg">Date</th>
                             <th class="p-4">Reference ID</th>
-                            <th class="p-4">Amount (USD)</th>
+                            <th class="p-4">Amount Due (USD)</th>
                             <th class="p-4">Plan Details</th>
                             <th class="p-4 rounded-tr-lg text-right">Action</th>
                         </tr>
@@ -275,17 +275,35 @@
             }
 
             data.forEach(intent => {
-                // [Same render logic as before...]
+                const snap = intent.pricing_snapshot || {};
+                // Amount due = final_invoice_amount (already includes yearly discount).
+                // Bank transfer gets an extra 8% off applied at checkout but the invoice
+                // total stored in the snapshot is the agreed figure the customer must pay.
+                const amountDue = snap.final_invoice_amount ?? snap.final_total ?? 'N/A';
+                const amountDisplay = amountDue === 'N/A' ? 'N/A' : `$${Number(amountDue).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+
+                const services = snap.inputs?.services || intent.services || {};
+                const serviceList = Object.entries(services)
+                    .filter(([,v]) => v)
+                    .map(([k]) => k)
+                    .join(', ') || '—';
+
                 const row = document.createElement('tr');
+                row.id = `row-${intent.id}`;
                 row.className = "hover:bg-slate-800/50 transition";
                 row.innerHTML = `
                     <td class="p-4 font-mono text-xs">${new Date(intent.created_at).toLocaleDateString()}</td>
                     <td class="p-4 font-mono text-white select-all">${intent.reference_id}</td>
-                    <td class="p-4 font-bold text-[#39FF14]">$${intent.pricing_snapshot?.bank_usd ?? 'N/A'}</td>
-                    <td class="p-4 text-xs max-w-xs truncate font-mono text-blue-300">${JSON.stringify(intent.pricing_snapshot.services || intent.services || {})}</td>
-                    <td class="p-4 text-right">
-                        <button onclick="approve(event, '${intent.id}')" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg text-xs transition disabled:opacity-50">
+                    <td class="p-4 font-bold text-[#39FF14]">${amountDisplay}</td>
+                    <td class="p-4 text-xs text-blue-300">${serviceList}</td>
+                    <td class="p-4 text-right flex gap-2 justify-end flex-wrap">
+                        <button onclick="approve(event, '${intent.id}')"
+                            class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition disabled:opacity-50">
                             Confirm Receipt
+                        </button>
+                        <button onclick="partialPayment('${intent.id}', '${intent.reference_id}', ${amountDue === 'N/A' ? 0 : amountDue})"
+                            class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition">
+                            Partial Payment
                         </button>
                     </td>
                 `;
@@ -348,6 +366,43 @@
             alert("✅ Payment Approved & Access Granted!");
             fetchPendingTransfers(); 
             fetchActiveEntitlements();
+        }
+
+        // PARTIAL PAYMENT — prompt admin for amount received, email customer the shortfall
+        async function partialPayment(intentId, refId, totalDue) {
+            const input = prompt(
+                `Reference: ${refId}\nInvoice Total: $${Number(totalDue).toLocaleString('en-US', {minimumFractionDigits:2})}\n\nHow much did the customer actually pay? (enter amount in USD)`
+            );
+            if (input === null) return; // cancelled
+
+            const amountPaid = parseFloat(input.replace(/[^0-9.]/g, ''));
+            if (isNaN(amountPaid) || amountPaid < 0) {
+                alert('Invalid amount entered.');
+                return;
+            }
+            if (amountPaid >= totalDue) {
+                alert('Amount entered is equal to or greater than the invoice total.\nUse "Confirm Receipt" instead to fully approve the payment.');
+                return;
+            }
+
+            const due = Math.max(0, Math.round((totalDue - amountPaid) * 100) / 100);
+            const confirmed = confirm(
+                `Amount Paid: $${amountPaid.toLocaleString('en-US', {minimumFractionDigits:2})}\n` +
+                `Balance Due: $${due.toLocaleString('en-US', {minimumFractionDigits:2})}\n\n` +
+                `Send a payment shortfall email to the customer?`
+            );
+            if (!confirmed) return;
+
+            try {
+                const { data, error } = await supabase.functions.invoke('notify-partial-payment', {
+                    body: { intent_id: intentId, amount_paid: amountPaid }
+                });
+                if (error) throw error;
+                if (data?.error) throw new Error(data.error);
+                alert(`✅ Email sent to ${data.email_sent_to}\nBalance due: $${due.toLocaleString('en-US', {minimumFractionDigits:2})}`);
+            } catch (err) {
+                alert('Failed to send email: ' + err.message);
+            }
         }
 
         async function logout() {
