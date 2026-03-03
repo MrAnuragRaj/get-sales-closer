@@ -128,7 +128,10 @@
                 const color = isAI ? 'bg-indigo-900/30 border-indigo-500/20' : 'bg-slate-800 border-white/5';
                 const div = document.createElement('div');
                 div.className = 'flex flex-col space-y-1 mb-2';
-                div.innerHTML = `<div class="${color} ${align} p-3 rounded-2xl text-sm max-w-[70%] border text-slate-300">${chat.content}</div>`;
+                const bubble = document.createElement('div');
+                bubble.className = `${color} ${align} p-3 rounded-2xl text-sm max-w-[70%] border text-slate-300`;
+                bubble.textContent = chat.content || '';
+                div.appendChild(bubble);
                 container.appendChild(div);
             });
         }

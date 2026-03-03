@@ -69,6 +69,15 @@
     var status = params.get('status');
     var refId = params.get('ref') || 'Unknown';
 
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // 1. CHECK BANK STATUS IMMEDIATELY
     if (status === 'awaiting_bank') {
         renderBankPendingScreen();
@@ -94,7 +103,7 @@
                         '</div>' +
                     '</div>' +
                     '<h1 class="text-2xl font-extrabold mb-2 tracking-tight">Payment Under Verification</h1>' +
-                    '<div class="text-xs font-mono text-blue-400 mb-4 tracking-wider">REF: ' + refId + '</div>' +
+                    '<div class="text-xs font-mono text-blue-400 mb-4 tracking-wider">REF: ' + escapeHtml(refId) + '</div>' +
                     '<p class="text-slate-300 text-sm mb-6 leading-relaxed">We have received your request. Our finance team is currently matching your bank transfer with this reference ID.</p>' +
                     '<div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 text-left text-sm text-slate-400 mb-6">' +
                         '<div class="flex gap-3 mb-2">' +

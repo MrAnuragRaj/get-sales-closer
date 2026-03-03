@@ -194,7 +194,7 @@
                 row.innerHTML = `
                     <td class="p-4 font-mono text-xs">${new Date(intent.created_at).toLocaleDateString()}</td>
                     <td class="p-4 font-mono text-white select-all">${intent.reference_id}</td>
-                    <td class="p-4 font-bold text-[#39FF14]">$${intent.pricing_snapshot.bank_usd}</td>
+                    <td class="p-4 font-bold text-[#39FF14]">$${intent.pricing_snapshot?.bank_usd ?? 'N/A'}</td>
                     <td class="p-4 text-xs max-w-xs truncate font-mono text-blue-300">${JSON.stringify(intent.pricing_snapshot.services || intent.services || {})}</td>
                     <td class="p-4 text-right">
                         <button onclick="approve(event, '${intent.id}')" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg text-xs transition disabled:opacity-50">
