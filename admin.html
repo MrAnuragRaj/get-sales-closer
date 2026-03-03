@@ -223,8 +223,13 @@
                     // Overwrite window.supabase (the library namespace) with the client
                     // instance. All functions below reference bare `supabase` which
                     // resolves to window.supabase — so they'll get the client automatically.
+                    //
+                    // Key: inject the admin's validated JWT as a global Authorization header.
+                    // This means every query runs with the admin's identity (auth.uid() works
+                    // in RLS policies) without depending on SDK session-storage or Web Locks.
                     window.supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
-                        auth: { autoRefreshToken: false, persistSession: false }
+                        auth: { autoRefreshToken: false, persistSession: false },
+                        global: { headers: { Authorization: `Bearer ${token}` } }
                     });
                 } catch (sdkErr) {
                     setStatus('Step 5 FAILED — SDK error: ' + sdkErr.message);

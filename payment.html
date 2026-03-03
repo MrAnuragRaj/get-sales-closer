@@ -374,7 +374,7 @@
 
             } catch (err) {
                 console.error(err);
-                alert("Connection error. Please try again.");
+                alert("Error: " + (err.message || JSON.stringify(err)));
                 btn.disabled = false;
                 btn.innerText = "I have sent the payment";
             }
