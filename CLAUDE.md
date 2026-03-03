@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-03 (Session 6)
+> Last updated: 2026-03-03 (Session 7)
 > Purpose: Tracks project state, decisions, completed work, and remaining tasks for Claude Code sessions.
 
 ---
@@ -264,6 +264,24 @@ curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/datab
 ---
 
 ## Completed Work Log
+
+### Session 7 — 2026-03-03 (Admin Auth + Storage Upload Fix)
+
+**admin.html — auth method replaced:**
+- Switched from `onAuthStateChange(INITIAL_SESSION)` to `getUser()` IIFE
+- Root cause of frozen spinner: `onAuthStateChange` fires asynchronously and can miss the INITIAL_SESSION event in certain redirect/timing scenarios; `getUser()` validates JWT directly against Supabase API — never hangs, no event race conditions
+- DB confirmed correct: `is_admin = true` for `anurag@yogmayaindustries.com` (id `4c4ae696-de66-4b32-833c-b656454437d6`)
+
+**Storage — documents INSERT policy added (directly via SQL):**
+- Root cause of Knowledge Brain "upload failed: new row violates row-level security policy": storage INSERT policy was never added for the `documents` bucket (only SELECT + DELETE existed)
+- Added: `CREATE POLICY "Users can upload own documents" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'documents' AND (auth.uid())::text = (storage.foldername(name))[1])`
+- Note: The "Upload Failed:" error message prefix comes from the storage upload step (not the DB insert step)
+
+**billing.html — yearly toggle added (Session 6 work also included):**
+- Monthly/Yearly toggle with 20% off yearly (×0.8 multiplier)
+- Explicit dollar savings display; removed misleading "2 months free" note
+
+---
 
 ### Session 6 — 2026-03-03 (Bug Fixes + Supabase Access)
 
