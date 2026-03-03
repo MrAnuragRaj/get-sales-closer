@@ -132,25 +132,32 @@
     <script>
         const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
-        // autoRefreshToken: false prevents the SDK's background token refresh from hanging
-        // on startup (the refresh network call blocks all auth methods via initializePromise)
+        // Supabase client for data queries (fetchPendingTransfers, etc.)
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
             auth: { autoRefreshToken: false }
         });
 
         // --- AUTH + ADMIN GUARD ---
+        // Uses plain fetch() — completely bypasses Supabase SDK auth (no initializePromise,
+        // no Web Lock contention, no autoRefreshToken network calls — all known hang sources)
         (async () => {
             try {
-                const { data: { user }, error: userErr } = await supabase.auth.getUser();
-                if (userErr || !user) { window.location.href = 'login.html'; return; }
+                const raw = localStorage.getItem('sb-klbwigcvrdfeeeeotehu-auth-token');
+                if (!raw) { window.location.replace('login.html'); return; }
 
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('is_admin')
-                    .eq('id', user.id)
-                    .maybeSingle();
+                const sess = JSON.parse(raw);
+                const token = sess?.access_token;
+                const userId = sess?.user?.id;
+                if (!token || !userId) { window.location.replace('login.html'); return; }
 
-                if (!profile?.is_admin) { window.location.href = 'dashboard.html'; return; }
+                const r = await fetch(
+                    `${supabaseUrl}/rest/v1/profiles?select=is_admin&id=eq.${userId}&limit=1`,
+                    { headers: { apikey: supabaseKey, Authorization: `Bearer ${token}` } }
+                );
+                if (!r.ok) { window.location.replace('login.html'); return; }
+
+                const rows = await r.json();
+                if (!rows?.[0]?.is_admin) { window.location.replace('dashboard.html'); return; }
 
                 document.getElementById('loading-screen').style.display = 'none';
                 document.getElementById('dashboard-content').style.display = 'block';
@@ -161,7 +168,7 @@
                 fetchRateLimitStats();
             } catch (err) {
                 console.error('Admin init error:', err);
-                window.location.href = 'login.html';
+                window.location.replace('login.html');
             }
         })();
 
