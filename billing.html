@@ -243,7 +243,7 @@
         }
 
         function updateButtonState() {
-            const hasNew = Object.values(toggles).some(el => el.checked && !el.disabled);
+            const hasNew = Object.values(toggles).some(el => el && el.checked && !el.disabled);
             deployBtn.disabled = !hasNew;
             deployBtn.innerText = hasNew ? "Generate Invoice" : "No Changes Selected";
         }
@@ -255,15 +255,15 @@
             // Build Payload
             const payload = {
                 services: {
-                    sentinel: toggles.S.checked && !owned.services.has('S'),
-                    brain: toggles.B.checked && !owned.services.has('B'),
-                    architect: toggles.A.checked && !owned.services.has('A'),
-                    voice: toggles.L.checked && !owned.services.has('L')
+                    sentinel: toggles.S?.checked && !owned.services.has('S'),
+                    brain: toggles.B?.checked && !owned.services.has('B'),
+                    architect: toggles.A?.checked && !owned.services.has('A'),
+                    voice: toggles.L?.checked && !owned.services.has('L')
                 },
                 addons: {
-                    intake: toggles.Intake.checked && !owned.addons.has('Intake'),
-                    safe_voice: toggles.SafeVoice.checked && !owned.addons.has('SafeVoice'),
-                    priority: toggles.Priority.checked && !owned.addons.has('Priority')
+                    intake: toggles.Intake?.checked && !owned.addons.has('Intake'),
+                    safe_voice: toggles.SafeVoice?.checked && !owned.addons.has('SafeVoice'),
+                    priority: toggles.Priority?.checked && !owned.addons.has('Priority')
                 }
             };
 
