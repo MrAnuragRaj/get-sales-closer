@@ -69,7 +69,7 @@
             <!-- Billing cycle toggle -->
             <div class="flex items-center justify-center gap-3 mb-6">
                 <button id="btnMonthly" onclick="setBillingCycle('monthly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-[#00D1FF] text-slate-950">Monthly</button>
-                <button id="btnYearly" onclick="setBillingCycle('yearly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-slate-800 text-slate-400">Yearly <span class="text-green-400 ml-1">Save 20%</span></button>
+                <button id="btnYearly" onclick="setBillingCycle('yearly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-slate-800 text-slate-400">Yearly <span class="text-green-400 ml-1">Save 12%</span></button>
             </div>
 
             <div class="flex items-center justify-center gap-1 text-white mb-2">
@@ -296,7 +296,7 @@
 
             const rawTotal = base + premium;
             const isYearly = billingCycle === 'yearly';
-            const total = isYearly ? Math.round(rawTotal * 0.8) : rawTotal;
+            const total = isYearly ? Math.round(rawTotal * 0.88) : rawTotal;
             // Show base-implied notice when user picked B/A without explicitly selecting a base
             const baseImplied = !hasBase && (B || A);
             const hint = document.getElementById('baseImpliedHint');
