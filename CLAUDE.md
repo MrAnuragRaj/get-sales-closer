@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-02-27 (Session 5 → 6)
+> Last updated: 2026-03-03 (Session 6)
 > Purpose: Tracks project state, decisions, completed work, and remaining tasks for Claude Code sessions.
 
 ---
@@ -253,7 +253,38 @@ if (service?.status !== 'active') window.location.href = 'billing.html?lock={key
 
 ---
 
+## Supabase Direct Access
+Management API PAT stored in Claude memory (`supabase-access.md`). Run SQL via:
+```bash
+curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/database/query" \
+  -H "Authorization: Bearer {PAT}" -H "Content-Type: application/json" \
+  -d '{"query": "SQL;"}'
+```
+
+---
+
 ## Completed Work Log
+
+### Session 6 — 2026-03-03 (Bug Fixes + Supabase Access)
+
+**billing.html price display fix:**
+- `calculate()` now handles Brain (B) or Architect (A) selected without a base service (S or L)
+- Previously returned `base = 0` → showed `--`; now implies Sentinel ($49) as minimum required base
+- Added `#baseImpliedHint` yellow notice: "Instant Sentinel ($49 base) will be included — required for this module"
+
+**login.html admin redirect fix:**
+- Admin users now redirect to `admin.html` (was incorrectly redirecting to `dashboard.html`)
+- Root cause of redirect-to-pricing: Session 1 SQL used `WHERE email = ...` but `profiles` has no `email` column → UPDATE matched 0 rows → `is_admin` was never set
+
+**Database fix (via Management API):**
+- Ran: `UPDATE profiles SET is_admin = true WHERE id = (SELECT id FROM auth.users WHERE email = 'anurag@yogmayaindustries.com')`
+- Verified: `is_admin = true` confirmed for user id `4c4ae696-de66-4b32-833c-b656454437d6`
+
+**Supabase direct access:**
+- Management API PAT obtained and stored in Claude memory (not in git)
+- Claude can now run arbitrary SQL without user intervention
+
+---
 
 ### Session 4 — 2026-02-26 (Schema Audit + Full Wiring Fixes)
 

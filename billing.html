@@ -65,11 +65,12 @@
         </div>
 
         <div class="glass-card p-10 rounded-[3rem] w-full relative">
-            <div class="flex items-center justify-center gap-1 text-white mb-10">
+            <div class="flex items-center justify-center gap-1 text-white mb-2">
                 <span class="text-3xl font-bold mt-2">$</span>
                 <span id="priceDisplay" class="text-8xl font-black gilroy">--</span>
                 <span class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
             </div>
+            <p id="baseImpliedHint" class="hidden text-center text-xs text-yellow-400 mb-8">Instant Sentinel ($49 base) will be included — required for this module</p>
             
             <div class="space-y-4 mb-10">
                 <div id="card_S" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
@@ -248,17 +249,21 @@
             const A = toggles.A?.checked || false;
             const L = toggles.L?.checked || false;
 
+            // B and A require a base (S or L). If neither is active, S ($49) is implied.
+            const hasBase = S || L;
+            const effS = S || (!hasBase && (B || A));
+
             let base = 0;
             if (L) {
-                if (S && B && A) base = 349;
-                else if (S && B)  base = 299;
-                else if (S && A)  base = 249;
+                if (effS && B && A) base = 349;
+                else if (effS && B)  base = 299;
+                else if (effS && A)  base = 249;
                 else if (B && A)  base = 299;
-                else if (S)       base = 199;
+                else if (effS)       base = 199;
                 else if (B)       base = 249;
                 else if (A)       base = 199;
                 else              base = 149;
-            } else if (S) {
+            } else if (effS) {
                 if (B && A) base = 249;
                 else if (B) base = 199;
                 else if (A) base = 149;
@@ -271,6 +276,10 @@
             if (toggles.Priority?.checked)  premium += 149;
 
             const total = base + premium;
+            // Show base-implied notice when user picked B/A without explicitly selecting a base
+            const baseImplied = !hasBase && (B || A);
+            const hint = document.getElementById('baseImpliedHint');
+            if (hint) hint.classList.toggle('hidden', !baseImplied);
             document.getElementById('priceDisplay').innerText = total > 0 ? total : '--';
         }
 
