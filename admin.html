@@ -133,9 +133,8 @@
         const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
 
-        // Supabase client — assigned inside IIFE after auth passes, so createClient
-        // errors cannot silently freeze the spinner before the guard even starts.
-        let supabase;
+        // supabase client is assigned to window.supabase inside the IIFE after auth
+        // passes — avoids any global-scope naming conflict with the CDN's UMD export.
 
         // Helper: update the visible loading-screen message so we know exactly
         // which step the code reaches. Also logs to console for DevTools.
@@ -221,7 +220,10 @@
                 // Create Supabase client HERE — after auth passes — so any SDK
                 // initialisation error cannot silently block the auth guard.
                 try {
-                    supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
+                    // Overwrite window.supabase (the library namespace) with the client
+                    // instance. All functions below reference bare `supabase` which
+                    // resolves to window.supabase — so they'll get the client automatically.
+                    window.supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
                         auth: { autoRefreshToken: false, persistSession: false }
                     });
                 } catch (sdkErr) {
