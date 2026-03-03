@@ -39,7 +39,7 @@ Business model: Freemium with tiered module-based pricing.
 | File | Purpose | Status |
 |---|---|---|
 | `index.html` | Landing page, ROI calculator, dynamic pricing engine | ✅ Complete — CTAs wired to `pricing.html` |
-| `login.html` | Multi-channel auth (OTP + OAuth + Email/Password Sign In) — post-login redirect via `org_members → org_services` | ✅ Fixed (Session 9) — added Sign In / Sign Up toggle for email+password |
+| `login.html` | Multi-channel auth (OTP + OAuth + Email/Password Sign In) — post-login redirect via `org_members → org_services` + invitation claim + role routing | ✅ Updated (Session 10) — invitation auto-claim + role-based routing (agency_admin/enterprise_admin/enterprise_agent/solo) |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ Complete |
 | `dashboard.html` | "Deal Commander" main UI — all widgets wired to real data | ✅ Complete |
 | `dashboard.js` | ~~Deleted~~ — dead code, never loaded by dashboard.html | 🗑️ Deleted |
@@ -48,7 +48,7 @@ Business model: Freemium with tiered module-based pricing.
 | `billing.html` | Upgrade/manage plan engine for existing subscribers | ✅ Complete |
 | `payment.html` | Razorpay checkout + bank transfer — auth guard added | ✅ Fixed (Session 4 + Session 8) — `markAsSent()` now calls `mark_intent_awaiting_bank` RPC |
 | `success.html` | Post-payment verification (polls billing_intents for 'paid') | ✅ Working |
-| `admin.html` | Finance Command — bank transfers + entitlements + AI Prompt Editor + Rate Limit panel + Partial Payment button (admin-only) | ✅ Complete — fully fixed Session 8 |
+| `admin.html` | Finance Command — bank transfers + entitlements + AI Prompt Editor + Rate Limit panel + Partial Payment + Pending Deals + Create Deal form (admin-only) | ✅ Updated (Session 10) — added Pending Agency/Enterprise Deals section + Create Deal form |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + chat surveillance | ✅ Complete |
 | `Voice Liaison.html` | Call logs + sentiment + Replay button (VAPI recordings) | ✅ Complete |
 | `Knowledge Brain.html` | AI knowledge base — PDF upload + text rules + read/delete view | ✅ Complete |
@@ -127,7 +127,7 @@ guardrails/prompt_packager.ts, security.ts, retry_policy.ts, strike_time.ts — 
 `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`,
 `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`,
 `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts`,
-`decision_plans`, `organizations`
+`decision_plans`, `organizations`, `org_invitations`
 
 ### Tables Confirmed & Seeded (Session 5)
 | Table | Status |
@@ -175,7 +175,8 @@ guardrails/prompt_packager.ts, security.ts, retry_policy.ts, strike_time.ts — 
 `create_checkout_intent`, `record_webhook_and_process_razorpay`, `resolve_billing_recipients_v1`,
 `is_kill_switch_enabled_v1`, `is_org_member`, `is_org_admin_or_owner`,
 `enforce_rate_limit_v1`, `claim_pending_notifications`, `claim_campaign_leads`,
-`fetch_due_tasks`, `execution_policy_v1`
+`fetch_due_tasks`, `execution_policy_v1`,
+`create_agency_enterprise_deal`, `approve_agency_enterprise_deal`, `get_agent_leaderboard`
 
 ---
 
@@ -247,6 +248,34 @@ if (service?.status !== 'active') window.location.href = 'billing.html?lock={key
 | P9 | `conversation_state` TTL — pg_cron job, daily 3am UTC, 90-day expiry | ✅ Done (cron job id=8) |
 | P10 | `pricing.html` → `auth.js` pattern | ✅ Done |
 
+### 🔜 Phase 4 — Deferred (NOT started)
+- **Vertical Lexicon / Persona Injection** — per-org AI persona config, industry-specific language packs, persona editor in admin panel
+- Deferred by design — Phase 4 scope was explicitly excluded from current implementation
+
+### 🧪 Multi-Tenant E2E Tests (next session, before any first agency/enterprise deal goes live)
+
+| # | Test | Status |
+|---|---|---|
+| MT1 | Create Deal form → RPC creates org + billing_intent with intent_source='admin_deal' | ⬜ Not tested |
+| MT2 | Confirm Payment button → org_services activated + org_invitations row created | ⬜ Not tested |
+| MT3 | Copy Payment Instructions → correct email text with ref ID on clipboard | ⬜ Not tested |
+| MT4 | Invited owner logs in → org_invitations claimed → org_members row created + invite deleted | ⬜ Not tested |
+| MT5 | agency_admin logs in → lands on agency_admin.html (not dashboard) | ⬜ Not tested |
+| MT6 | enterprise_admin logs in → lands on enterprise_admin.html | ⬜ Not tested |
+| MT7 | enterprise_agent logs in → lands on agent_dashboard.html | ⬜ Not tested |
+| MT8 | agency_admin Add User → seat limit check works; invite shows in Pending list | ⬜ Not tested |
+| MT9 | agency_admin seat limit reached → "Seat limit reached" warning shown in modal | ⬜ Not tested |
+| MT10 | enterprise_admin leaderboard → get_agent_leaderboard RPC returns data | ⬜ Not tested |
+| MT11 | enterprise_admin credit limit inline edit → org_members.credit_limit updated | ⬜ Not tested |
+| MT12 | enterprise_admin Pause Campaigns toggle → org_members.campaigns_paused = true | ⬜ Not tested |
+| MT13 | enterprise_admin overseer slide-out → shows agent's leads + interactions | ⬜ Not tested |
+| MT14 | Reassign Lead → leads.assigned_to updated; overseer refreshes | ⬜ Not tested |
+| MT15 | enterprise_agent campaigns_paused = true → amber banner visible on agent_dashboard | ⬜ Not tested |
+| MT16 | agent_dashboard My Leads → only shows leads WHERE assigned_to = uid (RLS enforced) | ⬜ Not tested |
+| MT17 | Add Lead modal → lead inserted with correct assigned_to + org_id | ⬜ Not tested |
+| MT18 | Add Lead + AI toggle → decision_plans row + execution_tasks row created | ⬜ Not tested |
+| MT19 | enterprise_agent cannot see other agents' leads (RLS check) | ⬜ Not tested |
+
 ---
 
 ## 🧪 END-TO-END TEST PLAN (Next Session)
@@ -283,6 +312,9 @@ if (service?.status !== 'active') window.location.href = 'billing.html?lock={key
 - [x] Active Entitlements table loads with human-readable service names
 - [x] AI Prompt Editor — prompts show per org×channel; inline edit → save works
 - [x] Rate Limit panel — org rows with task counts + billing lock status
+- [ ] Pending Agency/Enterprise Deals section loads (shows admin_deal intents)
+- [ ] Create Deal form → billing_intent created, ref ID + bank details shown
+- [ ] Confirm Payment (deal) → org_services activated + org_invitations created
 
 ---
 
