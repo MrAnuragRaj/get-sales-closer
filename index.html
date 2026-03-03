@@ -391,24 +391,23 @@
             // --- 2. PRICING HIERARCHY ---
             if (L) {
                 if (S && B && A) {
-                    base = 349; 
-                    if(event && event.target.id === 'toggleA') showNotice("🔥 ELITE STATUS: YOU CAN NOW CHOOSE ALL SENTINEL OPTIONS NOW!");
-                }
-                else if (S && A) {
                     base = 349;
-                    base += Math.max(0, (count - 3) * 10);
-                    if(event && event.target.id === 'toggleA') showNotice("⚡ PERK: CHOOSE ONE MORE SENTINEL FOR FREE!");
+                    if(event && event.target.id === 'toggleA') showNotice("🔥 ELITE STATUS: ALL MODULES ACTIVE!");
                 }
-                else if (B) { base = 299; }
-                else if (A) { base = 249; }
-                else { base = 249; }
+                else if (S && B) { base = 299; }
+                else if (S && A) { base = 249; }
+                else if (B && A) { base = 299; }
+                else if (S) { base = 199; }
+                else if (B) { base = 249; }
+                else if (A) { base = 199; }
+                else { base = 149; }
             }
             else if (S) {
-                if (B && A) { base = 199; }
-                else if (B) { base = 149; }
+                if (B && A) { base = 249; }
+                else if (B) { base = 199; }
                 else if (A) { base = 149; }
                 else {
-                    base = 49; 
+                    base = 49;
                     base += Math.max(0, (count - 2) * 10);
                     if (event && event.target.id === 'toggleS' && S) { showNotice("💎 DUO DEAL: CHOOSE ANY TWO CHANNELS FOR $49"); }
                 }

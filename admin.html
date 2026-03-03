@@ -343,7 +343,7 @@
                 row.innerHTML = `
                     <td class="p-4 font-mono text-xs">${new Date(ent.created_at).toLocaleDateString()}</td>
                     <td class="p-4 font-mono text-white">${ent.reference_id || 'N/A'}</td>
-                    <td class="p-4 text-xs font-mono text-blue-300 max-w-xs truncate">${JSON.stringify(services)}</td>
+                    <td class="p-4 text-xs text-blue-300">${Object.entries(services).filter(([,v]) => v).map(([k]) => k).join(', ') || '—'}</td>
                     <td class="p-4"><span class="bg-green-500/10 text-green-400 px-2 py-1 rounded text-xs font-bold uppercase">${ent.status}</span></td>
                 `;
                 tbody.appendChild(row);
@@ -411,7 +411,15 @@
         }
 
         async function logout() {
-            await supabase.auth.signOut();
+            // The admin client has persistSession:false so SDK won't clear localStorage.
+            // Manually remove all stored Supabase sessions first, then revoke server-side.
+            const toRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) toRemove.push(k);
+            }
+            toRemove.forEach(k => localStorage.removeItem(k));
+            try { await supabase.auth.signOut(); } catch(e) {}
             window.location.href = 'login.html';
         }
 

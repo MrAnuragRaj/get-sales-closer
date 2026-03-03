@@ -15,10 +15,10 @@
             <span class="text-xl font-bold text-slate-900">GetSalesCloser</span>
         </div>
         
-        <h2 class="text-2xl font-bold text-slate-900 mb-2">Create your account</h2>
-        <p class="text-sm text-slate-500 mb-6">Join the real estate agents closing deals 24/7.</p>
+        <h2 id="auth-heading" class="text-2xl font-bold text-slate-900 mb-2">Create your account</h2>
+        <p id="auth-subheading" class="text-sm text-slate-500 mb-6">Join the real estate agents closing deals 24/7.</p>
 
-        <div class="grid grid-cols-6 gap-2 mb-6">
+        <div class="grid grid-cols-5 gap-2 mb-6">
             <button onclick="signInWithProvider('google')" title="Google" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
             </button>
@@ -33,9 +33,6 @@
             </button>
             <button onclick="signInWithProvider('twitter')" title="X" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-black">
                 <i class="fa-brands fa-x-twitter text-xl"></i>
-            </button>
-            <button onclick="signInWithProvider('github')" title="GitHub" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-black">
-                <i class="fa-brands fa-github text-xl"></i>
             </button>
         </div>
 
@@ -61,11 +58,16 @@
         </div>
 
         <form id="signup-form" class="space-y-4 border-t border-slate-200 pt-4">
-            <input type="text" id="full_name" placeholder="Full Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
-            <input type="text" id="company" placeholder="Company Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            <div id="signup-extra-fields">
+                <input type="text" id="full_name" placeholder="Full Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl mb-4">
+                <input type="text" id="company" placeholder="Company Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+            </div>
             <input type="email" id="email" placeholder="Email Address" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
             <input type="password" id="password" placeholder="Password" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
-            <button type="submit" class="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold">Sign Up</button>
+            <button type="submit" id="auth-submit-btn" class="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold">Sign Up</button>
+            <p class="text-center text-sm text-slate-500" id="auth-toggle-text">
+                Already have an account? <button type="button" onclick="switchToSignIn()" class="text-slate-900 font-semibold hover:underline">Sign in</button>
+            </p>
         </form>
     </div>
 
@@ -135,6 +137,29 @@
             if (error) alert(error.message);
         };
 
+        // Toggle between Sign Up and Sign In modes
+        let _authMode = 'signup';
+        window.switchToSignIn = () => {
+            _authMode = 'signin';
+            document.getElementById('auth-heading').textContent = 'Sign in to your account';
+            document.getElementById('auth-subheading').textContent = 'Welcome back. Enter your email and password.';
+            document.getElementById('signup-extra-fields').classList.add('hidden');
+            document.getElementById('full_name').removeAttribute('required');
+            document.getElementById('company').removeAttribute('required');
+            document.getElementById('auth-submit-btn').textContent = 'Sign In';
+            document.getElementById('auth-toggle-text').innerHTML = `New here? <button type="button" onclick="switchToSignUp()" class="text-slate-900 font-semibold hover:underline">Create account</button>`;
+        };
+        window.switchToSignUp = () => {
+            _authMode = 'signup';
+            document.getElementById('auth-heading').textContent = 'Create your account';
+            document.getElementById('auth-subheading').textContent = 'Join the real estate agents closing deals 24/7.';
+            document.getElementById('signup-extra-fields').classList.remove('hidden');
+            document.getElementById('full_name').setAttribute('required', '');
+            document.getElementById('company').setAttribute('required', '');
+            document.getElementById('auth-submit-btn').textContent = 'Sign Up';
+            document.getElementById('auth-toggle-text').innerHTML = `Already have an account? <button type="button" onclick="switchToSignIn()" class="text-slate-900 font-semibold hover:underline">Sign in</button>`;
+        };
+
         window.sendOTP = async () => {
             const phone = document.getElementById('phone').value;
             const { error } = await supabase.auth.signInWithOtp({ phone });
@@ -155,17 +180,44 @@
 
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('auth-submit-btn');
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const full_name = document.getElementById('full_name').value;
-            const company = document.getElementById('company').value;
 
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: { data: { full_name, company } }
-            });
-            if (error) alert(error.message);
+            btn.disabled = true;
+
+            if (_authMode === 'signin') {
+                btn.textContent = 'Signing in…';
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+                if (error) alert(error.message);
+                // On success, onAuthStateChange fires SIGNED_IN and handles redirect
+            } else {
+                btn.textContent = 'Creating account…';
+                const full_name = document.getElementById('full_name').value;
+                const company = document.getElementById('company').value;
+
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { full_name, company } }
+                });
+
+                btn.disabled = false;
+                btn.textContent = 'Sign Up';
+
+                if (error) {
+                    alert(error.message);
+                } else {
+                    document.getElementById('signup-form').innerHTML = `
+                        <div class="text-center py-6 space-y-3">
+                            <div class="text-3xl">📧</div>
+                            <h3 class="font-bold text-slate-900 text-lg">Check your email</h3>
+                            <p class="text-sm text-slate-500">We sent a confirmation link to <strong>${email}</strong>.<br>Click it to activate your account, then come back to sign in.</p>
+                        </div>`;
+                }
+            }
         });
     </script>
 </body>
