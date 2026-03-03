@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Dashboard | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        #page-content { display: none; }
+        #auth-loader { display: flex; }
+        .status-tab.active { background: #1e293b; color: #fff; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Auth Loader -->
+    <div id="auth-loader" class="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center z-50">
+        <div class="h-12 w-12 border-4 border-green-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Loading Dashboard...</p>
+    </div>
+
+    <div id="page-content" class="max-w-5xl mx-auto px-6 py-10">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="h-7 w-7 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">GS</div>
+                    <span id="org-name-header" class="text-slate-400 text-sm"></span>
+                </div>
+                <h1 class="text-2xl font-black text-white uppercase tracking-tight" id="agent-name-header">My Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="credit-usage" class="hidden text-xs text-slate-400"></div>
+                <button onclick="logout()" class="text-slate-500 hover:text-white text-sm transition">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- Campaigns Paused Banner -->
+        <div id="paused-banner" class="hidden mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm font-semibold px-5 py-3 rounded-xl flex items-center gap-3">
+            <i class="fa fa-pause-circle text-amber-400"></i>
+            Your outreach campaigns are currently paused by your admin.
+        </div>
+
+        <!-- My Leads Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-green-400"></div>
+                    <h2 class="text-lg font-bold text-white">My Leads</h2>
+                    <span id="lead-count" class="text-xs text-slate-500 font-mono"></span>
+                </div>
+                <button onclick="openAddLeadModal()"
+                    class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition">
+                    <i class="fa fa-plus mr-1"></i> Add Lead
+                </button>
+            </div>
+
+            <!-- Status Filter Tabs -->
+            <div class="flex flex-wrap gap-2 mb-5" id="status-tabs">
+                <button class="status-tab active text-xs font-bold px-3 py-1.5 rounded-full border border-slate-700 text-slate-300 transition" data-status="all" onclick="setStatusFilter('all', this)">All</button>
+                <button class="status-tab text-xs font-bold px-3 py-1.5 rounded-full border border-slate-700 text-slate-500 transition" data-status="new" onclick="setStatusFilter('new', this)">New</button>
+                <button class="status-tab text-xs font-bold px-3 py-1.5 rounded-full border border-slate-700 text-slate-500 transition" data-status="active" onclick="setStatusFilter('active', this)">Active</button>
+                <button class="status-tab text-xs font-bold px-3 py-1.5 rounded-full border border-slate-700 text-slate-500 transition" data-status="closed_won" onclick="setStatusFilter('closed_won', this)">Closed Won</button>
+                <button class="status-tab text-xs font-bold px-3 py-1.5 rounded-full border border-slate-700 text-slate-500 transition" data-status="closed_lost" onclick="setStatusFilter('closed_lost', this)">Closed Lost</button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Name</th>
+                            <th class="p-4">Phone</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Last Contact</th>
+                            <th class="p-4">Source</th>
+                            <th class="p-4 rounded-tr-lg">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="6" class="p-8 text-center italic opacity-50">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Activity Feed -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="h-3 w-3 rounded-full bg-blue-400"></div>
+                <h2 class="text-lg font-bold text-white">Recent Activity</h2>
+            </div>
+            <div id="activity-feed" class="space-y-3">
+                <p class="text-slate-600 text-sm italic">Loading activity...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Lead Modal -->
+    <div id="add-lead-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-white mb-5">Add New Lead</h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1 font-bold">Name *</label>
+                        <input id="lead-name" type="text" required placeholder="Jane Smith"
+                            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1 font-bold">Phone *</label>
+                        <input id="lead-phone" type="tel" required placeholder="+1234567890"
+                            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 font-bold">Email</label>
+                    <input id="lead-email" type="email" placeholder="jane@example.com"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 font-bold">Lead Source</label>
+                    <select id="lead-source"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                        <option value="manual">Manual Entry</option>
+                        <option value="referral">Referral</option>
+                        <option value="walk_in">Walk-in</option>
+                        <option value="cold_call">Cold Call</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 font-bold">Context / Notes</label>
+                    <textarea id="lead-notes" rows="3" placeholder="Any context about this lead..."
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500 resize-none"></textarea>
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3">
+                    <input type="checkbox" id="lead-ai-toggle" class="rounded w-4 h-4">
+                    <div>
+                        <p class="text-sm text-white font-semibold">Trigger AI Outreach Sequence</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Automatically send an introductory SMS via the AI engine</p>
+                    </div>
+                </label>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="submitLead()" id="add-lead-btn" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm transition">Add Lead</button>
+                <button onclick="closeAddLeadModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        let _sb, _orgId, _userId;
+        let _allLeads = [];
+        let _statusFilter = 'all';
+
+        requireAuth({
+            onAuthenticated: async (profile, user, sb) => {
+                _sb = sb;
+                _userId = user.id;
+
+                const { data: membership } = await sb
+                    .from('org_members')
+                    .select('org_id, role, campaigns_paused, credit_limit')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (!membership || membership.role !== 'enterprise_agent') {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+                _orgId = membership.org_id;
+
+                // Org name
+                const { data: org } = await sb
+                    .from('organizations')
+                    .select('name')
+                    .eq('id', _orgId)
+                    .single();
+                document.getElementById('org-name-header').textContent = org?.name || '';
+                document.getElementById('agent-name-header').textContent = profile?.full_name || 'Agent Dashboard';
+
+                // Campaigns paused banner
+                if (membership.campaigns_paused) {
+                    document.getElementById('paused-banner').classList.remove('hidden');
+                }
+
+                // Credit usage
+                if (membership.credit_limit) {
+                    const creditEl = document.getElementById('credit-usage');
+                    creditEl.textContent = `Credit limit: ${membership.credit_limit.toLocaleString()} tokens`;
+                    creditEl.classList.remove('hidden');
+                }
+
+                loadLeads();
+                loadActivity();
+            }
+        });
+
+        // --- LEADS ---
+        async function loadLeads() {
+            const tbody = document.getElementById('leadsTable');
+            const { data, error } = await _sb
+                .from('leads')
+                .select('id, name, phone, email, status, last_interaction_at, source, notes')
+                .eq('assigned_to', _userId)
+                .order('last_interaction_at', { ascending: false, nullsFirst: false });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                return;
+            }
+            _allLeads = data || [];
+            document.getElementById('lead-count').textContent = `(${_allLeads.length})`;
+            renderLeads();
+        }
+
+        function setStatusFilter(status, btn) {
+            _statusFilter = status;
+            document.querySelectorAll('.status-tab').forEach(t => {
+                t.classList.remove('active');
+                t.classList.add('text-slate-500');
+                t.classList.remove('text-slate-300');
+            });
+            btn.classList.add('active', 'text-slate-300');
+            btn.classList.remove('text-slate-500');
+            renderLeads();
+        }
+
+        function renderLeads() {
+            const tbody = document.getElementById('leadsTable');
+            const filtered = _statusFilter === 'all'
+                ? _allLeads
+                : _allLeads.filter(l => l.status === _statusFilter);
+
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-600">No leads ${_statusFilter !== 'all' ? 'with status "' + _statusFilter + '"' : ''}.</td></tr>`;
+                return;
+            }
+
+            const statusColors = {
+                new: 'bg-blue-500/10 text-blue-300',
+                active: 'bg-green-500/10 text-green-400',
+                closed_won: 'bg-emerald-500/10 text-emerald-400',
+                closed_lost: 'bg-red-500/10 text-red-400',
+                paused: 'bg-yellow-500/10 text-yellow-400'
+            };
+
+            filtered.forEach(lead => {
+                const sc = statusColors[lead.status] || 'bg-slate-700 text-slate-400';
+                const lastContact = lead.last_interaction_at
+                    ? timeAgo(new Date(lead.last_interaction_at))
+                    : '—';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="p-4 text-white font-medium">${lead.name || '—'}</td>
+                    <td class="p-4 font-mono text-xs">${lead.phone || '—'}</td>
+                    <td class="p-4"><span class="px-2 py-0.5 rounded text-xs font-bold uppercase ${sc}">${(lead.status || 'new').replace('_',' ')}</span></td>
+                    <td class="p-4 text-xs text-slate-400">${lastContact}</td>
+                    <td class="p-4 text-xs text-slate-400">${lead.source || '—'}</td>
+                    <td class="p-4 text-xs text-slate-400 max-w-[180px] truncate" title="${(lead.notes || '').replace(/"/g,'&quot;')}">${lead.notes || '—'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- ACTIVITY FEED ---
+        async function loadActivity() {
+            const container = document.getElementById('activity-feed');
+            if (_allLeads.length === 0) {
+                // Re-fetch leads if not loaded yet (activity called before leads finish)
+                const { data } = await _sb
+                    .from('leads')
+                    .select('id')
+                    .eq('assigned_to', _userId);
+                _allLeads = data || [];
+            }
+
+            const leadIds = _allLeads.map(l => l.id);
+            if (leadIds.length === 0) {
+                container.innerHTML = `<p class="text-slate-600 text-sm italic">Add your first lead to see activity here.</p>`;
+                return;
+            }
+
+            const { data: interactions, error } = await _sb
+                .from('interactions')
+                .select('id, lead_id, direction, content, channel, created_at, leads(name)')
+                .in('lead_id', leadIds)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            container.innerHTML = '';
+            if (error || !interactions || interactions.length === 0) {
+                container.innerHTML = `<p class="text-slate-600 text-sm italic">No activity yet.</p>`;
+                return;
+            }
+
+            interactions.forEach(ix => {
+                const isOut = ix.direction === 'outbound';
+                const channelIcon = {
+                    sms: 'fa-comment-sms',
+                    email: 'fa-envelope',
+                    voice: 'fa-phone'
+                }[ix.channel] || 'fa-circle';
+
+                const div = document.createElement('div');
+                div.className = `flex gap-3 p-3 rounded-xl border ${isOut ? 'border-blue-500/20 bg-blue-500/5' : 'border-green-500/20 bg-green-500/5'}`;
+                div.innerHTML = `
+                    <div class="shrink-0 mt-0.5">
+                        <i class="fa ${channelIcon} text-sm ${isOut ? 'text-blue-400' : 'text-green-400'}"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-xs font-bold text-slate-300">${ix.leads?.name || 'Lead'}</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-xs px-1.5 py-0.5 rounded font-bold ${isOut ? 'bg-blue-500/10 text-blue-300' : 'bg-green-500/10 text-green-300'}">${isOut ? 'Sent' : 'Received'}</span>
+                                <span class="text-xs text-slate-600">${timeAgo(new Date(ix.created_at))}</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400 line-clamp-2">${ix.content || '—'}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- ADD LEAD MODAL ---
+        function openAddLeadModal() {
+            ['lead-name','lead-phone','lead-email','lead-notes'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('lead-source').value = 'manual';
+            document.getElementById('lead-ai-toggle').checked = false;
+            document.getElementById('add-lead-modal').classList.remove('hidden');
+        }
+        function closeAddLeadModal() {
+            document.getElementById('add-lead-modal').classList.add('hidden');
+        }
+
+        async function submitLead() {
+            const name = document.getElementById('lead-name').value.trim();
+            const phone = document.getElementById('lead-phone').value.trim();
+            if (!name || !phone) { alert('Name and phone are required.'); return; }
+
+            const btn = document.getElementById('add-lead-btn');
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            const notes = document.getElementById('lead-notes').value.trim();
+            const triggerAI = document.getElementById('lead-ai-toggle').checked;
+
+            // 1. Insert lead
+            const { data: lead, error: leadErr } = await _sb.from('leads').insert({
+                org_id: _orgId,
+                assigned_to: _userId,
+                name,
+                phone,
+                email: document.getElementById('lead-email').value.trim() || null,
+                source: document.getElementById('lead-source').value,
+                status: 'new',
+                notes: notes || null
+            }).select('id').single();
+
+            if (leadErr) {
+                alert('Failed to add lead: ' + leadErr.message);
+                btn.disabled = false;
+                btn.textContent = 'Add Lead';
+                return;
+            }
+
+            // 2. If AI toggle checked — create decision_plan + execution_task
+            if (triggerAI) {
+                try {
+                    // Create a decision plan row first (plan_id is required by execution_tasks)
+                    const { data: plan, error: planErr } = await _sb.from('decision_plans').insert({
+                        lead_id: lead.id,
+                        org_id: _orgId,
+                        trigger: 'manual_agent',
+                        plan: { steps: [{ channel: 'sms', delay_minutes: 0 }], context: notes || '' }
+                    }).select('id').single();
+
+                    if (!planErr && plan) {
+                        await _sb.from('execution_tasks').insert({
+                            plan_id: plan.id,
+                            lead_id: lead.id,
+                            org_id: _orgId,
+                            channel: 'sms',
+                            max_attempts: 1,
+                            scheduled_for: new Date().toISOString(),
+                            status: 'pending',
+                            metadata: { type: 'introductory_sms', context: notes || '', triggered_by: _userId }
+                        });
+                    }
+                } catch (aiErr) {
+                    console.warn('AI task creation failed (non-fatal):', aiErr);
+                }
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Add Lead';
+            closeAddLeadModal();
+            await loadLeads();
+            loadActivity();
+        }
+
+        // --- UTILS ---
+        function timeAgo(date) {
+            const diff = Math.floor((Date.now() - date) / 1000);
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+            return `${Math.floor(diff/86400)}d ago`;
+        }
+
+        async function logout() {
+            await _sb.auth.signOut();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

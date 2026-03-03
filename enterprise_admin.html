@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Command | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        #page-content { display: none; }
+        #auth-loader { display: flex; }
+        #overseer-panel { transform: translateX(100%); transition: transform 0.3s ease; }
+        #overseer-panel.open { transform: translateX(0); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Auth Loader -->
+    <div id="auth-loader" class="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center z-50">
+        <div class="h-12 w-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Loading Command Center...</p>
+    </div>
+
+    <div id="page-content" class="max-w-6xl mx-auto px-6 py-10">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="h-7 w-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">GS</div>
+                    <span class="text-slate-400 text-sm">GetSalesCloser</span>
+                </div>
+                <h1 class="text-2xl font-black text-white uppercase tracking-tight" id="org-name-header">Enterprise Command</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="admin-name" class="text-slate-400 text-sm"></span>
+                <button onclick="logout()" class="text-slate-500 hover:text-white text-sm transition">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+            <div class="flex items-center gap-3 mb-6">
+                <i class="fa fa-trophy text-yellow-400"></i>
+                <h2 class="text-lg font-bold text-white">Top Closers</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg w-12">Rank</th>
+                            <th class="p-4">Agent Name</th>
+                            <th class="p-4 text-center">Total Leads</th>
+                            <th class="p-4 text-center">Leads Closed</th>
+                            <th class="p-4 rounded-tr-lg text-center">Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="5" class="p-8 text-center italic opacity-50">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Agent Management -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-purple-400"></div>
+                    <h2 class="text-lg font-bold text-white">Agent Management</h2>
+                </div>
+                <button onclick="openAddAgentModal()"
+                    class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition">
+                    <i class="fa fa-plus mr-1"></i> Add Agent
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Agent Name</th>
+                            <th class="p-4">Email</th>
+                            <th class="p-4 text-center">Credit Limit</th>
+                            <th class="p-4 text-center">Campaigns</th>
+                            <th class="p-4 rounded-tr-lg text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agentsTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="5" class="p-8 text-center italic opacity-50">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Overseer Panel -->
+    <div id="overseer-panel" class="fixed right-0 inset-y-0 w-full sm:w-[480px] bg-slate-900 border-l border-slate-700 z-40 flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between p-5 border-b border-slate-800">
+            <div>
+                <h3 id="overseer-name" class="text-white font-bold text-lg"></h3>
+                <p id="overseer-stats" class="text-slate-400 text-xs mt-0.5"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="overseer-pause-btn" onclick="toggleAgentCampaigns()" class="text-xs font-bold py-1.5 px-3 rounded-lg transition bg-yellow-600 hover:bg-yellow-500 text-white">Pause Campaigns</button>
+                <button onclick="closeOverseer()" class="text-slate-400 hover:text-white text-xl leading-none ml-2">×</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+            <!-- Agent Leads -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Their Leads</h4>
+                <div id="overseer-leads" class="space-y-2"></div>
+            </div>
+            <!-- Recent Conversations -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Recent Conversations</h4>
+                <div id="overseer-interactions" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+    <!-- Overseer backdrop -->
+    <div id="overseer-backdrop" class="hidden fixed inset-0 bg-black/50 z-30" onclick="closeOverseer()"></div>
+
+    <!-- Add Agent Modal -->
+    <div id="add-agent-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold text-white mb-4">Add Agent</h3>
+            <input id="agent-email" type="email" placeholder="agent@company.com"
+                class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-purple-500">
+            <div class="flex gap-3">
+                <button onclick="sendAgentInvite()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-sm transition">Send Invite</button>
+                <button onclick="closeAddAgentModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reassign Dropdown (hidden, positioned dynamically) -->
+    <div id="reassign-dropdown" class="hidden fixed bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 min-w-[200px] p-2 text-sm"></div>
+
+    <script src="auth.js"></script>
+    <script>
+        let _sb, _orgId, _currentUserId;
+        let _agents = [];   // [{user_id, full_name, email, campaigns_paused, credit_limit}]
+        let _activeAgentId = null;
+        let _activeAgentPaused = false;
+
+        requireAuth({
+            onAuthenticated: async (profile, user, sb) => {
+                _sb = sb;
+                _currentUserId = user.id;
+
+                const { data: membership } = await sb
+                    .from('org_members')
+                    .select('org_id, role')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (!membership || membership.role !== 'enterprise_admin') {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+                _orgId = membership.org_id;
+
+                const { data: org } = await sb
+                    .from('organizations')
+                    .select('name')
+                    .eq('id', _orgId)
+                    .single();
+
+                document.getElementById('org-name-header').textContent = (org?.name || 'Enterprise') + ' — Command';
+                document.getElementById('admin-name').textContent = profile?.full_name || user.email;
+
+                loadLeaderboard();
+                loadAgents();
+            }
+        });
+
+        // --- LEADERBOARD ---
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboardTable');
+            const { data, error } = await _sb.rpc('get_agent_leaderboard', { p_org_id: _orgId });
+            tbody.innerHTML = '';
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-600">No lead data yet.</td></tr>`;
+                return;
+            }
+            data.forEach((row, i) => {
+                const rank = i + 1;
+                const isTop = rank === 1;
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-800/50 transition ${isTop ? 'border border-yellow-400/50 bg-yellow-400/5' : ''}`;
+                tr.innerHTML = `
+                    <td class="p-4 text-center">
+                        ${isTop ? '<span class="text-yellow-400 text-lg">🥇</span>' : `<span class="text-slate-500 font-mono">#${rank}</span>`}
+                    </td>
+                    <td class="p-4 text-white font-semibold">${row.full_name || '—'}</td>
+                    <td class="p-4 text-center font-mono">${row.total_leads}</td>
+                    <td class="p-4 text-center font-mono text-green-400">${row.closed_won}</td>
+                    <td class="p-4 text-center">
+                        <span class="px-2 py-1 rounded text-xs font-bold ${row.win_rate >= 50 ? 'bg-green-500/10 text-green-400' : 'bg-slate-700 text-slate-300'}">${row.win_rate ?? 0}%</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- AGENTS ---
+        async function loadAgents() {
+            const tbody = document.getElementById('agentsTable');
+            const { data, error } = await _sb
+                .from('org_members')
+                .select('user_id, credit_limit, campaigns_paused, profiles(full_name, email)')
+                .eq('org_id', _orgId)
+                .eq('role', 'enterprise_agent');
+
+            tbody.innerHTML = '';
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-600">No agents yet. Invite agents above.</td></tr>`;
+                return;
+            }
+
+            _agents = data.map(m => ({
+                user_id: m.user_id,
+                full_name: m.profiles?.full_name || '—',
+                email: m.profiles?.email || '—',
+                campaigns_paused: m.campaigns_paused,
+                credit_limit: m.credit_limit
+            }));
+
+            _agents.forEach(agent => {
+                const tr = document.createElement('tr');
+                tr.id = `agent-row-${agent.user_id}`;
+                tr.className = 'hover:bg-slate-800/50 transition cursor-pointer';
+                tr.onclick = (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+                    openOverseer(agent.user_id);
+                };
+                tr.innerHTML = `
+                    <td class="p-4 text-white font-medium">${agent.full_name}</td>
+                    <td class="p-4 text-slate-400 text-xs">${agent.email}</td>
+                    <td class="p-4 text-center">
+                        <input type="number" min="0" placeholder="No limit" value="${agent.credit_limit ?? ''}"
+                            class="w-24 bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            onblur="saveCreditLimit('${agent.user_id}', this.value)">
+                    </td>
+                    <td class="p-4 text-center">
+                        <label class="relative inline-flex items-center cursor-pointer" title="${agent.campaigns_paused ? 'Paused' : 'Running'}">
+                            <input type="checkbox" ${agent.campaigns_paused ? '' : 'checked'}
+                                class="sr-only peer"
+                                onchange="toggleCampaignsPaused('${agent.user_id}', !this.checked)">
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                        </label>
+                    </td>
+                    <td class="p-4 text-right flex gap-2 justify-end">
+                        <button onclick="event.stopPropagation(); openOverseer('${agent.user_id}')"
+                            class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-1 px-3 rounded-lg transition">View</button>
+                        <button onclick="event.stopPropagation(); removeAgent('${agent.user_id}', '${agent.full_name}')"
+                            class="text-xs text-red-400 hover:text-red-300 font-bold transition">Remove</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function saveCreditLimit(userId, val) {
+            const limit = val === '' ? null : parseInt(val);
+            await _sb.from('org_members')
+                .update({ credit_limit: limit })
+                .eq('user_id', userId)
+                .eq('org_id', _orgId);
+        }
+
+        async function toggleCampaignsPaused(userId, paused) {
+            await _sb.from('org_members')
+                .update({ campaigns_paused: paused })
+                .eq('user_id', userId)
+                .eq('org_id', _orgId);
+        }
+
+        async function removeAgent(userId, name) {
+            if (!confirm(`Remove ${name} from the enterprise team? They will lose access immediately.`)) return;
+            const { error } = await _sb.from('org_members')
+                .delete()
+                .eq('user_id', userId)
+                .eq('org_id', _orgId);
+            if (error) { alert('Remove failed: ' + error.message); return; }
+            document.getElementById(`agent-row-${userId}`)?.remove();
+            _agents = _agents.filter(a => a.user_id !== userId);
+            loadLeaderboard();
+        }
+
+        // --- ADD AGENT MODAL ---
+        function openAddAgentModal() {
+            document.getElementById('agent-email').value = '';
+            document.getElementById('add-agent-modal').classList.remove('hidden');
+        }
+        function closeAddAgentModal() {
+            document.getElementById('add-agent-modal').classList.add('hidden');
+        }
+
+        async function sendAgentInvite() {
+            const email = document.getElementById('agent-email').value.trim().toLowerCase();
+            if (!email) return;
+            const { error } = await _sb.from('org_invitations').insert({
+                org_id: _orgId,
+                invited_email: email,
+                role: 'enterprise_agent',
+                invited_by: _currentUserId
+            });
+            if (error) { alert('Failed to invite: ' + error.message); return; }
+            closeAddAgentModal();
+            alert(`Invite sent to ${email}. They will be routed to the agent dashboard on first login.`);
+        }
+
+        // --- OVERSEER PANEL ---
+        async function openOverseer(agentId) {
+            _activeAgentId = agentId;
+            const agent = _agents.find(a => a.user_id === agentId);
+            _activeAgentPaused = agent?.campaigns_paused ?? false;
+
+            document.getElementById('overseer-name').textContent = agent?.full_name || 'Agent';
+            updateOverseerPauseBtn();
+
+            // Fetch leads + stats
+            const { data: leads } = await _sb
+                .from('leads')
+                .select('id, name, phone, status, last_interaction_at, source')
+                .eq('assigned_to', agentId)
+                .order('last_interaction_at', { ascending: false })
+                .limit(20);
+
+            const totalLeads = leads?.length ?? 0;
+            const closedWon = leads?.filter(l => l.status === 'closed_won').length ?? 0;
+            document.getElementById('overseer-stats').textContent = `${totalLeads} leads · ${closedWon} closed won`;
+
+            // Render leads
+            const leadsContainer = document.getElementById('overseer-leads');
+            leadsContainer.innerHTML = '';
+            if (!leads || leads.length === 0) {
+                leadsContainer.innerHTML = `<p class="text-slate-600 text-sm italic">No leads assigned.</p>`;
+            } else {
+                leads.forEach(lead => {
+                    const statusColors = {
+                        new: 'bg-blue-500/10 text-blue-300',
+                        active: 'bg-green-500/10 text-green-400',
+                        closed_won: 'bg-emerald-500/10 text-emerald-400',
+                        closed_lost: 'bg-red-500/10 text-red-400'
+                    };
+                    const sc = statusColors[lead.status] || 'bg-slate-700 text-slate-400';
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between bg-slate-800 rounded-lg px-4 py-3';
+                    div.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-white font-medium truncate">${lead.name || '—'}</p>
+                            <p class="text-xs text-slate-500">${lead.phone || ''} ${lead.source ? '· ' + lead.source : ''}</p>
+                        </div>
+                        <div class="flex items-center gap-2 ml-3 shrink-0">
+                            <span class="px-2 py-0.5 rounded text-xs font-bold uppercase ${sc}">${(lead.status || 'new').replace('_',' ')}</span>
+                            <button onclick="openReassign(event, '${lead.id}')"
+                                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-1 px-2 rounded-lg transition">
+                                Reassign
+                            </button>
+                        </div>
+                    `;
+                    leadsContainer.appendChild(div);
+                });
+            }
+
+            // Fetch recent interactions
+            const leadIds = leads?.map(l => l.id) || [];
+            const interactionsContainer = document.getElementById('overseer-interactions');
+            interactionsContainer.innerHTML = '';
+            if (leadIds.length === 0) {
+                interactionsContainer.innerHTML = `<p class="text-slate-600 text-sm italic">No interactions.</p>`;
+            } else {
+                const { data: interactions } = await _sb
+                    .from('interactions')
+                    .select('id, lead_id, direction, content, created_at, leads(name)')
+                    .in('lead_id', leadIds)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (!interactions || interactions.length === 0) {
+                    interactionsContainer.innerHTML = `<p class="text-slate-600 text-sm italic">No interactions yet.</p>`;
+                } else {
+                    interactions.forEach(ix => {
+                        const isOut = ix.direction === 'outbound';
+                        const div = document.createElement('div');
+                        div.className = 'bg-slate-800 rounded-lg px-4 py-3';
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs text-slate-400 font-medium">${ix.leads?.name || 'Lead'}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-1.5 py-0.5 rounded text-xs font-bold ${isOut ? 'bg-blue-500/10 text-blue-300' : 'bg-green-500/10 text-green-400'}">${isOut ? 'OUT' : 'IN'}</span>
+                                    <span class="text-xs text-slate-600">${new Date(ix.created_at).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-300 line-clamp-2">${ix.content || '—'}</p>
+                        `;
+                        interactionsContainer.appendChild(div);
+                    });
+                }
+            }
+
+            document.getElementById('overseer-panel').classList.add('open');
+            document.getElementById('overseer-backdrop').classList.remove('hidden');
+        }
+
+        function closeOverseer() {
+            document.getElementById('overseer-panel').classList.remove('open');
+            document.getElementById('overseer-backdrop').classList.add('hidden');
+            document.getElementById('reassign-dropdown').classList.add('hidden');
+            _activeAgentId = null;
+        }
+
+        function updateOverseerPauseBtn() {
+            const btn = document.getElementById('overseer-pause-btn');
+            if (_activeAgentPaused) {
+                btn.textContent = 'Resume Campaigns';
+                btn.className = 'text-xs font-bold py-1.5 px-3 rounded-lg transition bg-green-600 hover:bg-green-500 text-white';
+            } else {
+                btn.textContent = 'Pause Campaigns';
+                btn.className = 'text-xs font-bold py-1.5 px-3 rounded-lg transition bg-yellow-600 hover:bg-yellow-500 text-white';
+            }
+        }
+
+        async function toggleAgentCampaigns() {
+            if (!_activeAgentId) return;
+            const newPaused = !_activeAgentPaused;
+            const { error } = await _sb.from('org_members')
+                .update({ campaigns_paused: newPaused })
+                .eq('user_id', _activeAgentId)
+                .eq('org_id', _orgId);
+            if (error) { alert('Update failed: ' + error.message); return; }
+            _activeAgentPaused = newPaused;
+            // Update local agents cache
+            const agent = _agents.find(a => a.user_id === _activeAgentId);
+            if (agent) agent.campaigns_paused = newPaused;
+            updateOverseerPauseBtn();
+        }
+
+        // --- REASSIGN LEAD ---
+        function openReassign(e, leadId) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('reassign-dropdown');
+            dropdown.innerHTML = '';
+
+            const otherAgents = _agents.filter(a => a.user_id !== _activeAgentId);
+            if (otherAgents.length === 0) {
+                dropdown.innerHTML = `<p class="text-xs text-slate-500 px-2 py-1">No other agents.</p>`;
+            } else {
+                otherAgents.forEach(agent => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 rounded-lg transition';
+                    btn.textContent = agent.full_name;
+                    btn.onclick = () => reassignLead(leadId, agent.user_id, agent.full_name);
+                    dropdown.appendChild(btn);
+                });
+            }
+
+            const rect = e.target.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+            dropdown.style.left = Math.max(8, rect.left - 100) + 'px';
+            dropdown.classList.remove('hidden');
+        }
+
+        async function reassignLead(leadId, newAgentId, newAgentName) {
+            document.getElementById('reassign-dropdown').classList.add('hidden');
+            if (!confirm(`Reassign this lead to ${newAgentName}?`)) return;
+            const { error } = await _sb.from('leads')
+                .update({ assigned_to: newAgentId })
+                .eq('id', leadId);
+            if (error) { alert('Reassign failed: ' + error.message); return; }
+            // Refresh the overseer panel
+            openOverseer(_activeAgentId);
+        }
+
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('reassign-dropdown');
+            if (!dd.contains(e.target)) dd.classList.add('hidden');
+        });
+
+        async function logout() {
+            await _sb.auth.signOut();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

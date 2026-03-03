@@ -99,6 +99,126 @@
             </div>
         </div>
 
+        <!-- PENDING AGENCY / ENTERPRISE DEALS -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-blue-400 animate-pulse"></div>
+                <h2 class="text-xl font-bold text-white">Pending Agency / Enterprise Deals</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Date</th>
+                            <th class="p-4">Org Name</th>
+                            <th class="p-4">Type</th>
+                            <th class="p-4">Seats</th>
+                            <th class="p-4">Owner Email</th>
+                            <th class="p-4">Amount</th>
+                            <th class="p-4 rounded-tr-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dealTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="7" class="p-8 text-center italic opacity-50">Scanning...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- CREATE AGENCY / ENTERPRISE DEAL -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-cyan-400"></div>
+                <h2 class="text-xl font-bold text-white">Create Agency / Enterprise Deal</h2>
+            </div>
+            <form id="dealForm" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="submitDeal(event)">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Organisation Name</label>
+                    <input id="deal-org-name" type="text" required placeholder="Acme Legal Group"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Owner Email</label>
+                    <input id="deal-owner-email" type="email" required placeholder="owner@company.com"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Deal Type</label>
+                    <select id="deal-type" required
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                        <option value="agency">Agency (reseller)</option>
+                        <option value="enterprise">Enterprise (internal team)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Number of Seats</label>
+                    <input id="deal-seats" type="number" required min="1" placeholder="10"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Negotiated Price (USD)</label>
+                    <input id="deal-price" type="number" required min="0" step="0.01" placeholder="2499.00"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Initial AI Credits</label>
+                    <input id="deal-credits" type="number" min="0" placeholder="0" value="0"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-slate-400 mb-2 uppercase font-bold">Services Included</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="deal-svc-sentinel" value="sentinel" class="rounded">
+                            Instant Sentinel
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="deal-svc-voice" value="voice" class="rounded">
+                            Voice Liaison
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="deal-svc-brain" value="brain" class="rounded">
+                            Knowledge Brain
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="deal-svc-architect" value="architect" class="rounded">
+                            App Architect
+                        </label>
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" id="deal-submit-btn"
+                        class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg text-sm transition">
+                        Create Deal
+                    </button>
+                </div>
+            </form>
+            <!-- Deal result card (shown after successful create) -->
+            <div id="deal-result" class="hidden mt-6 bg-slate-800 border border-cyan-500/30 rounded-xl p-5 space-y-3">
+                <p class="text-cyan-400 font-bold text-sm uppercase tracking-wide">Deal Created</p>
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-400 text-xs w-32">Reference ID</span>
+                    <span id="deal-result-ref" class="font-mono text-white font-bold select-all"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-400 text-xs w-32">Amount Due</span>
+                    <span id="deal-result-amount" class="text-[#39FF14] font-bold"></span>
+                </div>
+                <div class="bg-slate-700/50 rounded-lg p-4 text-xs text-slate-300 space-y-1">
+                    <p class="font-bold text-white mb-2">Bank Transfer Details</p>
+                    <p>Bank: <span class="text-white">Chase Business</span></p>
+                    <p>Account Name: <span class="text-white">YogMaya Industries LLC</span></p>
+                    <p>Account #: <span class="text-white font-mono">4829103756</span></p>
+                    <p>Routing #: <span class="text-white font-mono">021000021</span></p>
+                    <p>SWIFT: <span class="text-white font-mono">CHASUS33</span></p>
+                    <p class="mt-2 text-yellow-400">Memo: Use Reference ID as payment note</p>
+                </div>
+                <button onclick="copyPaymentInstructions()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-xs transition">
+                    Copy Payment Instructions
+                </button>
+            </div>
+        </div>
+
         <!-- P8: RATE LIMIT & SECURITY OVERVIEW -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 mb-10">
             <div class="flex items-center justify-between mb-6">
@@ -247,6 +367,7 @@
 
                 fetchPendingTransfers();
                 fetchActiveEntitlements();
+                fetchPendingDeals();
                 fetchOrgPrompts();
                 fetchRateLimitStats();
             } catch (err) {
@@ -598,6 +719,153 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // PENDING AGENCY / ENTERPRISE DEALS
+        async function fetchPendingDeals() {
+            const tbody = document.getElementById('dealTable');
+            const { data, error } = await supabase
+                .from('billing_intents')
+                .select('id, created_at, org_id, pricing_snapshot')
+                .eq('intent_source', 'admin_deal')
+                .eq('status', 'awaiting_bank')
+                .order('created_at', { ascending: false });
+
+            tbody.innerHTML = '';
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-600">No pending deals.</td></tr>`;
+                return;
+            }
+            data.forEach(intent => {
+                const snap = intent.pricing_snapshot || {};
+                const amountDue = snap.final_invoice_amount ?? 0;
+                const amountDisplay = `$${Number(amountDue).toLocaleString('en-US', {minimumFractionDigits:2})}`;
+                const typeBadge = snap.deal_type === 'agency'
+                    ? 'bg-blue-500/10 text-blue-300'
+                    : 'bg-purple-500/10 text-purple-300';
+                const tr = document.createElement('tr');
+                tr.id = `deal-row-${intent.id}`;
+                tr.className = 'hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="p-4 font-mono text-xs">${new Date(intent.created_at).toLocaleDateString()}</td>
+                    <td class="p-4 text-white font-semibold">${snap.org_name || '—'}</td>
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${typeBadge}">${snap.deal_type || '—'}</span></td>
+                    <td class="p-4 text-center font-mono">${snap.seat_limit ?? '—'}</td>
+                    <td class="p-4 text-xs text-slate-300">${snap.owner_email || '—'}</td>
+                    <td class="p-4 font-bold text-[#39FF14]">${amountDisplay}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="confirmDeal(event, '${intent.id}')"
+                            class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition">
+                            Confirm Payment
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function confirmDeal(event, intentId) {
+            if (!confirm('Confirm that payment has been received for this deal?')) return;
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Processing…';
+            const { data, error } = await supabase.rpc('approve_agency_enterprise_deal', { p_intent_id: intentId });
+            if (error || data?.error) {
+                alert('Error: ' + (error?.message || data?.error));
+                btn.disabled = false;
+                btn.textContent = 'Confirm Payment';
+                return;
+            }
+            showToast('✅ Deal approved — org activated and invitation sent!');
+            document.getElementById(`deal-row-${intentId}`)?.remove();
+            fetchActiveEntitlements();
+        }
+
+        // CREATE DEAL
+        let _lastDealSnap = null;
+        async function submitDeal(e) {
+            e.preventDefault();
+            const btn = document.getElementById('deal-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Creating…';
+
+            const services = {
+                sentinel: document.getElementById('deal-svc-sentinel').checked,
+                voice: document.getElementById('deal-svc-voice').checked,
+                brain: document.getElementById('deal-svc-brain').checked,
+                architect: document.getElementById('deal-svc-architect').checked
+            };
+
+            const { data, error } = await supabase.rpc('create_agency_enterprise_deal', {
+                p_org_name: document.getElementById('deal-org-name').value.trim(),
+                p_owner_email: document.getElementById('deal-owner-email').value.trim().toLowerCase(),
+                p_org_type: document.getElementById('deal-type').value,
+                p_seat_limit: parseInt(document.getElementById('deal-seats').value),
+                p_price: parseFloat(document.getElementById('deal-price').value),
+                p_services: services,
+                p_initial_credits: parseInt(document.getElementById('deal-credits').value) || 0
+            });
+
+            btn.disabled = false;
+            btn.textContent = 'Create Deal';
+
+            if (error || data?.error) {
+                alert('Error: ' + (error?.message || data?.error));
+                return;
+            }
+
+            // Store for copy button
+            _lastDealSnap = {
+                ref: data.reference_id,
+                amount: parseFloat(document.getElementById('deal-price').value),
+                org: document.getElementById('deal-org-name').value.trim(),
+                email: document.getElementById('deal-owner-email').value.trim()
+            };
+
+            document.getElementById('deal-result-ref').textContent = data.reference_id;
+            document.getElementById('deal-result-amount').textContent =
+                `$${_lastDealSnap.amount.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+            document.getElementById('deal-result').classList.remove('hidden');
+            document.getElementById('dealForm').reset();
+            fetchPendingDeals();
+        }
+
+        function copyPaymentInstructions() {
+            if (!_lastDealSnap) return;
+            const text = [
+                `Hi,`,
+                ``,
+                `Please find the payment details for your GetSalesCloser ${document.getElementById('deal-type').value || ''} account below.`,
+                ``,
+                `Reference ID: ${_lastDealSnap.ref}`,
+                `Amount Due: $${_lastDealSnap.amount.toLocaleString('en-US', {minimumFractionDigits:2})}`,
+                ``,
+                `Bank Transfer Details:`,
+                `  Bank: Chase Business`,
+                `  Account Name: YogMaya Industries LLC`,
+                `  Account #: 4829103756`,
+                `  Routing #: 021000021`,
+                `  SWIFT: CHASUS33`,
+                ``,
+                `Important: Please include the Reference ID (${_lastDealSnap.ref}) in your payment memo.`,
+                ``,
+                `Once we confirm receipt your account will be activated and you will receive a separate email to set up your login.`,
+                ``,
+                `— GetSalesCloser Team`
+            ].join('\n');
+            navigator.clipboard.writeText(text).then(() => showToast('✅ Payment instructions copied to clipboard!'));
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'fixed bottom-6 right-6 bg-slate-800 border border-green-500/40 text-green-400 font-bold text-sm px-5 py-3 rounded-xl shadow-xl z-50 transition';
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 4000);
         }
 
         async function toggleKillSwitch(orgId, btn) {

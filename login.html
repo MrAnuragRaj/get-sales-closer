@@ -97,10 +97,30 @@
                     return;
                 }
 
-                // Check if user belongs to an org
+                // Claim any pending org invitation for this email
+                const email = user.email;
+                if (email) {
+                    const { data: invite } = await supabase
+                        .from('org_invitations')
+                        .select('org_id, role')
+                        .eq('invited_email', email)
+                        .maybeSingle();
+                    if (invite) {
+                        await supabase.from('org_members').upsert(
+                            { user_id: user.id, org_id: invite.org_id, role: invite.role },
+                            { onConflict: 'user_id,org_id' }
+                        );
+                        await supabase.from('org_invitations')
+                            .delete()
+                            .eq('invited_email', email)
+                            .eq('org_id', invite.org_id);
+                    }
+                }
+
+                // Check if user belongs to an org (also fetch role for routing)
                 const { data: membership } = await supabase
                     .from('org_members')
-                    .select('org_id')
+                    .select('org_id, role')
                     .eq('user_id', user.id)
                     .limit(1)
                     .maybeSingle();
@@ -116,7 +136,16 @@
                         .maybeSingle();
 
                     if (activeService) {
-                        window.location.href = "dashboard.html";
+                        // Route based on role
+                        if (membership.role === 'agency_admin') {
+                            window.location.href = 'agency_admin.html';
+                        } else if (membership.role === 'enterprise_admin') {
+                            window.location.href = 'enterprise_admin.html';
+                        } else if (membership.role === 'enterprise_agent') {
+                            window.location.href = 'agent_dashboard.html';
+                        } else {
+                            window.location.href = 'dashboard.html';
+                        }
                     } else {
                         window.location.href = "pricing.html";
                     }

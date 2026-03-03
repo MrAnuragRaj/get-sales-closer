@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agency Portal | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        #page-content { display: none; }
+        #auth-loader { display: flex; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Auth Loader -->
+    <div id="auth-loader" class="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center z-50">
+        <div class="h-12 w-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Access...</p>
+    </div>
+
+    <div id="page-content" class="max-w-5xl mx-auto px-6 py-10">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="h-7 w-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">GS</div>
+                    <span class="text-slate-400 text-sm">GetSalesCloser</span>
+                </div>
+                <h1 class="text-2xl font-black text-white uppercase tracking-tight" id="org-name-header">Agency Portal</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="seat-pill" class="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-bold px-3 py-1.5 rounded-full">— / — seats</span>
+                <span id="admin-name" class="text-slate-400 text-sm"></span>
+                <button onclick="logout()" class="text-slate-500 hover:text-white text-sm transition">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-blue-400"></div>
+                    <h2 class="text-lg font-bold text-white">Client Users</h2>
+                </div>
+                <button onclick="openAddUserModal()"
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition">
+                    <i class="fa fa-plus mr-1"></i> Add User
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Name</th>
+                            <th class="p-4">Email</th>
+                            <th class="p-4">Joined</th>
+                            <th class="p-4 rounded-tr-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable" class="divide-y divide-slate-800">
+                        <tr><td colspan="4" class="p-8 text-center italic opacity-50">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pending Invitations -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-yellow-400 animate-pulse"></div>
+                <h2 class="text-lg font-bold text-white">Pending Invitations</h2>
+            </div>
+            <div id="invitesList" class="space-y-2">
+                <p class="text-slate-600 text-sm italic">No pending invitations.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="add-user-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold text-white mb-4">Invite User</h3>
+            <input id="invite-email" type="email" placeholder="user@company.com"
+                class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <div id="seat-warning" class="hidden mb-4 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-2 rounded-lg">
+                Seat limit reached. Remove a user before inviting more.
+            </div>
+            <div class="flex gap-3">
+                <button onclick="sendInvite()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-sm transition">Send Invite</button>
+                <button onclick="closeAddUserModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        let _sb, _orgId, _seatLimit, _currentUserId;
+
+        requireAuth({
+            onAuthenticated: async (profile, user, sb) => {
+                _sb = sb;
+                _currentUserId = user.id;
+
+                // Verify role = agency_admin
+                const { data: membership } = await sb
+                    .from('org_members')
+                    .select('org_id, role')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (!membership || membership.role !== 'agency_admin') {
+                    window.location.href = 'dashboard.html';
+                    return;
+                }
+                _orgId = membership.org_id;
+
+                // Fetch org details
+                const { data: org } = await sb
+                    .from('organizations')
+                    .select('name, seat_limit')
+                    .eq('id', _orgId)
+                    .single();
+
+                _seatLimit = org?.seat_limit ?? null;
+                document.getElementById('org-name-header').textContent = (org?.name || 'Agency') + ' — Portal';
+                document.getElementById('admin-name').textContent = profile?.full_name || user.email;
+
+                loadUsers();
+                loadInvites();
+            }
+        });
+
+        async function loadUsers() {
+            const tbody = document.getElementById('usersTable');
+            const { data, error } = await _sb
+                .from('org_members')
+                .select('user_id, created_at, profiles(full_name, email)')
+                .eq('org_id', _orgId)
+                .is('role', null);
+
+            tbody.innerHTML = '';
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                return;
+            }
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-600">No client users yet. Invite someone above.</td></tr>`;
+                updateSeatPill(0);
+                return;
+            }
+            updateSeatPill(data.length);
+            data.forEach(m => {
+                const p = m.profiles || {};
+                const tr = document.createElement('tr');
+                tr.id = `user-row-${m.user_id}`;
+                tr.className = 'hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="p-4 text-white font-medium">${p.full_name || '—'}</td>
+                    <td class="p-4 text-slate-300 text-xs">${p.email || '—'}</td>
+                    <td class="p-4 font-mono text-xs">${new Date(m.created_at).toLocaleDateString()}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="removeUser('${m.user_id}')"
+                            class="text-red-400 hover:text-red-300 text-xs font-bold transition">Remove</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadInvites() {
+            const container = document.getElementById('invitesList');
+            const { data, error } = await _sb
+                .from('org_invitations')
+                .select('id, invited_email, created_at')
+                .eq('org_id', _orgId)
+                .is('role', null)
+                .order('created_at', { ascending: false });
+
+            container.innerHTML = '';
+            if (error || !data || data.length === 0) {
+                container.innerHTML = `<p class="text-slate-600 text-sm italic">No pending invitations.</p>`;
+                return;
+            }
+            data.forEach(inv => {
+                const div = document.createElement('div');
+                div.id = `invite-${inv.id}`;
+                div.className = 'flex items-center justify-between bg-slate-800 rounded-lg px-4 py-3';
+                div.innerHTML = `
+                    <div>
+                        <p class="text-sm text-white">${inv.invited_email}</p>
+                        <p class="text-xs text-slate-500">Invited ${new Date(inv.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <button onclick="cancelInvite('${inv.id}', '${inv.invited_email}')"
+                        class="text-xs text-red-400 hover:text-red-300 font-bold transition">Cancel</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateSeatPill(count) {
+            const pill = document.getElementById('seat-pill');
+            const limit = _seatLimit ?? '∞';
+            const isOver = _seatLimit !== null && count >= _seatLimit;
+            pill.textContent = `${count} / ${limit} seats`;
+            pill.className = `text-xs font-bold px-3 py-1.5 rounded-full border ${
+                isOver ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+            }`;
+        }
+
+        function openAddUserModal() {
+            document.getElementById('seat-warning').classList.add('hidden');
+            document.getElementById('invite-email').value = '';
+            document.getElementById('add-user-modal').classList.remove('hidden');
+        }
+        function closeAddUserModal() {
+            document.getElementById('add-user-modal').classList.add('hidden');
+        }
+
+        async function sendInvite() {
+            const email = document.getElementById('invite-email').value.trim().toLowerCase();
+            if (!email) return;
+
+            // Seat limit check
+            if (_seatLimit !== null) {
+                const { count: memberCount } = await _sb
+                    .from('org_members')
+                    .select('user_id', { count: 'exact', head: true })
+                    .eq('org_id', _orgId)
+                    .is('role', null);
+                const { count: inviteCount } = await _sb
+                    .from('org_invitations')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('org_id', _orgId)
+                    .is('role', null);
+                if ((memberCount + inviteCount) >= _seatLimit) {
+                    document.getElementById('seat-warning').classList.remove('hidden');
+                    return;
+                }
+            }
+
+            const { error } = await _sb.from('org_invitations').insert({
+                org_id: _orgId,
+                invited_email: email,
+                role: null,
+                invited_by: _currentUserId
+            });
+
+            if (error) {
+                alert('Failed to invite: ' + error.message);
+                return;
+            }
+            closeAddUserModal();
+            loadInvites();
+        }
+
+        async function cancelInvite(inviteId, email) {
+            if (!confirm(`Cancel invitation for ${email}?`)) return;
+            await _sb.from('org_invitations').delete().eq('id', inviteId);
+            document.getElementById(`invite-${inviteId}`)?.remove();
+        }
+
+        async function removeUser(userId) {
+            if (!confirm('Remove this user from the agency? They will lose access immediately.')) return;
+            const { error } = await _sb
+                .from('org_members')
+                .delete()
+                .eq('user_id', userId)
+                .eq('org_id', _orgId);
+            if (error) { alert('Remove failed: ' + error.message); return; }
+            document.getElementById(`user-row-${userId}`)?.remove();
+            loadUsers(); // refresh seat pill
+        }
+
+        async function logout() {
+            await _sb.auth.signOut();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
