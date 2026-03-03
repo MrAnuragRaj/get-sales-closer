@@ -83,6 +83,18 @@
             if (event === "SIGNED_IN" && session) {
                 const user = session.user;
 
+                // Admin shortcut — bypass entitlement check entirely
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('is_admin')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (profile?.is_admin) {
+                    window.location.href = "dashboard.html";
+                    return;
+                }
+
                 // Check if user belongs to an org
                 const { data: membership } = await supabase
                     .from('org_members')

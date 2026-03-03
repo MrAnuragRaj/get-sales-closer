@@ -242,7 +242,40 @@
             });
         }
 
+        function calculate() {
+            const S = toggles.S?.checked || false;
+            const B = toggles.B?.checked || false;
+            const A = toggles.A?.checked || false;
+            const L = toggles.L?.checked || false;
+
+            let base = 0;
+            if (L) {
+                if (S && B && A) base = 349;
+                else if (S && B)  base = 299;
+                else if (S && A)  base = 249;
+                else if (B && A)  base = 299;
+                else if (S)       base = 199;
+                else if (B)       base = 249;
+                else if (A)       base = 199;
+                else              base = 149;
+            } else if (S) {
+                if (B && A) base = 249;
+                else if (B) base = 199;
+                else if (A) base = 149;
+                else        base = 49;
+            }
+
+            let premium = 0;
+            if (toggles.Intake?.checked)    premium += 99;
+            if (toggles.SafeVoice?.checked) premium += 199;
+            if (toggles.Priority?.checked)  premium += 149;
+
+            const total = base + premium;
+            document.getElementById('priceDisplay').innerText = total > 0 ? total : '--';
+        }
+
         function updateButtonState() {
+            calculate();
             const hasNew = Object.values(toggles).some(el => el && el.checked && !el.disabled);
             deployBtn.disabled = !hasNew;
             deployBtn.innerText = hasNew ? "Generate Invoice" : "No Changes Selected";

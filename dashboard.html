@@ -413,6 +413,38 @@
         function applyBrandingUI(mode) { const txt = document.getElementById('brand-text'); const sub = document.getElementById('brand-sub'); const img = document.getElementById('brand-img'); const icon = document.getElementById('brand-icon'); if (mode) { txt.innerText = currentProfile.company || "Company"; sub.innerText = "Powered by GetSalesCloser"; if (currentProfile.logo_url) { icon.classList.add('hidden'); img.classList.remove('hidden'); } } else { txt.innerText = "GetSalesCloser"; sub.innerText = "Autonomous Revenue"; icon.classList.remove('hidden'); img.classList.add('hidden'); } }
         async function handleLogoUpdate(input) { if (isUploading || input.files.length === 0) return; isUploading = true; const loader = document.createElement('div'); loader.id = 'logo-loader'; loader.className = 'absolute inset-0 bg-black/80 flex items-center justify-center text-xs text-white z-50 rounded-md'; loader.innerText = 'Uploading...'; document.getElementById('brand-container').appendChild(loader); try { const file = input.files[0]; const fileExt = file.name.split('.').pop(); const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`; await sbClient.storage.from('logos').upload(fileName, file); const { data } = sbClient.storage.from('logos').getPublicUrl(fileName); await sbClient.from('profiles').update({ logo_url: data.publicUrl }).eq('id', currentUser.id); currentProfile.logo_url = data.publicUrl; document.getElementById('brand-img').src = data.publicUrl; if (document.getElementById('branding-toggle').checked) applyBrandingUI(true); } catch(e) { alert("Upload failed: " + e.message); } finally { document.getElementById('logo-loader').remove(); isUploading = false; } }
         function updateDashboardUI(profile) { document.getElementById('user-name-display').innerText = profile.full_name || "User"; document.getElementById('user-ref-id').innerText = profile.reference_id || "..."; if(profile.logo_url) document.getElementById('brand-img').src = profile.logo_url; const toggle = document.getElementById('branding-toggle'); if (profile.branding_mode) { toggle.checked = true; applyBrandingUI(true); } else { toggle.checked = false; applyBrandingUI(false); } }
+        async function handleOnboarding(e) {
+            e.preventDefault();
+            const sb = getSupabase();
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return;
+            const userId = session.user.id;
+
+            const company  = document.getElementById('setup-company').value.trim();
+            const industry = document.getElementById('setup-industry').value;
+            const logoFile = document.getElementById('setup-logo-file').files[0];
+
+            let logo_url = null;
+            if (logoFile) {
+                const ext = logoFile.name.split('.').pop();
+                const path = `${userId}/logo.${ext}`;
+                const { error: uploadError } = await sb.storage.from('logos').upload(path, logoFile, { upsert: true });
+                if (!uploadError) {
+                    const { data: urlData } = sb.storage.from('logos').getPublicUrl(path);
+                    logo_url = urlData.publicUrl;
+                }
+            }
+
+            const updates = { company, industry, onboarding_completed: true };
+            if (logo_url) updates.logo_url = logo_url;
+
+            const { error } = await sb.from('profiles').update(updates).eq('id', userId);
+            if (error) { alert('Setup failed. Please try again.'); return; }
+
+            // Reload so requireAuth re-runs with onboarding_completed = true
+            window.location.reload();
+        }
+
         function triggerLogoUpdate() { document.getElementById('update-logo-input').click(); }
         function handleLogout() { sbClient.auth.signOut().then(() => window.location.href = 'login.html'); }
         function copyRefId() { navigator.clipboard.writeText(document.getElementById('user-ref-id').innerText); alert("Copied"); }
