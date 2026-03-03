@@ -135,17 +135,16 @@
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         // --- AUTH + ADMIN GUARD (Runs Immediately) ---
-        (async function init() {
+        // onAuthStateChange fires INITIAL_SESSION on load — more reliable than getSession() in v2
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
+
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
             try {
-                const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-                const session = sessionData?.session;
-
-                if (sessionErr || !session) {
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                // Check is_admin flag on profile
                 const { data: profile, error: profileErr } = await supabase
                     .from('profiles')
                     .select('is_admin')
@@ -153,12 +152,10 @@
                     .maybeSingle();
 
                 if (profileErr || !profile || !profile.is_admin) {
-                    // ❌ Not an admin — redirect to dashboard
                     window.location.href = 'dashboard.html';
                     return;
                 }
 
-                // ✅ Admin confirmed — reveal UI and fetch data
                 document.getElementById('loading-screen').style.display = 'none';
                 document.getElementById('dashboard-content').style.display = 'block';
 
@@ -170,7 +167,7 @@
                 console.error('Admin init error:', err);
                 window.location.href = 'login.html';
             }
-        })();
+        });
 
         // 1. FETCH PENDING TRANSFERS
         async function fetchPendingTransfers() {

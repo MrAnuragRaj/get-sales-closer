@@ -77,7 +77,7 @@
                 <span id="priceDisplay" class="text-8xl font-black gilroy">--</span>
                 <span id="billingLabel" class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
             </div>
-            <p id="yearlyNote" class="hidden text-center text-xs text-green-400 mb-1">Billed annually — 2 months free</p>
+            <p id="yearlyNote" class="hidden text-center text-xs text-green-400 mb-1">Billed annually — you save <span id="yearlySavings"></span>/mo vs monthly</p>
             <p id="baseImpliedHint" class="hidden text-center text-xs text-yellow-400 mb-8">Instant Sentinel ($49 base) will be included — required for this module</p>
             
             <div class="space-y-4 mb-10">
@@ -295,11 +295,15 @@
             if (toggles.Priority?.checked)  premium += 149;
 
             const rawTotal = base + premium;
-            const total = billingCycle === 'yearly' ? Math.round(rawTotal * 0.8) : rawTotal;
+            const isYearly = billingCycle === 'yearly';
+            const total = isYearly ? Math.round(rawTotal * 0.8) : rawTotal;
             // Show base-implied notice when user picked B/A without explicitly selecting a base
             const baseImplied = !hasBase && (B || A);
             const hint = document.getElementById('baseImpliedHint');
             if (hint) hint.classList.toggle('hidden', !baseImplied);
+            // Show exact dollar savings on yearly
+            const savingsEl = document.getElementById('yearlySavings');
+            if (savingsEl && rawTotal > 0) savingsEl.innerText = `$${rawTotal - total}`;
             document.getElementById('priceDisplay').innerText = total > 0 ? total : '--';
         }
 
