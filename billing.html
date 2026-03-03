@@ -65,11 +65,19 @@
         </div>
 
         <div class="glass-card p-10 rounded-[3rem] w-full relative">
+
+            <!-- Billing cycle toggle -->
+            <div class="flex items-center justify-center gap-3 mb-6">
+                <button id="btnMonthly" onclick="setBillingCycle('monthly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-[#00D1FF] text-slate-950">Monthly</button>
+                <button id="btnYearly" onclick="setBillingCycle('yearly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-slate-800 text-slate-400">Yearly <span class="text-green-400 ml-1">Save 20%</span></button>
+            </div>
+
             <div class="flex items-center justify-center gap-1 text-white mb-2">
                 <span class="text-3xl font-bold mt-2">$</span>
                 <span id="priceDisplay" class="text-8xl font-black gilroy">--</span>
-                <span class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
+                <span id="billingLabel" class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
             </div>
+            <p id="yearlyNote" class="hidden text-center text-xs text-green-400 mb-1">Billed annually — 2 months free</p>
             <p id="baseImpliedHint" class="hidden text-center text-xs text-yellow-400 mb-8">Instant Sentinel ($49 base) will be included — required for this module</p>
             
             <div class="space-y-4 mb-10">
@@ -145,6 +153,17 @@
         let owned = { services: new Set(), addons: new Set() };
         let intentInFlight = false;
         let globalSupabase = null;
+        let billingCycle = 'monthly'; // 'monthly' | 'yearly'
+
+        function setBillingCycle(cycle) {
+            billingCycle = cycle;
+            const isYearly = cycle === 'yearly';
+            document.getElementById('btnMonthly').className = `px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition ${!isYearly ? 'bg-[#00D1FF] text-slate-950' : 'bg-slate-800 text-slate-400'}`;
+            document.getElementById('btnYearly').className = `px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition ${isYearly ? 'bg-[#00D1FF] text-slate-950' : 'bg-slate-800 text-slate-400'}`;
+            document.getElementById('yearlyNote').classList.toggle('hidden', !isYearly);
+            document.getElementById('billingLabel').innerText = isYearly ? '/mo, billed yearly' : '/mo (upgrade)';
+            updateButtonState();
+        }
 
         // --- DOM REFS ---
         const toggles = {
@@ -275,7 +294,8 @@
             if (toggles.SafeVoice?.checked) premium += 199;
             if (toggles.Priority?.checked)  premium += 149;
 
-            const total = base + premium;
+            const rawTotal = base + premium;
+            const total = billingCycle === 'yearly' ? Math.round(rawTotal * 0.8) : rawTotal;
             // Show base-implied notice when user picked B/A without explicitly selecting a base
             const baseImplied = !hasBase && (B || A);
             const hint = document.getElementById('baseImpliedHint');
@@ -332,7 +352,7 @@
                         channels: {} 
                     },
                     intent_source: 'billing',
-                    billing_cycle: 'monthly'
+                    billing_cycle: billingCycle
                 });
 
                 if (error) throw error;
