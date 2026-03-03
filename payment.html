@@ -354,13 +354,21 @@
             btn.innerText = "Verifying...";
 
             try {
-                // 🛡️ FIX: Use 'supabaseClient'
-                const { error } = await supabaseClient
+                // 1. Mark the payment attempt as pending_verification
+                const { error: attemptErr } = await supabaseClient
                     .from('payment_attempts')
                     .update({ status: 'pending_verification' })
                     .eq('id', currentAttemptId);
 
-                if (error) throw error;
+                if (attemptErr) throw attemptErr;
+
+                // 2. Mark the billing intent as awaiting_bank so it appears
+                //    in the admin panel. Uses a SECURITY DEFINER RPC to bypass
+                //    the BLOCK UPDATE RLS policy on billing_intents.
+                const { error: intentErr } = await supabaseClient
+                    .rpc('mark_intent_awaiting_bank', { p_intent_id: intent.id });
+
+                if (intentErr) throw intentErr;
 
                 window.location.href = `success.html?ref=${intent.reference_id}&status=awaiting_bank`;
 
