@@ -132,17 +132,36 @@
     <script>
         const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
-        // Supabase client for data queries (fetchPendingTransfers, etc.)
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
-            auth: { autoRefreshToken: false }
-        });
+
+        // Supabase client — assigned inside IIFE after auth passes, so createClient
+        // errors cannot silently freeze the spinner before the guard even starts.
+        let supabase;
+
+        // Helper: update the visible loading-screen message so we know exactly
+        // which step the code reaches. Also logs to console for DevTools.
+        function setStatus(msg) {
+            console.log('[AdminGuard]', msg);
+            const el = document.querySelector('#loading-screen p');
+            if (el) el.textContent = msg;
+        }
+
+        // Absolute safety net: if the page is still on the loading screen after
+        // 20 seconds something is truly stuck — show a message instead of spinning forever.
+        const _hardTimeout = setTimeout(() => {
+            const ls = document.getElementById('loading-screen');
+            if (ls && ls.style.display !== 'none') {
+                setStatus('Timeout — please refresh the page.');
+            }
+        }, 20000);
 
         // --- AUTH + ADMIN GUARD ---
         // Uses plain fetch() — completely bypasses Supabase SDK auth (no initializePromise,
-        // no Web Lock contention, no autoRefreshToken network calls — all known hang sources)
+        // no Web Lock contention, no autoRefreshToken network calls — all known hang sources).
         (async () => {
             try {
-                // Scan all localStorage keys — handles any Supabase JS version's key format
+                setStatus('Step 1 — reading session…');
+
+                // Scan all localStorage keys — handles any Supabase JS version's key format.
                 let raw = null;
                 for (let i = 0; i < localStorage.length; i++) {
                     const k = localStorage.key(i);
@@ -151,16 +170,29 @@
                         if (raw) break;
                     }
                 }
-                if (!raw) { window.location.replace('login.html'); return; }
 
+                if (!raw) {
+                    setStatus('Step 1 FAILED — no session found. Redirecting to login…');
+                    setTimeout(() => window.location.replace('login.html'), 1500);
+                    return;
+                }
+
+                setStatus('Step 2 — parsing token…');
                 const sess = JSON.parse(raw);
                 const token = sess?.access_token;
                 const userId = sess?.user?.id;
-                if (!token || !userId) { window.location.replace('login.html'); return; }
 
-                // 8-second timeout — spinner can never stay frozen regardless of network
+                if (!token || !userId) {
+                    setStatus('Step 2 FAILED — session malformed. Redirecting…');
+                    setTimeout(() => window.location.replace('login.html'), 1500);
+                    return;
+                }
+
+                setStatus('Step 3 — checking admin clearance…');
+
+                // 10-second timeout — spinner can never stay frozen regardless of network.
                 const ctrl = new AbortController();
-                const tid = setTimeout(() => ctrl.abort(), 8000);
+                const tid = setTimeout(() => ctrl.abort(), 10000);
                 let r;
                 try {
                     r = await fetch(
@@ -169,11 +201,36 @@
                     );
                 } finally { clearTimeout(tid); }
 
-                if (!r.ok) { window.location.replace('login.html'); return; }
+                if (!r.ok) {
+                    setStatus(`Step 3 FAILED — HTTP ${r.status}. Redirecting…`);
+                    setTimeout(() => window.location.replace('login.html'), 1500);
+                    return;
+                }
 
+                setStatus('Step 4 — verifying is_admin flag…');
                 const rows = await r.json();
-                if (!rows?.[0]?.is_admin) { window.location.replace('dashboard.html'); return; }
+                const isAdmin = rows?.[0]?.is_admin;
 
+                if (!isAdmin) {
+                    setStatus(`Step 4 FAILED — not admin (got: ${JSON.stringify(rows)}). Redirecting…`);
+                    setTimeout(() => window.location.replace('dashboard.html'), 1500);
+                    return;
+                }
+
+                setStatus('Step 5 — initialising dashboard…');
+                // Create Supabase client HERE — after auth passes — so any SDK
+                // initialisation error cannot silently block the auth guard.
+                try {
+                    supabase = window.supabase.createClient(supabaseUrl, supabaseKey, {
+                        auth: { autoRefreshToken: false, persistSession: false }
+                    });
+                } catch (sdkErr) {
+                    setStatus('Step 5 FAILED — SDK error: ' + sdkErr.message);
+                    setTimeout(() => window.location.replace('login.html'), 2000);
+                    return;
+                }
+
+                clearTimeout(_hardTimeout);
                 document.getElementById('loading-screen').style.display = 'none';
                 document.getElementById('dashboard-content').style.display = 'block';
 
@@ -182,8 +239,9 @@
                 fetchOrgPrompts();
                 fetchRateLimitStats();
             } catch (err) {
+                setStatus('Error: ' + err.message + '. Redirecting…');
                 console.error('Admin init error:', err);
-                window.location.replace('login.html');
+                setTimeout(() => window.location.replace('login.html'), 2000);
             }
         })();
 
