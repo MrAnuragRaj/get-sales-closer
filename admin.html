@@ -89,11 +89,14 @@
                             <th class="p-4">Safety</th>
                             <th class="p-4">Ver</th>
                             <th class="p-4">System Prompt</th>
+                            <th class="p-4">Agent</th>
+                            <th class="p-4">Tone</th>
+                            <th class="p-4">Objective</th>
                             <th class="p-4 rounded-tr-lg text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody id="promptsTbody" class="divide-y divide-slate-800">
-                        <tr><td colspan="6" class="p-8 text-center italic opacity-50">Loading prompts...</td></tr>
+                        <tr><td colspan="9" class="p-8 text-center italic opacity-50">Loading prompts...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -115,11 +118,12 @@
                             <th class="p-4">Seats</th>
                             <th class="p-4">Owner Email</th>
                             <th class="p-4">Amount</th>
+                            <th class="p-4">Cycle</th>
                             <th class="p-4 rounded-tr-lg text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody id="dealTable" class="divide-y divide-slate-800">
-                        <tr><td colspan="7" class="p-8 text-center italic opacity-50">Scanning...</td></tr>
+                        <tr><td colspan="8" class="p-8 text-center italic opacity-50">Scanning...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -164,6 +168,19 @@
                     <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Initial AI Credits</label>
                     <input id="deal-credits" type="number" min="0" placeholder="0" value="0"
                         class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-2 uppercase font-bold">Billing Frequency</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="radio" name="deal-billing-cycle" id="deal-cycle-monthly" value="monthly" checked class="accent-cyan-500">
+                            Monthly
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="radio" name="deal-billing-cycle" id="deal-cycle-yearly" value="yearly" class="accent-cyan-500">
+                            Yearly
+                        </label>
+                    </div>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-xs text-slate-400 mb-2 uppercase font-bold">Services Included</label>
@@ -545,6 +562,16 @@
         }
 
         // P7: AI PROMPT EDITOR
+        const TONE_LABELS = {
+            neutral_balanced: 'Neutral', formal_professional: 'Formal',
+            warm_empathetic: 'Warm', casual_friendly: 'Casual',
+            urgent_persuasive: 'Urgent', educational_advisory: 'Educational',
+        };
+        const OBJ_LABELS = {
+            book_appointment: 'Book Appt', drop_cal_link: 'Cal Link',
+            collect_contact: 'Collect Contact', handoff_alert: 'Handoff',
+        };
+
         async function fetchOrgPrompts() {
             const tbody = document.getElementById('promptsTbody');
             const { data, error } = await supabase
@@ -556,13 +583,21 @@
             tbody.innerHTML = '';
 
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
                 return;
             }
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-600">No prompts found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-600">No prompts found.</td></tr>`;
                 return;
             }
+
+            // Fetch persona settings for all unique orgs
+            const orgIds = [...new Set(data.map(p => p.org_id))];
+            const { data: settingsRows } = await supabase
+                .from('org_settings')
+                .select('org_id, persona_name, tone_preset, conversion_objective')
+                .in('org_id', orgIds);
+            const settingsMap = Object.fromEntries((settingsRows || []).map(s => [s.org_id, s]));
 
             data.forEach(row => {
                 const tr = document.createElement('tr');
@@ -581,6 +616,11 @@
                     off:      'bg-slate-700 text-slate-400',
                 }[row.safety_level] ?? 'bg-slate-700 text-slate-400';
 
+                const ps = settingsMap[row.org_id] || {};
+                const agentName = ps.persona_name || '—';
+                const toneLabel = TONE_LABELS[ps.tone_preset] || '—';
+                const objLabel = OBJ_LABELS[ps.conversion_objective] || '—';
+
                 tr.innerHTML = `
                     <td class="p-4 font-mono text-xs text-slate-500">${row.org_id.slice(0,8)}…</td>
                     <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${channelBadge}">${row.channel}</span></td>
@@ -590,9 +630,34 @@
                         <div id="prompt-display-${row.id}" class="truncate" title="${row.system_prompt.replace(/"/g,'&quot;')}">${row.system_prompt}</div>
                         <textarea id="prompt-edit-${row.id}" class="hidden w-full bg-slate-800 border border-purple-500/50 rounded-lg p-2 text-xs text-slate-200 resize-y mt-1 focus:outline-none focus:ring-1 focus:ring-purple-500" rows="4">${row.system_prompt}</textarea>
                     </td>
+                    <td class="p-4 text-xs text-slate-300">
+                        <div id="persona-name-display-${row.id}">${agentName}</div>
+                        <input id="persona-name-edit-${row.id}" type="text" value="${ps.persona_name || ''}" placeholder="Agent name"
+                            class="hidden w-full bg-slate-800 border border-purple-500/50 rounded px-2 py-1 text-xs text-slate-200 mt-1 focus:outline-none focus:ring-1 focus:ring-purple-500">
+                    </td>
+                    <td class="p-4 text-xs text-slate-300">
+                        <div id="persona-tone-display-${row.id}">${toneLabel}</div>
+                        <select id="persona-tone-edit-${row.id}" class="hidden w-full bg-slate-800 border border-purple-500/50 rounded px-2 py-1 text-xs text-slate-200 mt-1 focus:outline-none">
+                            <option value="neutral_balanced" ${ps.tone_preset==='neutral_balanced'?'selected':''}>Neutral</option>
+                            <option value="formal_professional" ${ps.tone_preset==='formal_professional'?'selected':''}>Formal</option>
+                            <option value="warm_empathetic" ${ps.tone_preset==='warm_empathetic'?'selected':''}>Warm</option>
+                            <option value="casual_friendly" ${ps.tone_preset==='casual_friendly'?'selected':''}>Casual</option>
+                            <option value="urgent_persuasive" ${ps.tone_preset==='urgent_persuasive'?'selected':''}>Urgent</option>
+                            <option value="educational_advisory" ${ps.tone_preset==='educational_advisory'?'selected':''}>Educational</option>
+                        </select>
+                    </td>
+                    <td class="p-4 text-xs text-slate-300">
+                        <div id="persona-obj-display-${row.id}">${objLabel}</div>
+                        <select id="persona-obj-edit-${row.id}" class="hidden w-full bg-slate-800 border border-purple-500/50 rounded px-2 py-1 text-xs text-slate-200 mt-1 focus:outline-none">
+                            <option value="book_appointment" ${ps.conversion_objective==='book_appointment'?'selected':''}>Book Appt</option>
+                            <option value="drop_cal_link" ${ps.conversion_objective==='drop_cal_link'?'selected':''}>Cal Link</option>
+                            <option value="collect_contact" ${ps.conversion_objective==='collect_contact'?'selected':''}>Collect Contact</option>
+                            <option value="handoff_alert" ${ps.conversion_objective==='handoff_alert'?'selected':''}>Handoff</option>
+                        </select>
+                    </td>
                     <td class="p-4 text-right">
                         <button id="prompt-btn-edit-${row.id}" onclick="startEditPrompt('${row.id}')" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1 px-3 rounded text-xs transition">Edit</button>
-                        <button id="prompt-btn-save-${row.id}" onclick="savePrompt('${row.id}')" class="hidden bg-purple-600 hover:bg-purple-500 text-white font-bold py-1 px-3 rounded text-xs transition">Save</button>
+                        <button id="prompt-btn-save-${row.id}" onclick="savePrompt('${row.id}', '${row.org_id}')" class="hidden bg-purple-600 hover:bg-purple-500 text-white font-bold py-1 px-3 rounded text-xs transition">Save</button>
                         <button id="prompt-btn-cancel-${row.id}" onclick="cancelEditPrompt('${row.id}', \`${row.system_prompt.replace(/`/g,'\\`')}\`)" class="hidden bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-1 px-3 rounded text-xs transition ml-1">Cancel</button>
                     </td>
                 `;
@@ -601,8 +666,12 @@
         }
 
         function startEditPrompt(id) {
-            document.getElementById(`prompt-display-${id}`).classList.add('hidden');
-            document.getElementById(`prompt-edit-${id}`).classList.remove('hidden');
+            ['prompt-display', 'persona-name-display', 'persona-tone-display', 'persona-obj-display'].forEach(p => {
+                document.getElementById(`${p}-${id}`)?.classList.add('hidden');
+            });
+            ['prompt-edit', 'persona-name-edit', 'persona-tone-edit', 'persona-obj-edit'].forEach(p => {
+                document.getElementById(`${p}-${id}`)?.classList.remove('hidden');
+            });
             document.getElementById(`prompt-btn-edit-${id}`).classList.add('hidden');
             document.getElementById(`prompt-btn-save-${id}`).classList.remove('hidden');
             document.getElementById(`prompt-btn-cancel-${id}`).classList.remove('hidden');
@@ -610,14 +679,18 @@
 
         function cancelEditPrompt(id, original) {
             document.getElementById(`prompt-edit-${id}`).value = original;
-            document.getElementById(`prompt-display-${id}`).classList.remove('hidden');
-            document.getElementById(`prompt-edit-${id}`).classList.add('hidden');
+            ['prompt-display', 'persona-name-display', 'persona-tone-display', 'persona-obj-display'].forEach(p => {
+                document.getElementById(`${p}-${id}`)?.classList.remove('hidden');
+            });
+            ['prompt-edit', 'persona-name-edit', 'persona-tone-edit', 'persona-obj-edit'].forEach(p => {
+                document.getElementById(`${p}-${id}`)?.classList.add('hidden');
+            });
             document.getElementById(`prompt-btn-edit-${id}`).classList.remove('hidden');
             document.getElementById(`prompt-btn-save-${id}`).classList.add('hidden');
             document.getElementById(`prompt-btn-cancel-${id}`).classList.add('hidden');
         }
 
-        async function savePrompt(id) {
+        async function savePrompt(id, orgId) {
             const newPrompt = document.getElementById(`prompt-edit-${id}`).value.trim();
             if (!newPrompt) return alert('Prompt cannot be empty.');
 
@@ -625,13 +698,22 @@
             btn.disabled = true;
             btn.textContent = 'Saving…';
 
-            const { error } = await supabase
-                .from('org_prompts')
-                .update({ system_prompt: newPrompt, updated_at: new Date().toISOString() })
-                .eq('id', id);
+            const personaPayload = {
+                persona_name: document.getElementById(`persona-name-edit-${id}`)?.value.trim() || null,
+                tone_preset: document.getElementById(`persona-tone-edit-${id}`)?.value || 'neutral_balanced',
+                conversion_objective: document.getElementById(`persona-obj-edit-${id}`)?.value || 'book_appointment',
+            };
 
-            if (error) {
-                alert('Save failed: ' + error.message);
+            const [promptRes, personaRes] = await Promise.all([
+                supabase.from('org_prompts')
+                    .update({ system_prompt: newPrompt, updated_at: new Date().toISOString() })
+                    .eq('id', id),
+                orgId ? supabase.from('org_settings').update(personaPayload).eq('org_id', orgId)
+                      : Promise.resolve({ error: null }),
+            ]);
+
+            if (promptRes.error || personaRes.error) {
+                alert('Save failed: ' + (promptRes.error || personaRes.error).message);
                 btn.disabled = false;
                 btn.textContent = 'Save';
                 return;
@@ -639,6 +721,13 @@
 
             document.getElementById(`prompt-display-${id}`).textContent = newPrompt;
             document.getElementById(`prompt-display-${id}`).title = newPrompt;
+            const newName = personaPayload.persona_name || '—';
+            const newTone = TONE_LABELS[personaPayload.tone_preset] || '—';
+            const newObj = OBJ_LABELS[personaPayload.conversion_objective] || '—';
+            if (document.getElementById(`persona-name-display-${id}`)) document.getElementById(`persona-name-display-${id}`).textContent = newName;
+            if (document.getElementById(`persona-tone-display-${id}`)) document.getElementById(`persona-tone-display-${id}`).textContent = newTone;
+            if (document.getElementById(`persona-obj-display-${id}`)) document.getElementById(`persona-obj-display-${id}`).textContent = newObj;
+
             cancelEditPrompt(id, newPrompt);
             btn.disabled = false;
             btn.textContent = 'Save';
@@ -726,7 +815,7 @@
             const tbody = document.getElementById('dealTable');
             const { data, error } = await supabase
                 .from('billing_intents')
-                .select('id, created_at, org_id, pricing_snapshot')
+                .select('id, created_at, org_id, reference_id, pricing_snapshot')
                 .eq('intent_source', 'admin_deal')
                 .eq('status', 'awaiting_bank')
                 .order('created_at', { ascending: false });
@@ -737,7 +826,7 @@
                 return;
             }
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-600">No pending deals.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-600">No pending deals.</td></tr>`;
                 return;
             }
             data.forEach(intent => {
@@ -747,6 +836,10 @@
                 const typeBadge = snap.deal_type === 'agency'
                     ? 'bg-blue-500/10 text-blue-300'
                     : 'bg-purple-500/10 text-purple-300';
+                const cycle = snap.billing_cycle || 'monthly';
+                const cycleBadge = cycle === 'yearly'
+                    ? 'bg-green-500/10 text-green-300'
+                    : 'bg-slate-700 text-slate-400';
                 const tr = document.createElement('tr');
                 tr.id = `deal-row-${intent.id}`;
                 tr.className = 'hover:bg-slate-800/50 transition';
@@ -757,10 +850,15 @@
                     <td class="p-4 text-center font-mono">${snap.seat_limit ?? '—'}</td>
                     <td class="p-4 text-xs text-slate-300">${snap.owner_email || '—'}</td>
                     <td class="p-4 font-bold text-[#39FF14]">${amountDisplay}</td>
-                    <td class="p-4 text-right">
+                    <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${cycleBadge}">${cycle}</span></td>
+                    <td class="p-4 text-right flex gap-2 justify-end flex-wrap">
                         <button onclick="confirmDeal(event, '${intent.id}')"
                             class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition">
                             Confirm Payment
+                        </button>
+                        <button onclick="partialPayment('${intent.id}', '${intent.reference_id}', ${amountDue})"
+                            class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition">
+                            Partial Payment
                         </button>
                     </td>
                 `;
@@ -800,6 +898,8 @@
                 architect: document.getElementById('deal-svc-architect').checked
             };
 
+            const billingCycle = document.querySelector('input[name="deal-billing-cycle"]:checked')?.value || 'monthly';
+
             const { data, error } = await supabase.rpc('create_agency_enterprise_deal', {
                 p_org_name: document.getElementById('deal-org-name').value.trim(),
                 p_owner_email: document.getElementById('deal-owner-email').value.trim().toLowerCase(),
@@ -807,7 +907,8 @@
                 p_seat_limit: parseInt(document.getElementById('deal-seats').value),
                 p_price: parseFloat(document.getElementById('deal-price').value),
                 p_services: services,
-                p_initial_credits: parseInt(document.getElementById('deal-credits').value) || 0
+                p_initial_credits: parseInt(document.getElementById('deal-credits').value) || 0,
+                p_billing_cycle: billingCycle
             });
 
             btn.disabled = false;
@@ -823,7 +924,9 @@
                 ref: data.reference_id,
                 amount: parseFloat(document.getElementById('deal-price').value),
                 org: document.getElementById('deal-org-name').value.trim(),
-                email: document.getElementById('deal-owner-email').value.trim()
+                email: document.getElementById('deal-owner-email').value.trim(),
+                type: document.getElementById('deal-type').value,
+                cycle: billingCycle
             };
 
             document.getElementById('deal-result-ref').textContent = data.reference_id;
@@ -839,10 +942,10 @@
             const text = [
                 `Hi,`,
                 ``,
-                `Please find the payment details for your GetSalesCloser ${document.getElementById('deal-type').value || ''} account below.`,
+                `Please find the payment details for your GetSalesCloser ${_lastDealSnap.type || ''} account below.`,
                 ``,
                 `Reference ID: ${_lastDealSnap.ref}`,
-                `Amount Due: $${_lastDealSnap.amount.toLocaleString('en-US', {minimumFractionDigits:2})}`,
+                `Amount Due: $${_lastDealSnap.amount.toLocaleString('en-US', {minimumFractionDigits:2})} / ${_lastDealSnap.cycle || 'monthly'}`,
                 ``,
                 `Bank Transfer Details:`,
                 `  Bank: Chase Business`,

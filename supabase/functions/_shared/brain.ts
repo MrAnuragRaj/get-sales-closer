@@ -1,5 +1,6 @@
 import { outputAuditor } from "./guardrails/output_auditor.ts";
 import { crypto } from "https://deno.land/std/crypto/mod.ts";
+import { buildPersonaBlock, PersonaSettings } from "./persona_builder.ts";
 
 // 🛡️ MASTER PROMPT
 const MASTER_SYSTEM_PROMPT = `
@@ -92,7 +93,7 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
   // 1. Fetch Settings & Services
   const { data: settings } = await supabase
     .from("org_settings")
-    .select("industry, cal_link")
+    .select("industry, cal_link, persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides")
     .eq("org_id", org_id)
     .single();
   const { data: services } = await supabase
@@ -164,15 +165,27 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
       `CONSTRAINT: Do not offer an immediate callback. You can only schedule a future call. `;
   }
 
+  // 4b. Fetch Org Knowledge Base (text rules only — PDFs not yet parsed)
+  const { data: kbRules } = await supabase
+    .from("knowledge_base")
+    .select("title, content_text")
+    .eq("org_id", org_id)
+    .eq("type", "text_rule")
+    .limit(10);
+
+  const orgKnowledge = kbRules?.length
+    ? "\n\nORG KNOWLEDGE BASE:\n" + kbRules.map((r: any) => `- ${r.title}: ${r.content_text}`).join("\n")
+    : "";
+
   // Add Memory to Knowledge
   const knowledge = `
 LEAD FACTS: ${memoryFacts}
 CURRENT STAGE: ${currentStage}
 RECENT CONTEXT:
-${recentHistory}
+${recentHistory}${orgKnowledge}
   `;
 
-  return { industry, constraints, knowledge, calLink };
+  return { industry, constraints, knowledge, calLink, settings };
 }
 
 // ==========================================
@@ -290,7 +303,7 @@ export async function generateMessage(
 
   // 2. BUILD CONTEXT (fetches industry, constraints, lead memory)
   // Must happen before resolveModel so industry is available for model selection.
-  const { industry, constraints, knowledge } = await buildContext(supabase, params.org_id, params.lead.id);
+  const { industry, constraints, knowledge, settings } = await buildContext(supabase, params.org_id, params.lead.id);
 
   // 3. RESOLVE MODEL (industry-aware dual-model routing)
   // Law/medical orgs → GPT-4o for all substantive intents.
@@ -329,7 +342,8 @@ export async function generateMessage(
   const messages: Array<{ role: string; content: string }> = [
     { role: "system", content: MASTER_SYSTEM_PROMPT },
     { role: "system", content: `RULES: ${constraints}` },
-    { role: "system", content: `PERSONA: ${persona}` },
+    { role: "system", content: buildPersonaBlock(settings as PersonaSettings) },
+    { role: "system", content: `CUSTOM PROMPT: ${persona}` },
     { role: "system", content: `KNOWLEDGE: ${knowledge}` },
     { role: "system", content: `CONTEXT: Lead: ${params.lead.name}. Intent: ${params.intent}` },
   ];
@@ -447,7 +461,7 @@ export async function generateMessage(
 
 // ✅ UPDATED: getVoiceContext now requires lead_id
 export async function getVoiceContext(supabase: any, org_id: string, lead_id: string) {
-  const { constraints, knowledge } = await buildContext(supabase, org_id, lead_id);
+  const { constraints, knowledge, settings } = await buildContext(supabase, org_id, lead_id);
   const { data: promptConfig } = await supabase
     .from("active_org_prompts")
     .select("*")
@@ -459,6 +473,6 @@ export async function getVoiceContext(supabase: any, org_id: string, lead_id: st
   const stopInstruction =
     "CRITICAL: If user says 'Stop', 'Unsubscribe', or seems distressed, immediately say 'I understand, I will remove you from our list. Goodbye.' and hang up.";
   const fullSystemPrompt =
-    `${MASTER_SYSTEM_PROMPT}\n\n${stopInstruction}\n\nRULES: ${constraints}\n\nFACTS: ${knowledge}\n\nPERSONA: ${persona}`;
+    `${MASTER_SYSTEM_PROMPT}\n\n${stopInstruction}\n\nRULES: ${constraints}\n\n${buildPersonaBlock(settings as PersonaSettings)}\n\nCUSTOM PROMPT: ${persona}\n\nFACTS: ${knowledge}`;
   return { systemPrompt: fullSystemPrompt, version: promptConfig?.version || 0 };
 }

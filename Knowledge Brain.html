@@ -67,11 +67,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script>
-        let _currentUser, _sb;
+        let _currentUser, _sb, _currentOrgId;
 
-        function initPageLogic(profile, user, sb) {
+        async function initPageLogic(profile, user, sb) {
             _currentUser = user;
             _sb = sb;
+
+            // Fetch org_id for this user
+            const { data: mem } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1).maybeSingle();
+            _currentOrgId = mem?.org_id || null;
 
             // --- PDF UPLOAD LOGIC ---
             document.getElementById('upload-box').addEventListener('click', () => {
@@ -92,8 +96,8 @@
 
             const { data: entries, error } = await _sb
                 .from('knowledge_base')
-                .select('id, title, type, content_text, created_at')
-                .eq('user_id', _currentUser.id)
+                .select('id, title, type, content_text, file_url, created_at')
+                .eq('org_id', _currentOrgId)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -109,13 +113,17 @@
             list.innerHTML = '';
             entries.forEach(entry => {
                 const isPdf = entry.type === 'pdf';
+                const isProcessing = entry.content_text === '__processing__';
                 const icon = isPdf ? 'fa-file-pdf text-red-400' : 'fa-align-left text-indigo-400';
                 const badge = isPdf
                     ? 'bg-red-500/10 text-red-400'
                     : 'bg-indigo-500/10 text-indigo-400';
-                const preview = !isPdf && entry.content_text
-                    ? `<p class="text-slate-500 text-xs mt-1 truncate max-w-lg">${entry.content_text}</p>`
-                    : '';
+                let preview = '';
+                if (isProcessing) {
+                    preview = `<p class="text-indigo-400 text-xs mt-1 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin text-[10px]"></i> AI is reading this PDF...</p>`;
+                } else if (entry.content_text) {
+                    preview = `<p class="text-slate-500 text-xs mt-1 truncate max-w-lg">${entry.content_text}</p>`;
+                }
                 const date = new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
                 const row = document.createElement('div');
@@ -130,6 +138,7 @@
                             <div class="flex items-center gap-2">
                                 <span class="font-medium text-sm text-white truncate">${entry.title}</span>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded ${badge} uppercase flex-shrink-0">${isPdf ? 'PDF' : 'Rule'}</span>
+                                ${isPdf && entry.content_text && !isProcessing ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-green-500/10 text-green-400 uppercase flex-shrink-0">AI Summary</span>' : ''}
                             </div>
                             ${preview}
                         </div>
@@ -153,7 +162,7 @@
                 await _sb.storage.from('documents').remove([fileUrl]);
             }
 
-            const { error } = await _sb.from('knowledge_base').delete().eq('id', id).eq('user_id', _currentUser.id);
+            const { error } = await _sb.from('knowledge_base').delete().eq('id', id).eq('org_id', _currentOrgId);
             if (error) {
                 alert('Delete failed: ' + error.message);
                 return;
@@ -184,25 +193,43 @@
                 return;
             }
 
-            const { error: dbError } = await _sb.from('knowledge_base').insert({
+            const { data: insertedRows, error: dbError } = await _sb.from('knowledge_base').insert({
                 user_id: _currentUser.id,
+                org_id: _currentOrgId,
                 title: file.name,
                 file_url: filePath,
                 type: 'pdf'
+            }).select('id').single();
+
+            if (dbError) {
+                alert("Database Error: " + dbError.message);
+                return;
+            }
+
+            // Trigger AI summarization
+            uploadBox.innerHTML = `
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                    <i class="fa-solid fa-brain text-2xl text-indigo-400"></i>
+                </div>
+                <h3 class="font-bold text-lg text-indigo-300">AI Reading PDF...</h3>
+                <p class="text-sm text-slate-500 mt-2 text-center">GPT-4o-mini is summarizing your document. This takes 10–30 seconds.</p>`;
+            loadKnowledgeBase();
+
+            const { error: fnError } = await _sb.functions.invoke('process_pdf_knowledge', {
+                body: { knowledge_base_id: insertedRows.id }
             });
 
-            if (!dbError) {
-                alert("Success! The Brain is processing this document.");
-                uploadBox.innerHTML = `
-                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                        <i class="fa-solid fa-check text-2xl text-green-400"></i>
-                    </div>
-                    <h3 class="font-bold text-lg text-green-400">Uploaded!</h3>
-                    <p class="text-sm text-slate-500 mt-2 text-center">Click to upload another file.</p>`;
-                loadKnowledgeBase();
-            } else {
-                alert("Database Error: " + dbError.message);
+            if (fnError) {
+                console.warn('PDF processing error:', fnError.message);
             }
+
+            uploadBox.innerHTML = `
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-check text-2xl text-green-400"></i>
+                </div>
+                <h3 class="font-bold text-lg text-green-400">Done! Summary Ready</h3>
+                <p class="text-sm text-slate-500 mt-2 text-center">Click to upload another file.</p>`;
+            loadKnowledgeBase();
         }
 
         async function updateTextRule() {
@@ -211,6 +238,7 @@
 
             const { error } = await _sb.from('knowledge_base').insert({
                 user_id: _currentUser.id,
+                org_id: _currentOrgId,
                 title: "Manual Rule",
                 content_text: text,
                 type: 'text_rule'

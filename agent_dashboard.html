@@ -77,13 +77,15 @@
                             <th class="p-4 rounded-tl-lg">Name</th>
                             <th class="p-4">Phone</th>
                             <th class="p-4">Status</th>
+                            <th class="p-4">Conv. Prob.</th>
                             <th class="p-4">Last Contact</th>
                             <th class="p-4">Source</th>
-                            <th class="p-4 rounded-tr-lg">Notes</th>
+                            <th class="p-4">Notes</th>
+                            <th class="p-4 rounded-tr-lg">Action</th>
                         </tr>
                     </thead>
                     <tbody id="leadsTable" class="divide-y divide-slate-800">
-                        <tr><td colspan="6" class="p-8 text-center italic opacity-50">Loading...</td></tr>
+                        <tr><td colspan="8" class="p-8 text-center italic opacity-50">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -97,6 +99,28 @@
             </div>
             <div id="activity-feed" class="space-y-3">
                 <p class="text-slate-600 text-sm italic">Loading activity...</p>
+            </div>
+        </div>
+
+        <!-- Pending Manual Actions Card -->
+        <div id="manual-actions-card" class="hidden bg-amber-500/5 border border-amber-500/30 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-phone-slash text-amber-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Pending Manual Actions</h2>
+                <span class="text-xs text-slate-500 ml-auto">Leads needing direct follow-up — automation unavailable</span>
+            </div>
+            <div id="manual-actions-list" class="space-y-3"></div>
+        </div>
+
+        <!-- Live Wire Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="h-3 w-3 rounded-full bg-red-500 animate-pulse"></div>
+                <h2 class="text-lg font-bold text-white">Live Wire</h2>
+                <span class="text-xs text-slate-500 ml-2">Real-time inbound message feed</span>
+            </div>
+            <div id="live-wire-feed" class="space-y-2 max-h-80 overflow-y-auto">
+                <p class="text-slate-600 text-sm italic text-center py-4">Listening for new messages...</p>
             </div>
         </div>
     </div>
@@ -114,8 +138,9 @@
                     </div>
                     <div>
                         <label class="block text-xs text-slate-400 mb-1 font-bold">Phone *</label>
-                        <input id="lead-phone" type="tel" required placeholder="+1234567890"
+                        <input id="lead-phone" type="tel" required placeholder="+91XXXXXXXXXX"
                             class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                        <p id="phone-error" class="hidden text-xs text-red-400 mt-1">Include country code, e.g. +91XXXXXXXXXX or +1XXXXXXXXXX</p>
                     </div>
                 </div>
                 <div>
@@ -154,13 +179,117 @@
         </div>
     </div>
 
+    <!-- Lead Action Panel -->
+    <div id="lead-action-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h3 class="text-lg font-bold text-white" id="lap-name">Lead Name</h3>
+                    <p class="text-xs text-slate-400 mt-0.5" id="lap-meta">phone · email</p>
+                </div>
+                <button onclick="closeLeadPanel()" class="text-slate-500 hover:text-white text-xl leading-none">×</button>
+            </div>
+
+            <!-- Status selector (3 toggle buttons) -->
+            <div class="flex gap-2 mb-6">
+                <button id="lap-btn-active" onclick="selectStatus('active')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold border transition">Active</button>
+                <button id="lap-btn-closed_won" onclick="selectStatus('closed_won')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold border transition">Closed Won</button>
+                <button id="lap-btn-closed_lost" onclick="selectStatus('closed_lost')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold border transition">Closed Lost</button>
+            </div>
+
+            <!-- Active panel -->
+            <div id="lap-active-panel">
+                <label class="block text-xs text-slate-400 mb-1 font-bold uppercase">Channel</label>
+                <select id="lap-channel"
+                    class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-green-500">
+                    <option value="sms">SMS</option>
+                    <option value="voice">Voice Call</option>
+                    <option value="email">Email</option>
+                </select>
+                <label class="block text-xs text-slate-400 mb-1 font-bold uppercase">AI Instruction</label>
+                <textarea id="lap-instruction" rows="3" placeholder='e.g. "Call and explain the pricing structure and USPs of the solar package"'
+                    class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-green-500 resize-none"></textarea>
+                <button onclick="sendInstruction()"
+                    class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm transition">
+                    Send AI Instruction
+                </button>
+                <!-- Takeover / Manual Mode section -->
+                <div class="mt-4 pt-4 border-t border-slate-800">
+                    <div id="lap-takeover-section">
+                        <button onclick="takeoverLead()" class="w-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 font-bold py-2 rounded-lg text-sm transition">
+                            <i class="fa fa-user-shield mr-2"></i>Takeover (Pause AI)
+                        </button>
+                    </div>
+                    <div id="lap-manual-reply-section" class="hidden">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+                            <i class="fa fa-circle text-amber-400 text-xs animate-pulse"></i>
+                            <span class="text-xs font-bold text-amber-300">Manual Mode — AI is paused for this lead</span>
+                        </div>
+                        <textarea id="lap-manual-text" rows="2" placeholder="Type your SMS reply..."
+                            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"></textarea>
+                        <div class="flex gap-2">
+                            <button onclick="sendManualReply()" class="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold py-2 rounded-lg text-sm transition">Send SMS</button>
+                            <button onclick="resumeAI()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold px-4 py-2 rounded-lg text-sm transition">Resume AI</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Closed Won panel -->
+            <div id="lap-won-panel" class="hidden">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3 mb-4">
+                    <p class="text-emerald-300 text-sm font-semibold">Mark as Closed Won?</p>
+                    <p class="text-slate-400 text-xs mt-1">Your enterprise admin will be notified and can challenge this if needed. The status will stay as Closed Won unless challenged.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="confirmClosedWon()"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-sm transition">
+                        Confirm Closed Won
+                    </button>
+                    <button onclick="selectStatus(_lapCurrentStatus)"
+                        class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Closed Lost panel -->
+            <div id="lap-lost-panel" class="hidden">
+                <label class="block text-xs text-slate-400 mb-1 font-bold uppercase">Reason for Loss <span class="text-red-400">*</span></label>
+                <textarea id="lap-lost-reason" rows="3" placeholder="Why was this lead lost? (required)"
+                    class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-1 focus:ring-red-500 resize-none"></textarea>
+                <p id="lap-lost-reason-err" class="hidden text-xs text-red-400 mb-3">Reason is required.</p>
+                <div class="flex gap-3 mt-3">
+                    <button onclick="confirmClosedLost()"
+                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-lg text-sm transition">
+                        Mark as Closed Lost
+                    </button>
+                    <button onclick="selectStatus(_lapCurrentStatus)"
+                        class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="auth.js"></script>
     <script>
         let _sb, _orgId, _userId;
         let _allLeads = [];
         let _statusFilter = 'all';
 
+        // Lead Action Panel state
+        let _lapLeadId = null;
+        let _lapSelectedStatus = 'active';
+        let _lapCurrentStatus = 'active';
+
         requireAuth({
+            requireOnboarding: false,
             onAuthenticated: async (profile, user, sb) => {
                 _sb = sb;
                 _userId = user.id;
@@ -169,13 +298,16 @@
                     .from('org_members')
                     .select('org_id, role, campaigns_paused, credit_limit')
                     .eq('user_id', user.id)
+                    .eq('role', 'enterprise_agent')
+                    .limit(1)
                     .maybeSingle();
 
-                if (!membership || membership.role !== 'enterprise_agent') {
+                if (!membership) {
                     window.location.href = 'dashboard.html';
                     return;
                 }
                 _orgId = membership.org_id;
+                document.getElementById('page-content').style.display = 'block';
 
                 // Org name
                 const { data: org } = await sb
@@ -200,20 +332,66 @@
 
                 loadLeads();
                 loadActivity();
+                loadAgentManualActions();
+                setInterval(loadAgentManualActions, 30000);
+                initLiveWire(_sb);
             }
         });
+
+        // --- PENDING MANUAL ACTIONS ---
+        async function loadAgentManualActions() {
+            if (!_orgId) return;
+            const { data } = await _sb.from('manual_action_requests')
+                .select('id, type, lead_message, created_at, leads(name, phone)')
+                .eq('org_id', _orgId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: true });
+            const card = document.getElementById('manual-actions-card');
+            const list = document.getElementById('manual-actions-list');
+            if (!data || data.length === 0) { card.classList.add('hidden'); return; }
+            card.classList.remove('hidden');
+            list.innerHTML = '';
+            data.forEach(action => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3';
+                const elapsedMin = Math.floor((Date.now() - new Date(action.created_at)) / 60000);
+                const leadName = action.leads?.name || 'Lead';
+                const leadPhone = action.leads?.phone || '';
+                const actionLabel = action.type === 'callback_requested' ? 'callback' : 'meeting';
+                const btnLabel = action.type === 'callback_requested' ? 'Mark as Called' : 'Mark as Done';
+                const snippet = action.lead_message ? `<p class="text-[10px] text-slate-500 mt-1 italic">"${action.lead_message.substring(0,80)}${action.lead_message.length>80?'...':''}"</p>` : '';
+                div.innerHTML = `
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-white"></p>
+                        <p class="text-xs text-amber-400">Requested a ${actionLabel} · ${elapsedMin} min ago</p>
+                        ${snippet}
+                    </div>
+                    <button onclick="agentMarkActionDone('${action.id}','${action.created_at}')"
+                        class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold px-3 py-2 rounded-lg transition ml-4 whitespace-nowrap">${btnLabel}</button>`;
+                div.querySelector('p.font-bold').textContent = leadName + (leadPhone ? ` · ${leadPhone}` : '');
+                list.appendChild(div);
+            });
+        }
+
+        async function agentMarkActionDone(id, createdAt) {
+            const elapsed = Math.floor((Date.now() - new Date(createdAt)) / 1000);
+            await _sb.from('manual_action_requests').update({
+                status: 'done', responded_at: new Date().toISOString(), response_time_seconds: elapsed,
+            }).eq('id', id);
+            loadAgentManualActions();
+        }
 
         // --- LEADS ---
         async function loadLeads() {
             const tbody = document.getElementById('leadsTable');
             const { data, error } = await _sb
                 .from('leads')
-                .select('id, name, phone, email, status, last_interaction_at, source, notes')
+                .select('id, name, phone, email, status, ai_paused, last_interaction_at, source, notes')
                 .eq('assigned_to', _userId)
                 .order('last_interaction_at', { ascending: false, nullsFirst: false });
 
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
                 return;
             }
             _allLeads = data || [];
@@ -233,6 +411,24 @@
             renderLeads();
         }
 
+        function calcConversionProbability(lead) {
+            if (lead.status === 'closed_won') return 100;
+            if (lead.status === 'closed_lost') return 0;
+            let score = lead.status === 'active' ? 45 : 20;
+            score += Math.round((50 - (lead.risk_score || 50)) * 0.4);
+            if (lead.last_interaction_at) {
+                const days = (Date.now() - new Date(lead.last_interaction_at)) / 86400000;
+                if (days < 1) score += 20;
+                else if (days < 3) score += 12;
+                else if (days < 7) score += 5;
+                else if (days > 21) score -= 10;
+                else if (days > 14) score -= 5;
+            }
+            if (lead.phone) score += 8;
+            if (lead.email) score += 5;
+            return Math.min(99, Math.max(1, score));
+        }
+
         function renderLeads() {
             const tbody = document.getElementById('leadsTable');
             const filtered = _statusFilter === 'all'
@@ -241,7 +437,7 @@
 
             tbody.innerHTML = '';
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-600">No leads ${_statusFilter !== 'all' ? 'with status "' + _statusFilter + '"' : ''}.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-600">No leads ${_statusFilter !== 'all' ? 'with status "' + _statusFilter + '"' : ''}.</td></tr>`;
                 return;
             }
 
@@ -260,13 +456,22 @@
                     : '—';
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition';
+                const prob = calcConversionProbability(lead);
+                const probColor = prob >= 100 ? 'text-emerald-400' : prob > 60 ? 'text-green-400' : prob > 30 ? 'text-yellow-400' : 'text-red-400';
+                const isTerminal = lead.status === 'closed_won' || lead.status === 'closed_lost';
                 tr.innerHTML = `
                     <td class="p-4 text-white font-medium">${lead.name || '—'}</td>
                     <td class="p-4 font-mono text-xs">${lead.phone || '—'}</td>
                     <td class="p-4"><span class="px-2 py-0.5 rounded text-xs font-bold uppercase ${sc}">${(lead.status || 'new').replace('_',' ')}</span></td>
+                    <td class="p-4 text-xs font-bold ${probColor}">${prob}%</td>
                     <td class="p-4 text-xs text-slate-400">${lastContact}</td>
                     <td class="p-4 text-xs text-slate-400">${lead.source || '—'}</td>
                     <td class="p-4 text-xs text-slate-400 max-w-[180px] truncate" title="${(lead.notes || '').replace(/"/g,'&quot;')}">${lead.notes || '—'}</td>
+                    <td class="p-4 text-right">
+                        ${isTerminal
+                            ? `<span class="text-slate-600 text-xs italic">Closed</span>`
+                            : `<button onclick="openLeadPanel('${lead.id}')" class="text-xs font-bold text-green-400 hover:text-green-300 transition">Manage</button>`}
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -347,8 +552,19 @@
 
         async function submitLead() {
             const name = document.getElementById('lead-name').value.trim();
-            const phone = document.getElementById('lead-phone').value.trim();
+            // Normalize: strip spaces, dashes, parentheses
+            const phone = document.getElementById('lead-phone').value.trim().replace(/[\s\-().]/g, '');
+            const phoneErr = document.getElementById('phone-error');
+
             if (!name || !phone) { alert('Name and phone are required.'); return; }
+
+            // E.164 validation: + followed by 7–15 digits
+            if (!/^\+[1-9]\d{6,14}$/.test(phone)) {
+                phoneErr.classList.remove('hidden');
+                document.getElementById('lead-phone').focus();
+                return;
+            }
+            phoneErr.classList.add('hidden');
 
             const btn = document.getElementById('add-lead-btn');
             btn.disabled = true;
@@ -360,9 +576,10 @@
             // 1. Insert lead
             const { data: lead, error: leadErr } = await _sb.from('leads').insert({
                 org_id: _orgId,
+                profile_id: _userId,
                 assigned_to: _userId,
                 name,
-                phone,
+                phone, // already normalized to E.164
                 email: document.getElementById('lead-email').value.trim() || null,
                 source: document.getElementById('lead-source').value,
                 status: 'new',
@@ -380,24 +597,30 @@
             if (triggerAI) {
                 try {
                     // Create a decision plan row first (plan_id is required by execution_tasks)
-                    const { data: plan, error: planErr } = await _sb.from('decision_plans').insert({
+                    const { data: planRows, error: planErr } = await _sb.from('decision_plans').insert({
                         lead_id: lead.id,
                         org_id: _orgId,
                         trigger: 'manual_agent',
                         plan: { steps: [{ channel: 'sms', delay_minutes: 0 }], context: notes || '' }
-                    }).select('id').single();
+                    }).select('id');
 
-                    if (!planErr && plan) {
-                        await _sb.from('execution_tasks').insert({
-                            plan_id: plan.id,
-                            lead_id: lead.id,
-                            org_id: _orgId,
-                            channel: 'sms',
-                            max_attempts: 1,
-                            scheduled_for: new Date().toISOString(),
-                            status: 'pending',
-                            metadata: { type: 'introductory_sms', context: notes || '', triggered_by: _userId }
-                        });
+                    if (planErr) {
+                        console.error('decision_plans insert failed:', planErr.message);
+                    } else {
+                        const planId = planRows?.[0]?.id;
+                        if (planId) {
+                            const { error: taskErr } = await _sb.from('execution_tasks').insert({
+                                plan_id: planId,
+                                lead_id: lead.id,
+                                org_id: _orgId,
+                                channel: 'sms',
+                                max_attempts: 1,
+                                scheduled_for: new Date().toISOString(),
+                                status: 'pending',
+                                metadata: { type: 'introductory_sms', context: notes || '', triggered_by: _userId }
+                            });
+                            if (taskErr) console.error('execution_tasks insert failed:', taskErr.message);
+                        }
                     }
                 } catch (aiErr) {
                     console.warn('AI task creation failed (non-fatal):', aiErr);
@@ -409,6 +632,283 @@
             closeAddLeadModal();
             await loadLeads();
             loadActivity();
+        }
+
+        // --- LEAD ACTION PANEL ---
+        function openLeadPanel(leadId) {
+            const lead = _allLeads.find(l => l.id === leadId);
+            if (!lead) return;
+            if (lead.status === 'closed_won' || lead.status === 'closed_lost') return;
+            _lapLeadId = leadId;
+            _lapCurrentStatus = lead.status || 'active';
+            _lapSelectedStatus = _lapCurrentStatus;
+
+            document.getElementById('lap-name').textContent = lead.name || '—';
+            document.getElementById('lap-meta').textContent =
+                [lead.phone, lead.email].filter(Boolean).join(' · ') || 'No contact info';
+
+            document.getElementById('lap-instruction').value = '';
+            document.getElementById('lap-lost-reason').value = '';
+            document.getElementById('lap-lost-reason-err').classList.add('hidden');
+
+            // Show takeover state based on ai_paused flag
+            updateTakeoverUI(!!lead.ai_paused);
+
+            document.getElementById('lead-action-modal').classList.remove('hidden');
+            selectStatus(_lapCurrentStatus);
+        }
+
+        function closeLeadPanel() {
+            document.getElementById('lead-action-modal').classList.add('hidden');
+            _lapLeadId = null;
+        }
+
+        function selectStatus(status) {
+            _lapSelectedStatus = status;
+            const panels = { active: 'lap-active-panel', closed_won: 'lap-won-panel', closed_lost: 'lap-lost-panel' };
+            Object.values(panels).forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(panels[status] || 'lap-active-panel').classList.remove('hidden');
+
+            const styles = {
+                active: { active: 'bg-green-600 border-green-500 text-white', inactive: 'border-slate-700 text-slate-400' },
+                closed_won: { active: 'bg-emerald-600 border-emerald-500 text-white', inactive: 'border-slate-700 text-slate-400' },
+                closed_lost: { active: 'bg-red-600 border-red-500 text-white', inactive: 'border-slate-700 text-slate-400' }
+            };
+            ['active', 'closed_won', 'closed_lost'].forEach(s => {
+                const btn = document.getElementById(`lap-btn-${s}`);
+                const isSelected = s === status;
+                btn.className = `flex-1 py-2 rounded-lg text-xs font-bold border transition ${isSelected ? styles[s].active : styles[s].inactive}`;
+            });
+        }
+
+        async function sendInstruction() {
+            const instruction = document.getElementById('lap-instruction').value.trim();
+            if (!instruction) { alert('Please enter an instruction for the AI.'); return; }
+
+            const channel = document.getElementById('lap-channel').value;
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (!lead) return;
+
+            const btn = event?.target;
+            if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
+
+            try {
+                const metadata = {
+                    type: 'agent_instruction',
+                    instruction,
+                    triggered_by: _userId,
+                    ...(channel === 'email' && lead.email ? { to_email: lead.email, subject: 'Follow-up from GetSalesCloser', body: instruction, force_raw_send: false } : {})
+                };
+
+                const { data: planRows, error: planErr } = await _sb.from('decision_plans').insert({
+                    lead_id: _lapLeadId,
+                    org_id: _orgId,
+                    trigger: 'manual_agent',
+                    plan: { steps: [{ channel, delay_minutes: 0 }], context: instruction }
+                }).select('id');
+
+                if (planErr) throw new Error(planErr.message);
+                const planId = planRows?.[0]?.id;
+                if (!planId) throw new Error('No plan ID returned');
+
+                const { error: taskErr } = await _sb.from('execution_tasks').insert({
+                    plan_id: planId,
+                    lead_id: _lapLeadId,
+                    org_id: _orgId,
+                    channel,
+                    max_attempts: 1,
+                    scheduled_for: new Date().toISOString(),
+                    status: 'pending',
+                    metadata
+                });
+                if (taskErr) throw new Error(taskErr.message);
+
+                if (lead.status === 'new') {
+                    await _sb.from('leads').update({ status: 'active' }).eq('id', _lapLeadId).eq('assigned_to', _userId);
+                    lead.status = 'active';
+                }
+
+                alert(`\u2705 AI instruction scheduled via ${channel.toUpperCase()}.`);
+                closeLeadPanel();
+                await loadLeads();
+            } catch (err) {
+                alert('Failed to schedule instruction: ' + err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Send AI Instruction'; }
+            }
+        }
+
+        async function confirmClosedWon() {
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (!lead) return;
+
+            const { error: updateErr } = await _sb.from('leads')
+                .update({ status: 'closed_won' })
+                .eq('id', _lapLeadId)
+                .eq('assigned_to', _userId);
+            if (updateErr) { alert('Failed to update status: ' + updateErr.message); return; }
+
+            await _sb.from('lead_timeline_events').insert({
+                user_id: _userId,
+                lead_id: _lapLeadId,
+                event_type: 'status_change',
+                actor_type: 'agent',
+                payload: { from: lead.status, to: 'closed_won' }
+            });
+
+            await _sb.from('notifications').insert({
+                org_id: _orgId,
+                lead_id: _lapLeadId,
+                type: 'closed_won_pending',
+                message: `Agent marked "${lead.name}" as Closed Won. Review in the Enterprise Admin panel.`,
+                is_read: false
+            });
+
+            alert('\u2705 Lead marked as Closed Won. Admin has been notified.');
+            closeLeadPanel();
+            await loadLeads();
+        }
+
+        async function confirmClosedLost() {
+            const reason = document.getElementById('lap-lost-reason').value.trim();
+            if (!reason) {
+                document.getElementById('lap-lost-reason-err').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('lap-lost-reason-err').classList.add('hidden');
+
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (!lead) return;
+
+            const { error: updateErr } = await _sb.from('leads')
+                .update({ status: 'closed_lost' })
+                .eq('id', _lapLeadId)
+                .eq('assigned_to', _userId);
+            if (updateErr) { alert('Failed to update status: ' + updateErr.message); return; }
+
+            await _sb.from('lead_timeline_events').insert({
+                user_id: _userId,
+                lead_id: _lapLeadId,
+                event_type: 'status_change',
+                actor_type: 'agent',
+                payload: { from: lead.status, to: 'closed_lost', reason }
+            });
+
+            alert('Lead marked as Closed Lost.');
+            closeLeadPanel();
+            await loadLeads();
+        }
+
+        // --- TAKEOVER / MANUAL MODE ---
+        function updateTakeoverUI(isPaused) {
+            document.getElementById('lap-takeover-section').classList.toggle('hidden', isPaused);
+            document.getElementById('lap-manual-reply-section').classList.toggle('hidden', !isPaused);
+        }
+
+        async function takeoverLead() {
+            if (!_lapLeadId) return;
+            const { error } = await _sb.from('leads').update({ ai_paused: true }).eq('id', _lapLeadId);
+            if (error) { alert('Failed to pause AI: ' + error.message); return; }
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (lead) lead.ai_paused = true;
+            updateTakeoverUI(true);
+            document.getElementById('lap-manual-text').value = '';
+        }
+
+        async function resumeAI() {
+            if (!_lapLeadId) return;
+            const { error } = await _sb.from('leads').update({ ai_paused: false }).eq('id', _lapLeadId);
+            if (error) { alert('Failed to resume AI: ' + error.message); return; }
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (lead) lead.ai_paused = false;
+            updateTakeoverUI(false);
+        }
+
+        async function sendManualReply() {
+            const text = document.getElementById('lap-manual-text').value.trim();
+            if (!text) { alert('Please enter a message to send.'); return; }
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (!lead) return;
+
+            const btn = event?.target;
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+            try {
+                const { data: planRows, error: planErr } = await _sb.from('decision_plans').insert({
+                    lead_id: _lapLeadId,
+                    org_id: _orgId,
+                    trigger: 'manual_agent',
+                    plan: { steps: [{ channel: 'sms', delay_minutes: 0 }], context: 'manual_reply' }
+                }).select('id');
+                if (planErr) throw new Error(planErr.message);
+                const planId = planRows?.[0]?.id;
+                if (!planId) throw new Error('No plan ID returned');
+
+                const { error: taskErr } = await _sb.from('execution_tasks').insert({
+                    plan_id: planId,
+                    lead_id: _lapLeadId,
+                    org_id: _orgId,
+                    channel: 'sms',
+                    max_attempts: 1,
+                    scheduled_for: new Date().toISOString(),
+                    status: 'pending',
+                    metadata: { force_content: text, type: 'manual_reply', triggered_by: _userId }
+                });
+                if (taskErr) throw new Error(taskErr.message);
+
+                document.getElementById('lap-manual-text').value = '';
+                alert('✅ Message sent via SMS.');
+            } catch (err) {
+                alert('Failed to send: ' + err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Send SMS'; }
+            }
+        }
+
+        // --- LIVE WIRE ---
+        function initLiveWire(sb) {
+            sb.channel('agent-live-wire')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interactions' }, payload => {
+                    const row = payload.new;
+                    // Only show inbound messages for this agent's assigned leads
+                    if (row.direction !== 'inbound') return;
+                    const leadIds = _allLeads.map(l => l.id);
+                    if (!leadIds.includes(row.lead_id)) return;
+                    appendLiveWireEvent(row);
+                })
+                .subscribe();
+        }
+
+        function appendLiveWireEvent(row) {
+            const feed = document.getElementById('live-wire-feed');
+            if (!feed) return;
+            // Remove "listening" placeholder on first event
+            const placeholder = feed.querySelector('p.italic');
+            if (placeholder) placeholder.remove();
+
+            const lead = _allLeads.find(l => l.id === row.lead_id);
+            const leadName = lead?.name || 'Lead';
+            const time = new Date(row.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const channelIcon = row.type === 'site_liaison' ? 'fa-globe' : row.type === 'voice' ? 'fa-phone' : 'fa-comment-sms';
+
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-3 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 animate-pulse-once';
+            div.innerHTML = `
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center">
+                    <i class="fa ${channelIcon} text-xs text-indigo-400"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-bold text-white">${leadName}</span>
+                        <span class="text-[10px] text-slate-500">${time}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 truncate">${row.content || ''}</p>
+                </div>
+                <button onclick="openLeadPanel('${row.lead_id}')" class="flex-shrink-0 text-[10px] text-indigo-400 hover:text-indigo-300 font-bold whitespace-nowrap">Manage</button>`;
+            feed.prepend(div);
+
+            // Cap at 20 events
+            while (feed.children.length > 20) feed.removeChild(feed.lastChild);
         }
 
         // --- UTILS ---

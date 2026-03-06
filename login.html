@@ -97,51 +97,56 @@
                     return;
                 }
 
-                // Claim any pending org invitation for this email
+                // Claim ALL pending org invitations for this email
                 const email = user.email;
                 if (email) {
-                    const { data: invite } = await supabase
+                    const { data: invites } = await supabase
                         .from('org_invitations')
                         .select('org_id, role')
-                        .eq('invited_email', email)
-                        .maybeSingle();
-                    if (invite) {
-                        await supabase.from('org_members').upsert(
-                            { user_id: user.id, org_id: invite.org_id, role: invite.role },
-                            { onConflict: 'user_id,org_id' }
-                        );
-                        await supabase.from('org_invitations')
-                            .delete()
-                            .eq('invited_email', email)
-                            .eq('org_id', invite.org_id);
+                        .eq('invited_email', email);
+                    if (invites && invites.length > 0) {
+                        for (const invite of invites) {
+                            await supabase.from('org_members').upsert(
+                                { user_id: user.id, org_id: invite.org_id, role: invite.role },
+                                { onConflict: 'user_id,org_id' }
+                            );
+                            await supabase.from('org_invitations')
+                                .delete()
+                                .eq('invited_email', email)
+                                .eq('org_id', invite.org_id);
+                        }
                     }
                 }
 
-                // Check if user belongs to an org (also fetch role for routing)
-                const { data: membership } = await supabase
+                // Fetch ALL org memberships — user may belong to multiple orgs
+                const { data: memberships } = await supabase
                     .from('org_members')
                     .select('org_id, role')
-                    .eq('user_id', user.id)
-                    .limit(1)
-                    .maybeSingle();
+                    .eq('user_id', user.id);
 
-                if (membership) {
-                    // Check if org has at least one active service
-                    const { data: activeService } = await supabase
+                if (memberships && memberships.length > 0) {
+                    // Fetch active services for all orgs in one query
+                    const { data: activeServices } = await supabase
                         .from('org_services')
-                        .select('service_key')
-                        .eq('org_id', membership.org_id)
-                        .eq('status', 'active')
-                        .limit(1)
-                        .maybeSingle();
+                        .select('org_id')
+                        .in('org_id', memberships.map(m => m.org_id))
+                        .eq('status', 'active');
 
-                    if (activeService) {
-                        // Route based on role
-                        if (membership.role === 'agency_admin') {
+                    const activeOrgIds = new Set((activeServices || []).map(s => s.org_id));
+
+                    // Pick highest-priority role that has an active service
+                    const rolePriority = { 'enterprise_admin': 0, 'agency_admin': 1, 'enterprise_agent': 2 };
+                    const sorted = [...memberships].sort((a, b) =>
+                        (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
+                    );
+                    const active = sorted.find(m => activeOrgIds.has(m.org_id));
+
+                    if (active) {
+                        if (active.role === 'agency_admin') {
                             window.location.href = 'agency_admin.html';
-                        } else if (membership.role === 'enterprise_admin') {
+                        } else if (active.role === 'enterprise_admin') {
                             window.location.href = 'enterprise_admin.html';
-                        } else if (membership.role === 'enterprise_agent') {
+                        } else if (active.role === 'enterprise_agent') {
                             window.location.href = 'agent_dashboard.html';
                         } else {
                             window.location.href = 'dashboard.html';

@@ -83,6 +83,24 @@
 <script>
     let _sb, _currentLeadId;
 
+    function calcConversionProbability(lead) {
+        if (lead.status === 'closed_won') return 100;
+        if (lead.status === 'closed_lost') return 0;
+        let score = lead.status === 'active' ? 45 : 20;
+        score += Math.round((50 - (lead.risk_score || 50)) * 0.4);
+        if (lead.last_interaction_at) {
+            const days = (Date.now() - new Date(lead.last_interaction_at)) / 86400000;
+            if (days < 1) score += 20;
+            else if (days < 3) score += 12;
+            else if (days < 7) score += 5;
+            else if (days > 21) score -= 10;
+            else if (days > 14) score -= 5;
+        }
+        if (lead.phone) score += 8;
+        if (lead.email) score += 5;
+        return Math.min(99, Math.max(1, score));
+    }
+
     // 1. Load Leads
     async function loadLeads(sb) {
         const { data: leads } = await sb.from('leads').select('*').order('last_contacted_at', { ascending: false });
@@ -91,14 +109,15 @@
 
         if (leads && leads.length > 0) {
             leads.forEach(lead => {
-                const probColor = lead.probability_score > 80 ? 'text-green-400' : 'text-yellow-400';
-                const colorBase = lead.probability_score > 80 ? 'green' : 'yellow';
+                const prob = calcConversionProbability(lead);
+                const probColor = prob >= 100 ? 'text-emerald-400' : prob > 60 ? 'text-green-400' : prob > 30 ? 'text-yellow-400' : 'text-red-400';
+                const colorBase = prob >= 100 ? 'emerald' : prob > 60 ? 'green' : prob > 30 ? 'yellow' : 'red';
                 const div = document.createElement('div');
                 div.className = "p-4 border-b border-white/5 hover:bg-white/5 cursor-pointer flex justify-between items-center group transition";
-                div.onclick = () => showDetail(lead.id, lead.name, lead.email);
+                div.onclick = () => showDetail(lead);
                 div.innerHTML = `
-                    <div><h4 class="font-bold text-white text-sm group-hover:text-indigo-400">${lead.name}</h4><p class="text-xs text-slate-400 capitalize">${lead.status}</p></div>
-                    <div class="text-right"><span class="text-xs font-bold ${probColor} bg-${colorBase}-900/20 px-2 py-1 rounded">${lead.probability_score || 0}% Prob.</span></div>
+                    <div><h4 class="font-bold text-white text-sm group-hover:text-indigo-400">${lead.name}</h4><p class="text-xs text-slate-400 capitalize">${lead.status.replace('_',' ')}</p></div>
+                    <div class="text-right"><span class="text-xs font-bold ${probColor} bg-${colorBase}-900/20 px-2 py-1 rounded">${prob}% Conv.</span></div>
                 `;
                 listContainer.appendChild(div);
             });
@@ -108,21 +127,25 @@
     }
 
     // 2. Show Details
-    async function showDetail(leadId, name, email) {
-        _currentLeadId = leadId;
+    async function showDetail(lead) {
+        _currentLeadId = lead.id;
         document.getElementById('empty-state').classList.add('hidden');
         const view = document.getElementById('detail-view');
         view.classList.remove('hidden');
         view.classList.add('flex');
 
-        document.getElementById('detail-name').innerText = name;
-        document.getElementById('detail-company').innerText = email || 'No contact info';
+        document.getElementById('detail-name').innerText = lead.name;
+        document.getElementById('detail-company').innerText = lead.email || lead.phone || 'No contact info';
 
-        const { data: chats } = await _sb.from('interactions').select('*').eq('lead_id', leadId).order('created_at', { ascending: true });
+        // Update conversion probability with real lead data
+        const prob = calcConversionProbability(lead);
+        document.getElementById('detail-score').innerText = prob + '%';
+
+        const { data: chats } = await _sb.from('interactions').select('*').eq('lead_id', lead.id).order('created_at', { ascending: true });
         const container = document.getElementById('chat-history');
         container.innerHTML = '';
 
-        if (chats) {
+        if (chats && chats.length > 0) {
             chats.forEach(chat => {
                 const isAI = chat.direction === 'outbound';
                 const align = isAI ? 'self-end' : 'self-start';
@@ -135,6 +158,8 @@
                 div.appendChild(bubble);
                 container.appendChild(div);
             });
+        } else {
+            container.innerHTML = '<p class="text-slate-600 text-xs text-center pt-6">No conversation history yet.</p>';
         }
     }
 
@@ -162,7 +187,8 @@
             ? `<div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">${label}</p><p class="text-sm text-white">${value}</p></div>`
             : '';
 
-        const scoreColor = (lead.probability_score || 0) > 70 ? 'text-green-400' : (lead.probability_score || 0) > 40 ? 'text-yellow-400' : 'text-red-400';
+        const prob = calcConversionProbability(lead);
+        const scoreColor = prob >= 100 ? 'text-emerald-400' : prob > 60 ? 'text-green-400' : prob > 30 ? 'text-yellow-400' : 'text-red-400';
         const statusBadge = `<span class="bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">${lead.status || 'unknown'}</span>`;
 
         const timelineHtml = (timeline && timeline.length > 0)
@@ -182,7 +208,7 @@
                 ${field('Company', lead.company)}
                 ${field('Source', lead.source)}
                 <div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">Status</p>${statusBadge}</div>
-                <div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">Conversion Probability</p><p class="text-sm font-bold ${scoreColor}">${lead.probability_score || 0}%</p></div>
+                <div><p class="text-[10px] font-bold uppercase text-slate-500 mb-1">Conversion Probability</p><p class="text-sm font-bold ${scoreColor}">${prob}%</p></div>
                 ${field('Last Contacted', lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleString('en-IN') : null)}
                 ${field('Lead Since', lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null)}
                 ${field('Notes', lead.notes)}

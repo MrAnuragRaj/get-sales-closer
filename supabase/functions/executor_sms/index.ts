@@ -75,27 +75,33 @@ serve(async (req) => {
     return new Response("Missing actor_user_id", { status: 500 });
   }
 
-  // 4) Generate message
-  const brainResult = await generateMessage(supabase, {
-    task_id,
-    org_id: task.org_id,
-    lead: { id: task.lead_id, name: task.leads?.name },
-    channel: "sms",
-    intent: "initial_outreach",
-  });
+  // 4) Generate message — skip AI if force_content is set (human takeover)
+  let messageBody: string;
+  if (task.metadata?.force_content) {
+    messageBody = safeString(task.metadata.force_content);
+    console.log(`[executor_sms] force_content bypass for task ${task_id}`);
+  } else {
+    const brainResult = await generateMessage(supabase, {
+      task_id,
+      org_id: task.org_id,
+      lead: { id: task.lead_id, name: task.leads?.name },
+      channel: "sms",
+      intent: "initial_outreach",
+    });
 
-  if (brainResult.error || !brainResult.content) {
-    await supabase.from("execution_tasks").update({
-      status: "failed",
-      last_error: safeString(brainResult.error ?? "AI_GENERATION_FAILED"),
-      locked_by: null,
-      locked_until: null,
-    }).eq("id", task_id);
+    if (brainResult.error || !brainResult.content) {
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: safeString(brainResult.error ?? "AI_GENERATION_FAILED"),
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id);
 
-    return new Response("AI failed", { status: 500 });
+      return new Response("AI failed", { status: 500 });
+    }
+
+    messageBody = brainResult.content;
   }
-
-  const messageBody = brainResult.content;
 
   // 5) Token consumption
   const { data: consumeRes, error: consumeErr } = await supabase.rpc("consume_tokens_v1", {
@@ -147,17 +153,28 @@ serve(async (req) => {
   params.append("From", TWILIO_FROM);
   params.append("Body", messageBody);
 
-  const twilioResp = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": authHeader,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params,
-    }
-  );
+  let twilioResp: Response;
+  try {
+    twilioResp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params,
+      }
+    );
+  } catch (networkErr) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `TWILIO_NETWORK_ERROR: ${String(networkErr)}`,
+      locked_by: null,
+      locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Network error reaching Twilio", { status: 500 });
+  }
 
   if (!twilioResp.ok) {
     const errorText = await twilioResp.text();

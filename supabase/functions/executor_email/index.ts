@@ -243,9 +243,9 @@ serve(async (req) => {
 
   // Send via Resend
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  const FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL");
+  const FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "support@getsalescloser.com";
 
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
+  if (!RESEND_API_KEY) {
     await supabase
       .from("execution_tasks")
       .update({
@@ -259,20 +259,35 @@ serve(async (req) => {
     return new Response("Missing Resend config", { status: 500 });
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [toEmail],
-      subject,
-      html: bodyHtml,
-      text: `Hi ${leadName},\n\n${bodyText}\n\n— GetSalesCloser`,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [toEmail],
+        subject,
+        html: bodyHtml,
+        text: `Hi ${leadName},\n\n${bodyText}\n\n— GetSalesCloser`,
+      }),
+    });
+  } catch (networkErr) {
+    await supabase
+      .from("execution_tasks")
+      .update({
+        status: "failed",
+        last_error: `RESEND_NETWORK_ERROR: ${String(networkErr)}`,
+        locked_by: null,
+        locked_until: null,
+        provider: "resend",
+      })
+      .eq("id", task_id);
+    return new Response("Network error reaching Resend", { status: 500 });
+  }
 
   if (!res.ok) {
     const errorText = await res.text();

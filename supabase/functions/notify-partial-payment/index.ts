@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -17,13 +17,14 @@ serve(async (req) => {
       });
     }
 
-    // Service-role client — needed to read auth.users
+    // Service-role client — bypasses RLS, can read auth.users
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
     );
 
-    // Verify caller is an admin
+    // Verify caller is an admin via app_admins table
     const authHeader = req.headers.get("Authorization") ?? "";
     const { data: { user }, error: authErr } = await sb.auth.getUser(
       authHeader.replace("Bearer ", ""),
@@ -33,55 +34,82 @@ serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { data: adminRow } = await sb.from("app_admins").select("user_id")
-      .eq("user_id", user.id).maybeSingle();
+    const { data: adminRow } = await sb
+      .from("app_admins")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
     if (!adminRow) {
       return new Response(JSON.stringify({ error: "Forbidden: not an admin" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Load billing intent
-    const { data: intent, error: intentErr } = await sb.from("billing_intents")
-      .select("reference_id, org_id, pricing_snapshot").eq("id", intent_id).single();
+    // Load billing intent — include intent_source to choose resolution path
+    const { data: intent, error: intentErr } = await sb
+      .from("billing_intents")
+      .select("reference_id, org_id, intent_source, pricing_snapshot")
+      .eq("id", intent_id)
+      .single();
     if (intentErr || !intent) {
       return new Response(JSON.stringify({ error: "Intent not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Resolve customer user_id: check members first, then org_members
-    let customerId: string | null = null;
-    const { data: mRow } = await sb.from("members").select("user_id")
-      .eq("org_id", intent.org_id).limit(1).maybeSingle();
-    if (mRow) customerId = mRow.user_id;
+    // ── Resolve customer email ──────────────────────────────────────────────
+    // Admin deals: the owner email was entered by the admin at deal creation
+    // and stored directly in pricing_snapshot. Use it without any user lookup.
+    //
+    // Regular deals (pricing / billing page checkout): the customer is a
+    // registered user — look them up via members → org_members → auth.users.
+    // ────────────────────────────────────────────────────────────────────────
+    let customerEmail: string | null = null;
 
-    if (!customerId) {
-      const { data: omRow } = await sb.from("org_members").select("user_id")
-        .eq("org_id", intent.org_id).limit(1).maybeSingle();
-      if (omRow) customerId = omRow.user_id;
-    }
-    if (!customerId) {
-      return new Response(JSON.stringify({ error: "Customer not found for this intent" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (intent.intent_source === "admin_deal") {
+      customerEmail = (intent.pricing_snapshot as any)?.owner_email ?? null;
+    } else {
+      // Try members table (legacy solo checkout)
+      const { data: mRow } = await sb
+        .from("members")
+        .select("user_id")
+        .eq("org_id", intent.org_id)
+        .limit(1)
+        .maybeSingle();
+      if (mRow?.user_id) {
+        const { data: u } = await sb.auth.admin.getUserById(mRow.user_id);
+        customerEmail = u?.user?.email ?? null;
+      }
+
+      // Try org_members table (multi-tenant)
+      if (!customerEmail) {
+        const { data: omRow } = await sb
+          .from("org_members")
+          .select("user_id")
+          .eq("org_id", intent.org_id)
+          .limit(1)
+          .maybeSingle();
+        if (omRow?.user_id) {
+          const { data: u } = await sb.auth.admin.getUserById(omRow.user_id);
+          customerEmail = u?.user?.email ?? null;
+        }
+      }
     }
 
-    // Get customer email from auth.users
-    const { data: userData, error: userErr } = await sb.auth.admin.getUserById(customerId);
-    const customerEmail = userData?.user?.email;
-    if (userErr || !customerEmail) {
-      return new Response(JSON.stringify({ error: "Could not resolve customer email" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!customerEmail) {
+      return new Response(
+        JSON.stringify({ error: "Could not resolve customer email for this intent" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Calculate amounts
-    const totalDue = Number(intent.pricing_snapshot?.final_invoice_amount ?? 0);
+    const totalDue = Number((intent.pricing_snapshot as any)?.final_invoice_amount ?? 0);
     const paid = Number(amount_paid);
     const due = Math.max(0, Math.round((totalDue - paid) * 100) / 100);
 
-    const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmt = (n: number) =>
+      n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const ref = intent.reference_id;
 
     const html = `
@@ -137,13 +165,15 @@ serve(async (req) => {
 </html>`;
 
     const resendKey = Deno.env.get("RESEND_API_KEY")!;
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ||
-      Deno.env.get("RESEND_FROM") ||
-      "noreply@getsalescloser.com";
+    const fromEmail =
+      "billing@getsalescloser.com";
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         from: fromEmail,
         to: [customerEmail],
@@ -154,9 +184,10 @@ serve(async (req) => {
 
     if (!resendRes.ok) {
       const resendErr = await resendRes.text();
-      return new Response(JSON.stringify({ error: "Email send failed: " + resendErr }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Email send failed", detail: resendErr }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(
@@ -164,8 +195,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: (err as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

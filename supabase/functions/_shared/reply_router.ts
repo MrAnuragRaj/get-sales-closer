@@ -12,8 +12,8 @@ async function getEntitlements(supabase: any, org_id: string) {
     data?.some((s: any) => s.service_key === key && s.status === "active");
 
   return {
-    voice_liaison: active("voice_liaison"),
-    appointment_architect: active("appointment_architect"),
+    voice: active("voice"),
+    architect: active("architect"),
   };
 }
 
@@ -103,6 +103,17 @@ export async function replyRouter(params: {
   const { supabase, org_id, lead_id, inbound_text, channel_source, actor_user_id, plan_id } =
     params;
 
+  // 0) AI Paused guard — human has taken over, skip all AI routing
+  const { data: pauseCheck } = await supabase
+    .from("leads")
+    .select("ai_paused")
+    .eq("id", lead_id)
+    .single();
+  if (pauseCheck?.ai_paused) {
+    console.log(`⏸️ AI paused for lead ${lead_id} — skipping reply_router`);
+    return;
+  }
+
   // 1) Resolve Intent
   const intent: Intent = await resolveIntent(inbound_text);
 
@@ -137,7 +148,7 @@ export async function replyRouter(params: {
       return;
 
     case "request_callback":
-      if (entitlements.voice_liaison) {
+      if (entitlements.voice) {
         await createExecutionTaskStrict(supabase, {
           org_id,
           lead_id,
@@ -167,7 +178,7 @@ export async function replyRouter(params: {
       break;
 
     case "request_meeting":
-      if (!entitlements.appointment_architect) {
+      if (!entitlements.architect) {
         await supabase.from("notifications").insert({
           org_id,
           lead_id,

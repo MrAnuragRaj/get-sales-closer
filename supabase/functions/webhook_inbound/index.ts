@@ -163,9 +163,20 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0;
 }
 
+const MAX_PAYLOAD_BYTES = 131072; // 128 KB
+
 serve(async (req) => {
   const supabase = getServiceSupabaseClient();
   const url = new URL(req.url);
+
+  // Reject oversized payloads before reading body
+  const contentLen = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLen > MAX_PAYLOAD_BYTES) {
+    return new Response(JSON.stringify({ error: "payload_too_large" }), {
+      status: 413,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   try {
     if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
@@ -474,6 +485,31 @@ serve(async (req) => {
         });
       }
 
+      // Upsell hook — create manual action request when service is inactive
+      if ((intent === "request_callback" || intent === "request_meeting") && orgId && leadId) {
+        const serviceKey = intent === "request_callback" ? "voice" : "architect";
+        const { data: svc } = await supabase
+          .from("org_services")
+          .select("status")
+          .eq("org_id", orgId)
+          .eq("service_key", serviceKey)
+          .maybeSingle();
+        if (!svc || svc.status !== "active") {
+          const type = intent === "request_callback" ? "callback_requested" : "meeting_requested";
+          const msg = intent === "request_callback"
+            ? "Lead requested a callback via voice. Manual follow-up required."
+            : "Lead wants to schedule a meeting. Manual follow-up required.";
+          await Promise.all([
+            supabase.from("manual_action_requests").insert({
+              org_id: orgId, lead_id: leadId, type, lead_message: inboundText,
+            }),
+            supabase.from("notifications").insert({
+              org_id: orgId, lead_id: leadId, type, message: msg, is_read: false,
+            }),
+          ]);
+        }
+      }
+
       return new Response("OK", { status: 200 });
     } else {
       return new Response("Unknown Source", { status: 400 });
@@ -562,6 +598,31 @@ serve(async (req) => {
         p_reason: intent === "not_interested" ? "NOT_INTERESTED" : "OBJECTION_HARD",
       });
       return new Response("OK", { status: 200 });
+    }
+
+    // Upsell hook — create manual action request when service is inactive
+    if (intent === "request_callback" || intent === "request_meeting") {
+      const serviceKey = intent === "request_callback" ? "voice" : "architect";
+      const { data: svc } = await supabase
+        .from("org_services")
+        .select("status")
+        .eq("org_id", leadOrgId)
+        .eq("service_key", serviceKey)
+        .maybeSingle();
+      if (!svc || svc.status !== "active") {
+        const type = intent === "request_callback" ? "callback_requested" : "meeting_requested";
+        const msg = intent === "request_callback"
+          ? "Lead requested a callback via SMS. Manual follow-up required."
+          : "Lead wants to schedule a meeting. Manual follow-up required.";
+        await Promise.all([
+          supabase.from("manual_action_requests").insert({
+            org_id: leadOrgId, lead_id: leadId, type, lead_message: inboundText,
+          }),
+          supabase.from("notifications").insert({
+            org_id: leadOrgId, lead_id: leadId, type, message: msg, is_read: false,
+          }),
+        ]);
+      }
     }
 
     await replyRouter({

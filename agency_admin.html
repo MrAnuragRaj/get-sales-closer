@@ -71,7 +71,7 @@
         </div>
 
         <!-- Pending Invitations -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
             <div class="flex items-center gap-3 mb-6">
                 <div class="h-3 w-3 rounded-full bg-yellow-400 animate-pulse"></div>
                 <h2 class="text-lg font-bold text-white">Pending Invitations</h2>
@@ -79,6 +79,93 @@
             <div id="invitesList" class="space-y-2">
                 <p class="text-slate-600 text-sm italic">No pending invitations.</p>
             </div>
+        </div>
+
+        <!-- AI Persona Settings Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-robot text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">AI Persona Settings</h2>
+                <span class="text-xs text-slate-500 ml-auto">Customize your AI assistant's voice & behavior</span>
+            </div>
+            <div id="ag-persona-compliance-notice" class="hidden mb-4 bg-amber-900/30 border border-amber-600/40 rounded-lg p-3 text-xs text-amber-300"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Agent Name</label>
+                    <input id="ag-persona-name" type="text" placeholder="e.g. Alex"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Tone Preset</label>
+                    <select id="ag-persona-tone" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="neutral_balanced">Neutral & Balanced</option>
+                        <option value="formal_professional">Formal & Professional</option>
+                        <option value="warm_empathetic">Warm & Empathetic</option>
+                        <option value="casual_friendly">Casual & Friendly</option>
+                        <option value="urgent_persuasive">Urgent & Persuasive</option>
+                        <option value="educational_advisory">Educational & Advisory</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Bot Disclosure Policy</label>
+                    <select id="ag-persona-disclosure" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="transparent">Transparent — admit to being AI if asked</option>
+                        <option value="deflective">Deflective — redirect without confirming</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Primary Conversion Objective</label>
+                    <select id="ag-persona-objective" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="book_appointment">Book Appointment</option>
+                        <option value="drop_cal_link">Drop Cal.com Link Early</option>
+                        <option value="collect_contact">Collect Contact Info</option>
+                        <option value="handoff_alert">Signal Human Handoff</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Terminology Overrides -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs text-slate-400">Terminology Overrides</label>
+                    <button onclick="agAddTermRow()" class="text-xs text-indigo-400 hover:text-indigo-300 transition">+ Add Override</button>
+                </div>
+                <div id="ag-terminology-rows" class="space-y-2"></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="agSavePersona()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition">Save Persona</button>
+                <span id="ag-persona-saved-flash" class="hidden text-xs text-green-400">✓ Saved!</span>
+            </div>
+        <!-- Deploy AI Site Liaison -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-rocket text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Deploy AI Site Liaison</h2>
+                <span class="text-xs text-slate-500 ml-auto">Add AI chat to your website</span>
+            </div>
+            <div id="deploy-grid"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+        </div>
+
+        <!-- CRM Webhook — API Key -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-key text-yellow-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">CRM Webhook — API Key</h2>
+                <span class="text-xs text-slate-500 ml-auto">Connect GHL, Zapier, Make &amp; more</span>
+            </div>
+            <div id="ag-api-key-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+            <div class="mt-6 border-t border-slate-700 pt-5">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Webhook Endpoints</h3>
+                <div id="ag-webhook-endpoints-list" class="space-y-2"></div>
+            </div>
+            <div class="mt-5 border-t border-slate-700 pt-4">
+                <button onclick="agToggleSetupGuide()" class="flex items-center gap-2 w-full text-sm text-slate-400 hover:text-white transition">
+                    <i class="fa fa-book text-xs"></i>
+                    <span>Setup Guide — GHL, Zapier, Make</span>
+                    <i id="ag-setup-guide-chevron" class="fa fa-chevron-down text-xs ml-auto transition-transform"></i>
+                </button>
+                <div id="ag-setup-guide-content" class="hidden mt-4 space-y-4"></div>
+            </div>
+        </div>
         </div>
     </div>
 
@@ -100,9 +187,10 @@
 
     <script src="auth.js"></script>
     <script>
-        let _sb, _orgId, _seatLimit, _currentUserId;
+        let _sb, _orgId, _seatLimit, _currentUserId, _orgName, _adminName;
 
         requireAuth({
+            requireOnboarding: false,
             onAuthenticated: async (profile, user, sb) => {
                 _sb = sb;
                 _currentUserId = user.id;
@@ -112,13 +200,16 @@
                     .from('org_members')
                     .select('org_id, role')
                     .eq('user_id', user.id)
+                    .eq('role', 'agency_admin')
+                    .limit(1)
                     .maybeSingle();
 
-                if (!membership || membership.role !== 'agency_admin') {
+                if (!membership) {
                     window.location.href = 'dashboard.html';
                     return;
                 }
                 _orgId = membership.org_id;
+                document.getElementById('page-content').style.display = 'block';
 
                 // Fetch org details
                 const { data: org } = await sb
@@ -128,19 +219,24 @@
                     .single();
 
                 _seatLimit = org?.seat_limit ?? null;
-                document.getElementById('org-name-header').textContent = (org?.name || 'Agency') + ' — Portal';
-                document.getElementById('admin-name').textContent = profile?.full_name || user.email;
+                _orgName = org?.name || 'Agency';
+                _adminName = profile?.full_name || user.email;
+                document.getElementById('org-name-header').textContent = _orgName + ' — Portal';
+                document.getElementById('admin-name').textContent = _adminName;
 
                 loadUsers();
                 loadInvites();
+                agLoadPersonaSettings();
+                initDeploySection(_orgId);
+                agLoadApiKey(_orgId);
             }
         });
 
         async function loadUsers() {
             const tbody = document.getElementById('usersTable');
-            const { data, error } = await _sb
+            const { data: members, error } = await _sb
                 .from('org_members')
-                .select('user_id, created_at, profiles(full_name, email)')
+                .select('user_id, created_at')
                 .eq('org_id', _orgId)
                 .is('role', null);
 
@@ -149,14 +245,22 @@
                 tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
                 return;
             }
-            if (!data || data.length === 0) {
+            if (!members || members.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-600">No client users yet. Invite someone above.</td></tr>`;
                 updateSeatPill(0);
                 return;
             }
-            updateSeatPill(data.length);
-            data.forEach(m => {
-                const p = m.profiles || {};
+
+            const userIds = members.map(m => m.user_id);
+            const { data: profileRows } = await _sb
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+            const profileMap = Object.fromEntries((profileRows || []).map(p => [p.id, p]));
+
+            updateSeatPill(members.length);
+            members.forEach(m => {
+                const p = profileMap[m.user_id] || {};
                 const tr = document.createElement('tr');
                 tr.id = `user-row-${m.user_id}`;
                 tr.className = 'hover:bg-slate-800/50 transition';
@@ -255,6 +359,24 @@
                 alert('Failed to invite: ' + error.message);
                 return;
             }
+
+            // Send invitation email via Edge Function (best-effort)
+            const { data: { session } } = await _sb.auth.getSession();
+            fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/send-agent-invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    invited_email: email,
+                    org_id: _orgId,
+                    role: 'agency_client',
+                    invited_by_name: _adminName,
+                    org_name: _orgName
+                })
+            }).catch(() => {});
+
             closeAddUserModal();
             loadInvites();
         }
@@ -280,6 +402,331 @@
         async function logout() {
             await _sb.auth.signOut();
             window.location.href = 'login.html';
+        }
+
+        // --- AI PERSONA SETTINGS ---
+        let _agPersonaTermRows = [];
+
+        async function agLoadPersonaSettings() {
+            if (!_orgId) return;
+            const { data } = await _sb.from('org_settings')
+                .select('persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides, industry')
+                .eq('org_id', _orgId)
+                .maybeSingle();
+            if (!data) return;
+            if (data.persona_name) document.getElementById('ag-persona-name').value = data.persona_name;
+            if (data.tone_preset) document.getElementById('ag-persona-tone').value = data.tone_preset;
+            if (data.bot_disclosure) document.getElementById('ag-persona-disclosure').value = data.bot_disclosure;
+            if (data.conversion_objective) document.getElementById('ag-persona-objective').value = data.conversion_objective;
+            _agPersonaTermRows = Object.entries(data.terminology_overrides || {}).map(([k, v]) => ({ k, v }));
+            agRenderTermRows();
+            agShowComplianceNotice(data.industry);
+        }
+
+        function agShowComplianceNotice(industry) {
+            const notices = {
+                law:     '⚖️ Law industry detected — AI is hardcoded to never predict case outcomes or provide legal advice. This cannot be overridden.',
+                medical: '🏥 Medical industry detected — AI is hardcoded to never diagnose or suggest treatments. Emergency cases are directed to 911.',
+                finance: '📈 Finance industry detected — AI is hardcoded to never guarantee returns or investment outcomes.',
+                solar:   '☀️ Solar industry detected — AI is hardcoded to never guarantee savings without a formal assessment.',
+            };
+            const el = document.getElementById('ag-persona-compliance-notice');
+            if (notices[industry]) {
+                el.textContent = notices[industry];
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function agAddTermRow() {
+            _agPersonaTermRows.push({ k: '', v: '' });
+            agRenderTermRows();
+        }
+
+        function agRenderTermRows() {
+            const container = document.getElementById('ag-terminology-rows');
+            container.innerHTML = '';
+            _agPersonaTermRows.forEach((row, i) => {
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center';
+                div.innerHTML = `
+                    <input type="text" placeholder="Replace word" value="${row.k}"
+                        oninput="_agPersonaTermRows[${i}].k = this.value"
+                        class="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <span class="text-slate-500 text-xs">→</span>
+                    <input type="text" placeholder="With phrase" value="${row.v}"
+                        oninput="_agPersonaTermRows[${i}].v = this.value"
+                        class="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <button onclick="_agPersonaTermRows.splice(${i},1); agRenderTermRows();"
+                        class="text-slate-500 hover:text-red-400 text-sm transition">✕</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function agSavePersona() {
+            if (!_orgId) return;
+            const terminology_overrides = Object.fromEntries(
+                _agPersonaTermRows.filter(r => r.k.trim()).map(r => [r.k.trim(), r.v.trim()])
+            );
+            const { error } = await _sb.from('org_settings').update({
+                persona_name: document.getElementById('ag-persona-name').value.trim() || null,
+                tone_preset: document.getElementById('ag-persona-tone').value,
+                bot_disclosure: document.getElementById('ag-persona-disclosure').value,
+                conversion_objective: document.getElementById('ag-persona-objective').value,
+                terminology_overrides
+            }).eq('org_id', _orgId);
+
+            const flash = document.getElementById('ag-persona-saved-flash');
+            if (!error) {
+                flash.classList.remove('hidden');
+                setTimeout(() => flash.classList.add('hidden'), 2500);
+            } else {
+                alert('Save failed: ' + error.message);
+            }
+        }
+
+        // ── Deploy AI Site Liaison ──────────────────────────────────────────────
+        async function initDeploySection(orgId) {
+            if (!orgId) return;
+            const grid = document.getElementById('deploy-grid');
+            if (!grid) return;
+
+            // Gate behind Instant Sentinel service
+            const { data: svc } = await _sb
+                .from('org_services').select('status')
+                .eq('org_id', orgId).eq('service_key', 'sentinel').maybeSingle();
+
+            if (svc?.status !== 'active') {
+                grid.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa fa-lock text-slate-600 text-3xl mb-3 block"></i>
+                        <p class="text-slate-400 text-sm mb-1">AI Site Liaison is included with <strong class="text-white">Instant Sentinel</strong></p>
+                        <p class="text-slate-600 text-xs mb-4">Activate Sentinel to deploy an AI chat widget on your website.</p>
+                        <a href="billing.html?lock=sentinel" class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition">Upgrade to Unlock</a>
+                    </div>`;
+                return;
+            }
+
+            const smartLink = `https://www.getsalescloser.com/chat.html?org=${orgId}`;
+            const scriptTag = `<script src="https://www.getsalescloser.com/embed.js"\n  data-org-id="${orgId}"><\/script>`;
+            grid.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="border border-green-500/30 bg-green-500/5 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fa fa-link text-green-400 text-xs"></i>
+                            <span class="text-xs font-bold text-green-300">Recommended — Smart Link</span>
+                            <span class="ml-auto text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Zero Code</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3 mt-1">Share this URL anywhere — website, social media, WhatsApp. No coding needed.</p>
+                        <div class="bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono break-all mb-3 select-all" id="deploy-smart-link">${smartLink}</div>
+                        <button onclick="copyDeployLink()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-copy text-xs mr-1"></i> Copy Smart Link</button>
+                        <span id="deploy-link-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                    </div>
+                    <div class="border border-slate-700 bg-slate-800/40 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fa fa-code text-indigo-400 text-xs"></i>
+                            <span class="text-xs font-bold text-white">Website Widget</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3 mt-1">Paste before <code class="text-indigo-300">&lt;/body&gt;</code> to add a floating chat bubble.</p>
+                        <div class="bg-slate-900 rounded-lg p-3 text-xs text-indigo-300 font-mono break-all mb-3 select-all leading-5" id="deploy-script-tag">${scriptTag}</div>
+                        <div class="flex gap-2">
+                            <button onclick="copyDeployScript()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition">Copy Code</button>
+                            <button onclick="emailWebmaster()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-envelope text-xs mr-1"></i> Email Webmaster</button>
+                        </div>
+                        <span id="deploy-script-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                    </div>
+                </div>`;
+        }
+
+        // ── CRM Webhook — API Key (agency) ─────────────────────────────────────
+        const AG_HOOK_BASE = 'https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/hook_inbound';
+        const AG_HOOK_SOURCES = [
+            { key: 'ghl', label: 'GoHighLevel (GHL)' }, { key: 'zapier', label: 'Zapier' },
+            { key: 'make', label: 'Make (Integromat)' }, { key: 'apollo', label: 'Apollo.io' },
+            { key: 'hubspot', label: 'HubSpot' },
+            { key: 'generic', label: 'Generic / Custom' },
+        ];
+        let _agApiKeyId = null, _agApiKeyFull = null, _agApiKeyRevealed = false;
+
+        async function agLoadApiKey(orgId) {
+            const body = document.getElementById('ag-api-key-body');
+            if (!body || !orgId) return;
+            const { data } = await _sb.from('api_keys').select('id, api_key, name, created_at').eq('org_id', orgId).maybeSingle();
+            agRenderApiKeyBody(body, data, orgId);
+            agRenderWebhookEndpoints(document.getElementById('ag-webhook-endpoints-list'));
+        }
+
+        function agRenderApiKeyBody(body, keyRow, orgId) {
+            if (!keyRow) {
+                body.innerHTML = `<p class="text-slate-500 text-sm mb-4">No API key yet. Generate one to connect your CRM.</p>
+                    <button onclick="agGenerateApiKey('${orgId}')" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 font-bold text-sm px-5 py-2.5 rounded-lg transition"><i class="fa fa-plus mr-2"></i>Generate API Key</button>`;
+                return;
+            }
+            _agApiKeyId = keyRow.id; _agApiKeyFull = keyRow.api_key; _agApiKeyRevealed = false;
+            const masked = 'gsc_live_' + '•'.repeat(12) + _agApiKeyFull.slice(-4);
+            const created = new Date(keyRow.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            body.innerHTML = `
+                <div class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] font-bold uppercase text-slate-500 tracking-wider">API Key</span>
+                        <span class="text-[10px] text-slate-600">Created ${created}</span>
+                    </div>
+                    <code id="ag-api-key-display" class="text-sm font-mono text-yellow-300 break-all">${masked}</code>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="agToggleRevealKey()" id="ag-reveal-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition"><i class="fa fa-eye mr-1"></i>Reveal</button>
+                    <button onclick="agCopyApiKey()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition"><i class="fa fa-copy mr-1"></i>Copy</button>
+                    <button onclick="agConfirmRegenerateKey('${orgId}')" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-2 rounded-lg transition ml-auto"><i class="fa fa-rotate mr-1"></i>Regenerate</button>
+                </div>
+                <span id="ag-api-key-copy-flash" class="hidden text-xs text-green-400 mt-2 block">✓ Copied!</span>`;
+        }
+
+        function agToggleRevealKey() {
+            const display = document.getElementById('ag-api-key-display');
+            const btn = document.getElementById('ag-reveal-btn');
+            if (!display || !_agApiKeyFull) return;
+            _agApiKeyRevealed = !_agApiKeyRevealed;
+            display.textContent = _agApiKeyRevealed ? _agApiKeyFull : ('gsc_live_' + '•'.repeat(12) + _agApiKeyFull.slice(-4));
+            btn.innerHTML = _agApiKeyRevealed ? '<i class="fa fa-eye-slash mr-1"></i>Hide' : '<i class="fa fa-eye mr-1"></i>Reveal';
+        }
+
+        function agCopyApiKey() {
+            if (!_agApiKeyFull) return;
+            navigator.clipboard.writeText(_agApiKeyFull).then(() => {
+                const f = document.getElementById('ag-api-key-copy-flash');
+                if (f) { f.classList.remove('hidden'); setTimeout(() => f.classList.add('hidden'), 2000); }
+            });
+        }
+
+        async function agGenerateApiKey(orgId) {
+            const body = document.getElementById('ag-api-key-body');
+            if (body) body.innerHTML = '<p class="text-slate-500 text-sm">Generating...</p>';
+            const { data, error } = await _sb.from('api_keys').insert({ org_id: orgId, name: 'Default' }).select('id, api_key, name, created_at').single();
+            if (error) { if (body) body.innerHTML = `<p class="text-red-400 text-sm">Error: ${error.message}</p>`; return; }
+            agRenderApiKeyBody(body, data, orgId);
+            agRenderWebhookEndpoints(document.getElementById('ag-webhook-endpoints-list'));
+        }
+
+        function agConfirmRegenerateKey(orgId) {
+            if (!confirm('Regenerate your API key?\n\nYour current key will stop working immediately.')) return;
+            agRegenerateApiKey(orgId);
+        }
+
+        async function agRegenerateApiKey(orgId) {
+            const body = document.getElementById('ag-api-key-body');
+            if (body) body.innerHTML = '<p class="text-slate-500 text-sm">Regenerating...</p>';
+            if (_agApiKeyId) await _sb.from('api_keys').delete().eq('id', _agApiKeyId);
+            const { data, error } = await _sb.from('api_keys').insert({ org_id: orgId, name: 'Default' }).select('id, api_key, name, created_at').single();
+            if (error) { if (body) body.innerHTML = `<p class="text-red-400 text-sm">Error: ${error.message}</p>`; return; }
+            agRenderApiKeyBody(body, data, orgId);
+            agRenderWebhookEndpoints(document.getElementById('ag-webhook-endpoints-list'));
+        }
+
+        function agRenderWebhookEndpoints(list) {
+            if (!list) return;
+            list.innerHTML = '';
+            AG_HOOK_SOURCES.forEach(src => {
+                const url = `${AG_HOOK_BASE}?source=${src.key}`;
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2 bg-slate-800/50 border border-slate-700/60 rounded-lg px-3 py-2';
+                div.innerHTML = `<div class="flex-1 min-w-0"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">${src.label}</p><code class="text-xs text-slate-400 font-mono break-all">${url}</code></div>
+                    <button onclick="agCopyText('${url}', this)" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold px-2 py-1.5 rounded transition whitespace-nowrap flex-shrink-0"><i class="fa fa-copy mr-0.5"></i>Copy</button>`;
+                list.appendChild(div);
+            });
+        }
+
+        function agCopyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓';
+                btn.classList.add('text-green-400');
+                setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-400'); }, 1500);
+            });
+        }
+
+        let _agSetupGuideOpen = false;
+        function agToggleSetupGuide() {
+            _agSetupGuideOpen = !_agSetupGuideOpen;
+            const content = document.getElementById('ag-setup-guide-content');
+            const chevron = document.getElementById('ag-setup-guide-chevron');
+            if (!content) return;
+            if (_agSetupGuideOpen) {
+                content.classList.remove('hidden');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+                if (!content.innerHTML.trim()) agRenderSetupGuide(content);
+            } else {
+                content.classList.add('hidden');
+                if (chevron) chevron.style.transform = '';
+            }
+        }
+
+        function agRenderSetupGuide(container) {
+            container.innerHTML = `
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-orange-300 mb-3"><i class="fa fa-bolt mr-1"></i>GoHighLevel (GHL)</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Go to <strong class="text-white">Automations → Webhooks</strong> in your GHL sub-account</li>
+                        <li>Create a webhook — method <strong class="text-white">POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${AG_HOOK_BASE}?source=ghl</code></li>
+                        <li>Header: <code class="text-indigo-300">Authorization: Bearer &lt;your-key&gt;</code></li>
+                        <li>Trigger: <strong class="text-white">Contact Created</strong> or <strong class="text-white">Form Submitted</strong></li>
+                    </ol>
+                </div>
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-orange-400 mb-3"><i class="fa fa-bolt mr-1"></i>Zapier</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Create a Zap with any trigger (CRM, form, spreadsheet)</li>
+                        <li>Action: <strong class="text-white">Webhooks by Zapier → POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${AG_HOOK_BASE}?source=zapier</code></li>
+                        <li>Header key <code class="text-indigo-300">Authorization</code> → <code class="text-indigo-300">Bearer &lt;your-key&gt;</code></li>
+                        <li>Map: <code class="text-indigo-300">first_name</code>, <code class="text-indigo-300">phone</code>, <code class="text-indigo-300">email</code></li>
+                    </ol>
+                </div>
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-purple-400 mb-3"><i class="fa fa-bolt mr-1"></i>Make (Integromat)</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Create a Scenario with your source module</li>
+                        <li>Add <strong class="text-white">HTTP → Make a Request</strong> — method <strong class="text-white">POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${AG_HOOK_BASE}?source=make</code></li>
+                        <li>Header: <code class="text-indigo-300">Authorization: Bearer &lt;your-key&gt;</code></li>
+                        <li>Body: <strong class="text-white">JSON</strong> — map <code class="text-indigo-300">name</code>, <code class="text-indigo-300">phone</code>, <code class="text-indigo-300">email</code></li>
+                    </ol>
+                </div>
+                <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4">
+                    <p class="text-xs font-bold text-blue-300 mb-2"><i class="fa-brands fa-facebook mr-1"></i>Facebook Lead Ads</p>
+                    <p class="text-xs text-slate-400">Facebook does not support direct webhooks from Lead Ads forms. To integrate Facebook Lead Ads, use <strong class="text-white">Zapier</strong> or <strong class="text-white">Make.com</strong>:<br><br>Set up a <strong class="text-white">Facebook Lead Ads</strong> trigger in your Zap/Scenario, then add a <strong class="text-white">Webhooks → POST</strong> action pointing to the Zapier or Make webhook URL above.</p>
+                </div>
+                <p class="text-xs text-slate-600 text-center pt-1">All integrations require header: <code class="text-slate-500">Authorization: Bearer &lt;your-api-key&gt;</code></p>`;
+        }
+
+        function copyDeployLink() {
+            const text = document.getElementById('deploy-smart-link').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const f = document.getElementById('deploy-link-flash');
+                f.classList.remove('hidden');
+                setTimeout(() => f.classList.add('hidden'), 2000);
+            });
+        }
+
+        function copyDeployScript() {
+            const text = document.getElementById('deploy-script-tag').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const f = document.getElementById('deploy-script-flash');
+                f.classList.remove('hidden');
+                setTimeout(() => f.classList.add('hidden'), 2000);
+            });
+        }
+
+        function emailWebmaster() {
+            const link = document.getElementById('deploy-smart-link').textContent;
+            const script = document.getElementById('deploy-script-tag').textContent;
+            const subject = encodeURIComponent('Add AI Chat to Our Website');
+            const body = encodeURIComponent(
+                `Hi,\n\nPlease add our AI chat widget to the website.\n\nOption 1 — Zero-code Smart Link (recommended):\nShare this URL on any page or button:\n${link}\n\nOption 2 — Floating Chat Widget:\nPaste this code before the </body> tag on every page:\n\n${script}\n\nThank you!`
+            );
+            window.open(`mailto:?subject=${subject}&body=${body}`);
         }
     </script>
 </body>

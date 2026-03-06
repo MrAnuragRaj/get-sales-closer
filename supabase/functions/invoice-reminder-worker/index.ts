@@ -48,9 +48,9 @@ function daysBetweenUTC(dueAtISO: string): number {
 
 async function sendEmailResend(to: string, subject: string, text: string, html: string) {
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  const FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? Deno.env.get("RESEND_FROM");
+  const FROM_EMAIL = "billing@getsalescloser.com";
 
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
+  if (!RESEND_API_KEY) {
     throw new Error("MISSING_RESEND_CONFIG");
   }
 

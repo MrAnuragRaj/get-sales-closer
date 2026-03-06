@@ -95,6 +95,162 @@
                 </table>
             </div>
         </div>
+
+        <!-- Closed Won Pending Review -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></div>
+                <h2 class="text-lg font-bold text-white">Closed Won — Pending Review</h2>
+                <span class="text-xs text-slate-500 ml-auto">Challenge a win to reopen the lead</span>
+            </div>
+            <div id="closedWonList" class="space-y-2">
+                <p class="text-slate-600 text-sm italic">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Live Wire -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="h-3 w-3 rounded-full bg-red-500 animate-pulse"></div>
+                <h2 class="text-lg font-bold text-white">Live Wire</h2>
+                <span class="text-xs text-slate-500 ml-2">Real-time inbound message feed — all agents</span>
+            </div>
+            <div id="ent-live-wire-feed" class="space-y-2 max-h-72 overflow-y-auto">
+                <p class="text-slate-600 text-sm italic text-center py-4">Listening for new messages...</p>
+            </div>
+        </div>
+
+        <!-- Growth Intelligence -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <i class="fa fa-seedling text-emerald-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Growth Intelligence</h2>
+                <span class="text-xs text-slate-500 ml-auto">Last 28 days</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-6">
+                <div class="bg-slate-800 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-white" id="ent-gi-total">—</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Total Leads</p>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-emerald-400" id="ent-gi-ai-captured">—</p>
+                    <p class="text-[11px] text-slate-500 mt-1">AI Captured</p>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 text-center">
+                    <p class="text-2xl font-bold text-indigo-400" id="ent-gi-appt-rate">—</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Appt. Rate</p>
+                </div>
+            </div>
+            <div class="mb-6">
+                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Weekly New Leads</p>
+                <div class="flex items-end gap-2 h-16" id="ent-gi-sparkline">
+                    <p class="text-slate-600 text-xs">Loading...</p>
+                </div>
+            </div>
+            <div>
+                <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Lead Sources</p>
+                <div id="ent-gi-sources"><p class="text-slate-600 text-xs">Loading...</p></div>
+            </div>
+        </div>
+
+        <!-- Revenue Intelligence -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-6">
+                <i class="fa fa-chart-line text-purple-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Revenue Intelligence</h2>
+                <span class="text-xs text-slate-500 ml-auto">Data-backed service upgrade alerts</span>
+            </div>
+            <div id="upsell-insights" class="space-y-4">
+                <p class="text-slate-600 text-sm italic">Loading insights...</p>
+            </div>
+        </div>
+
+        <!-- AI Persona Settings -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-robot text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">AI Persona Settings</h2>
+                <span class="text-xs text-slate-500 ml-auto">Customize your AI assistant's voice & behavior</span>
+            </div>
+            <div id="ent-persona-compliance-notice" class="hidden mb-4 bg-amber-900/30 border border-amber-600/40 rounded-lg p-3 text-xs text-amber-300"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Agent Name</label>
+                    <input id="ent-persona-name" type="text" placeholder="e.g. Alex"
+                        class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Tone Preset</label>
+                    <select id="ent-persona-tone" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="neutral_balanced">Neutral & Balanced</option>
+                        <option value="formal_professional">Formal & Professional</option>
+                        <option value="warm_empathetic">Warm & Empathetic</option>
+                        <option value="casual_friendly">Casual & Friendly</option>
+                        <option value="urgent_persuasive">Urgent & Persuasive</option>
+                        <option value="educational_advisory">Educational & Advisory</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Bot Disclosure Policy</label>
+                    <select id="ent-persona-disclosure" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="transparent">Transparent — admit to being AI if asked</option>
+                        <option value="deflective">Deflective — redirect without confirming</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Primary Conversion Objective</label>
+                    <select id="ent-persona-objective" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="book_appointment">Book Appointment</option>
+                        <option value="drop_cal_link">Drop Cal.com Link Early</option>
+                        <option value="collect_contact">Collect Contact Info</option>
+                        <option value="handoff_alert">Signal Human Handoff</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs text-slate-400">Terminology Overrides</label>
+                    <button onclick="entAddTermRow()" class="text-xs text-indigo-400 hover:text-indigo-300 transition">+ Add Override</button>
+                </div>
+                <div id="ent-terminology-rows" class="space-y-2"></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="entSavePersona()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition">Save Persona</button>
+                <span id="ent-persona-saved-flash" class="hidden text-xs text-green-400">✓ Saved!</span>
+            </div>
+        </div>
+
+        <!-- Deploy AI Site Liaison -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-rocket text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Deploy AI Site Liaison</h2>
+                <span class="text-xs text-slate-500 ml-auto">Add AI chat to your website</span>
+            </div>
+            <div id="deploy-grid"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+        </div>
+
+        <!-- CRM Webhook — API Key -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-key text-yellow-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">CRM Webhook — API Key</h2>
+                <span class="text-xs text-slate-500 ml-auto">Connect GHL, Zapier, Make &amp; more</span>
+            </div>
+            <div id="ent-api-key-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+            <div class="mt-6 border-t border-slate-700 pt-5">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Webhook Endpoints</h3>
+                <div id="ent-webhook-endpoints-list" class="space-y-2"></div>
+            </div>
+            <div class="mt-5 border-t border-slate-700 pt-4">
+                <button onclick="entToggleSetupGuide()" class="flex items-center gap-2 w-full text-sm text-slate-400 hover:text-white transition">
+                    <i class="fa fa-book text-xs"></i>
+                    <span>Setup Guide — GHL, Zapier, Make</span>
+                    <i id="ent-setup-guide-chevron" class="fa fa-chevron-down text-xs ml-auto transition-transform"></i>
+                </button>
+                <div id="ent-setup-guide-content" class="hidden mt-4 space-y-4"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Agent Overseer Panel -->
@@ -125,6 +281,30 @@
     <!-- Overseer backdrop -->
     <div id="overseer-backdrop" class="hidden fixed inset-0 bg-black/50 z-30" onclick="closeOverseer()"></div>
 
+    <!-- Remove Agent Modal (reassign leads first) -->
+    <div id="remove-agent-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                <i class="fa fa-triangle-exclamation text-amber-400"></i> Remove Agent
+            </h3>
+            <p class="text-slate-400 text-sm mb-5" id="remove-agent-lead-msg">This agent has leads. Reassign them before removing.</p>
+            <div id="remove-agent-reassign-section" class="mb-5">
+                <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Reassign all leads to</label>
+                <select id="remove-agent-reassign-select"
+                    class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-red-500">
+                </select>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="confirmRemoveAgent()" id="remove-agent-confirm-btn"
+                    class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-lg text-sm transition">
+                    Reassign & Remove
+                </button>
+                <button onclick="closeRemoveAgentModal()"
+                    class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Agent Modal -->
     <div id="add-agent-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4">
@@ -143,12 +323,13 @@
 
     <script src="auth.js"></script>
     <script>
-        let _sb, _orgId, _currentUserId;
+        let _sb, _orgId, _currentUserId, _orgName, _adminName;
         let _agents = [];   // [{user_id, full_name, email, campaigns_paused, credit_limit}]
         let _activeAgentId = null;
         let _activeAgentPaused = false;
 
         requireAuth({
+            requireOnboarding: false,
             onAuthenticated: async (profile, user, sb) => {
                 _sb = sb;
                 _currentUserId = user.id;
@@ -157,13 +338,16 @@
                     .from('org_members')
                     .select('org_id, role')
                     .eq('user_id', user.id)
+                    .eq('role', 'enterprise_admin')
+                    .limit(1)
                     .maybeSingle();
 
-                if (!membership || membership.role !== 'enterprise_admin') {
+                if (!membership) {
                     window.location.href = 'dashboard.html';
                     return;
                 }
                 _orgId = membership.org_id;
+                document.getElementById('page-content').style.display = 'block';
 
                 const { data: org } = await sb
                     .from('organizations')
@@ -171,13 +355,216 @@
                     .eq('id', _orgId)
                     .single();
 
-                document.getElementById('org-name-header').textContent = (org?.name || 'Enterprise') + ' — Command';
-                document.getElementById('admin-name').textContent = profile?.full_name || user.email;
+                _orgName = org?.name || 'Enterprise';
+                _adminName = profile?.full_name || user.email;
+                document.getElementById('org-name-header').textContent = _orgName + ' — Command';
+                document.getElementById('admin-name').textContent = _adminName;
 
                 loadLeaderboard();
                 loadAgents();
+                loadClosedWonPending();
+                loadEnterpriseUpsellInsights();
+                loadEntGrowthIntelligence();
+                entLoadPersonaSettings();
+                initDeploySection(_orgId);
+                entLoadApiKey(_orgId);
+                entInitLiveWire(sb);
             }
         });
+
+        // --- GROWTH INTELLIGENCE ---
+        async function loadEntGrowthIntelligence() {
+            if (!_orgId) return;
+            const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
+
+            const { data: leads } = await _sb.from('leads')
+                .select('id, source, created_at')
+                .eq('org_id', _orgId)
+                .gte('created_at', since);
+
+            const total = leads?.length || 0;
+
+            let apptLeadIds = new Set();
+            if (total > 0) {
+                const ids = leads.map(l => l.id);
+                const { data: appts } = await _sb.from('appointments').select('lead_id').in('lead_id', ids);
+                apptLeadIds = new Set((appts || []).map(a => a.lead_id));
+            }
+
+            const aiCaptured = (leads || []).filter(l => ['site_liaison', 'hook_inbound'].includes(l.source)).length;
+            const apptCount = (leads || []).filter(l => apptLeadIds.has(l.id)).length;
+
+            document.getElementById('ent-gi-total').textContent = total;
+            document.getElementById('ent-gi-ai-captured').textContent = aiCaptured;
+            document.getElementById('ent-gi-appt-rate').textContent = total > 0 ? Math.round(apptCount / total * 100) + '%' : '0%';
+
+            const now = Date.now();
+            const weeks = [0, 1, 2, 3].map(i => {
+                const wStart = now - (4 - i) * 7 * 24 * 60 * 60 * 1000;
+                const wEnd   = now - (3 - i) * 7 * 24 * 60 * 60 * 1000;
+                const count  = (leads || []).filter(l => { const t = new Date(l.created_at).getTime(); return t >= wStart && t < wEnd; }).length;
+                return { label: i === 3 ? 'This wk' : `${4 - i}w ago`, count };
+            });
+            const maxW = Math.max(...weeks.map(w => w.count), 1);
+            document.getElementById('ent-gi-sparkline').innerHTML = weeks.map(w => `
+                <div class="flex-1 flex flex-col items-center gap-1">
+                    <span class="text-[10px] text-slate-400 font-medium">${w.count}</span>
+                    <div class="w-full bg-indigo-500/80 rounded-t" style="height:${Math.max(Math.round(w.count / maxW * 48), 3)}px"></div>
+                    <span class="text-[9px] text-slate-600 text-center leading-tight">${w.label}</span>
+                </div>`).join('');
+
+            const sourceCounts = {};
+            (leads || []).forEach(l => { const s = l.source || 'manual'; sourceCounts[s] = (sourceCounts[s] || 0) + 1; });
+            const sourceLabels = { site_liaison: 'AI Widget', hook_inbound: 'CRM Webhook', manual: 'Manual Entry' };
+            const sorted = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
+            const maxS = Math.max(...sorted.map(s => s[1]), 1);
+            const sourcesEl = document.getElementById('ent-gi-sources');
+            if (sorted.length === 0) { sourcesEl.innerHTML = '<p class="text-slate-600 text-xs">No leads captured in this period yet.</p>'; return; }
+            sourcesEl.innerHTML = sorted.map(([src, cnt]) => `
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">${sourceLabels[src] || src}</span>
+                        <span class="text-white font-bold">${cnt}</span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-1.5">
+                        <div class="bg-indigo-500 h-1.5 rounded-full" style="width:${Math.round(cnt / maxS * 100)}%"></div>
+                    </div>
+                </div>`).join('');
+        }
+
+        // --- REVENUE INTELLIGENCE (UPSELL) ---
+        async function loadEnterpriseUpsellInsights() {
+            if (!_orgId) return;
+            const container = document.getElementById('upsell-insights');
+            const { data: services } = await _sb.from('org_services').select('service_key, status').eq('org_id', _orgId).in('service_key', ['voice','architect']);
+            const inactiveKeys = (services || []).filter(s => s.status !== 'active').map(s => s.service_key);
+            if (inactiveKeys.length === 0) { container.innerHTML = '<p class="text-slate-600 text-sm italic">All key services active — no upsell opportunities detected.</p>'; return; }
+            const typeMap = { voice: 'callback_requested', architect: 'meeting_requested' };
+            const insights = [];
+            for (const key of inactiveKeys) {
+                const { data: actions } = await _sb.from('manual_action_requests').select('response_time_seconds').eq('org_id', _orgId).eq('type', typeMap[key]);
+                if (!actions || actions.length === 0) continue;
+                const done = actions.filter(a => a.response_time_seconds != null);
+                const avgSec = done.length > 0 ? Math.round(done.reduce((s, a) => s + a.response_time_seconds, 0) / done.length) : null;
+                const { count: lostCount } = await _sb.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', _orgId).eq('status', 'closed_lost');
+                insights.push({ service_key: key, request_count: actions.length, avg_response_seconds: avgSec, lost_count: lostCount || 0 });
+            }
+            if (insights.length === 0) { container.innerHTML = '<p class="text-slate-600 text-sm italic">No manual action data yet. Insights appear after leads request callbacks or meetings.</p>'; return; }
+            container.innerHTML = '';
+            const serviceNames = { voice: 'Voice Liaison', architect: 'App Architect' };
+            const serviceIcons = { voice: 'fa-phone', architect: 'fa-calendar-check' };
+            insights.forEach(ins => {
+                const avgMin = ins.avg_response_seconds != null ? Math.round(ins.avg_response_seconds / 60) : null;
+                const div = document.createElement('div');
+                div.className = 'bg-slate-800 border border-slate-700 rounded-xl p-4';
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fa ${serviceIcons[ins.service_key]} text-purple-400"></i>
+                        <span class="text-sm font-bold text-white">${serviceNames[ins.service_key]} — Not Subscribed</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-3 text-center">
+                        <div class="bg-slate-900/50 rounded-lg p-2"><p class="text-lg font-bold text-white">${ins.request_count}</p><p class="text-[10px] text-slate-500">Requests</p></div>
+                        <div class="bg-slate-900/50 rounded-lg p-2"><p class="text-lg font-bold text-amber-400">${avgMin != null ? avgMin+' min' : '—'}</p><p class="text-[10px] text-slate-500">Avg Response</p></div>
+                        <div class="bg-slate-900/50 rounded-lg p-2"><p class="text-lg font-bold text-red-400">${ins.lost_count}</p><p class="text-[10px] text-slate-500">Leads Lost</p></div>
+                    </div>
+                    <div id="ent-insight-${ins.service_key}" class="mb-3"></div>
+                    <button onclick="generateEntInsight('${ins.service_key}', ${JSON.stringify(ins).replace(/"/g,'&quot;')}, this)"
+                        class="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-bold py-2 rounded-lg transition border border-purple-500/30">
+                        <i class="fa fa-wand-magic-sparkles mr-1"></i>Generate AI Insight
+                    </button>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function generateEntInsight(serviceKey, stats, btnEl) {
+            btnEl.disabled = true;
+            btnEl.textContent = 'Generating...';
+            try {
+                const { data: { session } } = await _sb.auth.getSession();
+                const res = await fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/generate-upsell-insight', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ org_id: _orgId, service_key: serviceKey, stats }),
+                });
+                const json = await res.json();
+                const insightEl = document.getElementById(`ent-insight-${serviceKey}`);
+                if (json.insight && insightEl) {
+                    insightEl.innerHTML = `<p class="text-xs text-slate-300 bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 italic">${json.insight}</p>`;
+                }
+                btnEl.remove();
+            } catch (e) {
+                btnEl.disabled = false;
+                btnEl.textContent = 'Generate AI Insight';
+            }
+        }
+
+        // --- AI PERSONA SETTINGS (Enterprise) ---
+        let _entPersonaTermRows = [];
+
+        async function entLoadPersonaSettings() {
+            if (!_orgId) return;
+            const { data } = await _sb.from('org_settings')
+                .select('persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides, industry')
+                .eq('org_id', _orgId)
+                .maybeSingle();
+            if (!data) return;
+            if (data.persona_name) document.getElementById('ent-persona-name').value = data.persona_name;
+            if (data.tone_preset) document.getElementById('ent-persona-tone').value = data.tone_preset;
+            if (data.bot_disclosure) document.getElementById('ent-persona-disclosure').value = data.bot_disclosure;
+            if (data.conversion_objective) document.getElementById('ent-persona-objective').value = data.conversion_objective;
+            _entPersonaTermRows = Object.entries(data.terminology_overrides || {}).map(([k, v]) => ({ k, v }));
+            entRenderTermRows();
+            const notices = {
+                law:     '⚖️ Law industry detected — AI is hardcoded to never predict case outcomes or provide legal advice.',
+                medical: '🏥 Medical industry detected — AI is hardcoded to never diagnose or suggest treatments.',
+                finance: '📈 Finance industry detected — AI is hardcoded to never guarantee returns or investment outcomes.',
+                solar:   '☀️ Solar industry detected — AI is hardcoded to never guarantee savings without a formal assessment.',
+            };
+            const el = document.getElementById('ent-persona-compliance-notice');
+            if (notices[data.industry]) { el.textContent = notices[data.industry]; el.classList.remove('hidden'); }
+        }
+
+        function entAddTermRow(key = '', val = '') {
+            _entPersonaTermRows.push({ k: key, v: val });
+            entRenderTermRows();
+        }
+
+        function entRenderTermRows() {
+            const container = document.getElementById('ent-terminology-rows');
+            container.innerHTML = '';
+            _entPersonaTermRows.forEach((row, i) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2';
+                div.innerHTML = `
+                    <input type="text" placeholder="Replace this word…" value="${row.k.replace(/"/g,'&quot;')}"
+                        class="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        oninput="_entPersonaTermRows[${i}].k = this.value">
+                    <span class="text-slate-500 text-xs">→</span>
+                    <input type="text" placeholder="…with this instead" value="${row.v.replace(/"/g,'&quot;')}"
+                        class="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        oninput="_entPersonaTermRows[${i}].v = this.value">
+                    <button onclick="_entPersonaTermRows.splice(${i},1); entRenderTermRows()" class="text-slate-500 hover:text-red-400 text-sm leading-none transition">✕</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function entSavePersona() {
+            if (!_orgId) return;
+            const overrides = {};
+            _entPersonaTermRows.forEach(({ k, v }) => { if (k && v) overrides[k] = v; });
+            const payload = {
+                persona_name: document.getElementById('ent-persona-name').value.trim() || null,
+                tone_preset: document.getElementById('ent-persona-tone').value,
+                bot_disclosure: document.getElementById('ent-persona-disclosure').value,
+                conversion_objective: document.getElementById('ent-persona-objective').value,
+                terminology_overrides: overrides,
+            };
+            const { error } = await _sb.from('org_settings').update(payload).eq('org_id', _orgId);
+            if (error) { alert('Save failed: ' + error.message); return; }
+            const flash = document.getElementById('ent-persona-saved-flash');
+            flash.classList.remove('hidden');
+            setTimeout(() => flash.classList.add('hidden'), 2500);
+        }
 
         // --- LEADERBOARD ---
         async function loadLeaderboard() {
@@ -211,9 +598,9 @@
         // --- AGENTS ---
         async function loadAgents() {
             const tbody = document.getElementById('agentsTable');
-            const { data, error } = await _sb
+            const { data: members, error } = await _sb
                 .from('org_members')
-                .select('user_id, credit_limit, campaigns_paused, profiles(full_name, email)')
+                .select('user_id, credit_limit, campaigns_paused')
                 .eq('org_id', _orgId)
                 .eq('role', 'enterprise_agent');
 
@@ -222,15 +609,22 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-red-400">⛔ ${error.message}</td></tr>`;
                 return;
             }
-            if (!data || data.length === 0) {
+            if (!members || members.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-600">No agents yet. Invite agents above.</td></tr>`;
                 return;
             }
 
-            _agents = data.map(m => ({
+            const userIds = members.map(m => m.user_id);
+            const { data: profileRows } = await _sb
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+            const profileMap = Object.fromEntries((profileRows || []).map(p => [p.id, p]));
+
+            _agents = members.map(m => ({
                 user_id: m.user_id,
-                full_name: m.profiles?.full_name || '—',
-                email: m.profiles?.email || '—',
+                full_name: profileMap[m.user_id]?.full_name || '—',
+                email: profileMap[m.user_id]?.email || '—',
                 campaigns_paused: m.campaigns_paused,
                 credit_limit: m.credit_limit
             }));
@@ -285,15 +679,83 @@
                 .eq('org_id', _orgId);
         }
 
+        let _removeAgentId = null;
+        let _removeAgentLeadCount = 0;
+
         async function removeAgent(userId, name) {
-            if (!confirm(`Remove ${name} from the enterprise team? They will lose access immediately.`)) return;
+            // Check how many leads are assigned to this agent
+            const { count } = await _sb.from('leads')
+                .select('id', { count: 'exact', head: true })
+                .eq('assigned_to', userId)
+                .eq('org_id', _orgId);
+
+            _removeAgentId = userId;
+            _removeAgentLeadCount = count || 0;
+
+            const modal = document.getElementById('remove-agent-modal');
+            const msg = document.getElementById('remove-agent-lead-msg');
+            const reassignSection = document.getElementById('remove-agent-reassign-section');
+            const btn = document.getElementById('remove-agent-confirm-btn');
+
+            if (_removeAgentLeadCount > 0) {
+                msg.textContent = `${name} has ${_removeAgentLeadCount} lead(s) assigned. Select an agent to reassign them to before removing.`;
+                reassignSection.classList.remove('hidden');
+                btn.textContent = 'Reassign & Remove';
+
+                // Populate reassign dropdown with other agents
+                const select = document.getElementById('remove-agent-reassign-select');
+                select.innerHTML = _agents
+                    .filter(a => a.user_id !== userId)
+                    .map(a => `<option value="${a.user_id}">${a.full_name || a.email}</option>`)
+                    .join('');
+                if (!select.options.length) {
+                    select.innerHTML = '<option value="">No other agents available</option>';
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            } else {
+                msg.textContent = `${name} has no assigned leads. They will be removed immediately.`;
+                reassignSection.classList.add('hidden');
+                btn.textContent = 'Remove Agent';
+                btn.disabled = false;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeRemoveAgentModal() {
+            document.getElementById('remove-agent-modal').classList.add('hidden');
+            _removeAgentId = null;
+        }
+
+        async function confirmRemoveAgent() {
+            if (!_removeAgentId) return;
+            const btn = document.getElementById('remove-agent-confirm-btn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+
+            // Reassign leads if any
+            if (_removeAgentLeadCount > 0) {
+                const newAgentId = document.getElementById('remove-agent-reassign-select').value;
+                if (!newAgentId) { alert('Please select an agent to reassign leads to.'); btn.disabled = false; return; }
+                const { error: reassignError } = await _sb.from('leads')
+                    .update({ assigned_to: newAgentId })
+                    .eq('assigned_to', _removeAgentId)
+                    .eq('org_id', _orgId);
+                if (reassignError) { alert('Reassign failed: ' + reassignError.message); btn.disabled = false; btn.textContent = 'Reassign & Remove'; return; }
+            }
+
+            // Now delete the agent
             const { error } = await _sb.from('org_members')
                 .delete()
-                .eq('user_id', userId)
+                .eq('user_id', _removeAgentId)
                 .eq('org_id', _orgId);
-            if (error) { alert('Remove failed: ' + error.message); return; }
-            document.getElementById(`agent-row-${userId}`)?.remove();
-            _agents = _agents.filter(a => a.user_id !== userId);
+            if (error) { alert('Remove failed: ' + error.message); btn.disabled = false; return; }
+
+            document.getElementById(`agent-row-${_removeAgentId}`)?.remove();
+            _agents = _agents.filter(a => a.user_id !== _removeAgentId);
+            closeRemoveAgentModal();
             loadLeaderboard();
         }
 
@@ -309,6 +771,8 @@
         async function sendAgentInvite() {
             const email = document.getElementById('agent-email').value.trim().toLowerCase();
             if (!email) return;
+
+            // 1. Save invitation to DB
             const { error } = await _sb.from('org_invitations').insert({
                 org_id: _orgId,
                 invited_email: email,
@@ -316,8 +780,30 @@
                 invited_by: _currentUserId
             });
             if (error) { alert('Failed to invite: ' + error.message); return; }
+
+            // 2. Send invitation email via Edge Function
+            const { data: { session } } = await _sb.auth.getSession();
+            const res = await fetch(`https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/send-agent-invite`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    invited_email: email,
+                    org_id: _orgId,
+                    role: 'enterprise_agent',
+                    invited_by_name: _adminName,
+                    org_name: _orgName
+                })
+            });
+
             closeAddAgentModal();
-            alert(`Invite sent to ${email}. They will be routed to the agent dashboard on first login.`);
+            if (!res.ok) {
+                alert(`Invitation saved, but email failed to send. Share getsalescloser.com/login.html with ${email} manually.`);
+            } else {
+                alert(`Invitation email sent to ${email}. They'll be added to your team automatically on first login.`);
+            }
         }
 
         // --- OVERSEER PANEL ---
@@ -488,9 +974,355 @@
             if (!dd.contains(e.target)) dd.classList.add('hidden');
         });
 
+        // --- CLOSED WON PENDING REVIEW ---
+        async function loadClosedWonPending() {
+            const container = document.getElementById('closedWonList');
+
+            const { data: notifs, error } = await _sb
+                .from('notifications')
+                .select('id, lead_id, message, created_at')
+                .eq('org_id', _orgId)
+                .eq('type', 'closed_won_pending')
+                .eq('is_read', false)
+                .order('created_at', { ascending: false });
+
+            container.innerHTML = '';
+            if (error || !notifs || notifs.length === 0) {
+                container.innerHTML = `<p class="text-slate-600 text-sm italic">No pending Closed Won reviews.</p>`;
+                return;
+            }
+
+            const leadIds = notifs.map(n => n.lead_id).filter(Boolean);
+            const { data: leadRows } = await _sb.from('leads').select('id, name, phone').in('id', leadIds);
+            const leadMap = Object.fromEntries((leadRows || []).map(l => [l.id, l]));
+
+            notifs.forEach(n => {
+                const lead = leadMap[n.lead_id] || {};
+                const div = document.createElement('div');
+                div.id = `cwn-${n.id}`;
+                div.className = 'flex items-center justify-between bg-slate-800 rounded-lg px-4 py-3';
+                const safeName = (lead.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                div.innerHTML = `
+                    <div>
+                        <p class="text-sm text-white font-semibold">${lead.name || 'Unknown Lead'}</p>
+                        <p class="text-xs text-slate-500">${lead.phone || ''} · ${new Date(n.created_at).toLocaleDateString()}</p>
+                        <p class="text-xs text-slate-400 mt-1">${n.message}</p>
+                    </div>
+                    <button onclick="challengeClosedWon('${n.id}', '${n.lead_id}', '${safeName}', this)"
+                        class="ml-4 shrink-0 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                        Challenge
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function challengeClosedWon(notifId, leadId, leadName, btn) {
+            if (!confirm(`Challenge Closed Won for "${leadName}"?\nThis will reopen the lead as Active.`)) return;
+            btn.disabled = true;
+            btn.textContent = 'Processing\u2026';
+
+            const { error: leadErr } = await _sb.from('leads')
+                .update({ status: 'active' })
+                .eq('id', leadId)
+                .eq('org_id', _orgId);
+            if (leadErr) { alert('Failed to update lead: ' + leadErr.message); btn.disabled = false; btn.textContent = 'Challenge'; return; }
+
+            await _sb.from('notifications').update({ is_read: true }).eq('id', notifId);
+
+            document.getElementById(`cwn-${notifId}`)?.remove();
+            const container = document.getElementById('closedWonList');
+            if (!container.children.length) {
+                container.innerHTML = `<p class="text-slate-600 text-sm italic">No pending Closed Won reviews.</p>`;
+            }
+
+            alert(`Lead "${leadName}" has been reopened as Active.`);
+        }
+
+        // --- LIVE WIRE ---
+        function entInitLiveWire(sb) {
+            sb.channel('ent-live-wire')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'interactions',
+                    filter: `org_id=eq.${_orgId}` }, payload => {
+                    const row = payload.new;
+                    if (row.direction !== 'inbound') return;
+                    entAppendLiveWireEvent(row);
+                })
+                .subscribe();
+        }
+
+        function entAppendLiveWireEvent(row) {
+            const feed = document.getElementById('ent-live-wire-feed');
+            if (!feed) return;
+            const placeholder = feed.querySelector('p.italic');
+            if (placeholder) placeholder.remove();
+
+            const time = new Date(row.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const channelIcon = row.type === 'site_liaison' ? 'fa-globe' : row.type === 'voice' ? 'fa-phone' : 'fa-comment-sms';
+
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-3 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3';
+            div.innerHTML = `
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center">
+                    <i class="fa ${channelIcon} text-xs text-indigo-400"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-bold text-white">Lead</span>
+                        <span class="text-[10px] text-slate-500">${time}</span>
+                        <span class="text-[10px] text-slate-600 font-mono truncate">${row.lead_id?.slice(0,8) || ''}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 truncate">${row.content || ''}</p>
+                </div>`;
+            feed.prepend(div);
+            while (feed.children.length > 30) feed.removeChild(feed.lastChild);
+        }
+
         async function logout() {
             await _sb.auth.signOut();
             window.location.href = 'login.html';
+        }
+
+        // ── Deploy AI Site Liaison ──────────────────────────────────────────────
+        async function initDeploySection(orgId) {
+            if (!orgId) return;
+            const grid = document.getElementById('deploy-grid');
+            if (!grid) return;
+
+            // Gate behind Instant Sentinel service
+            const { data: svc } = await _sb
+                .from('org_services').select('status')
+                .eq('org_id', orgId).eq('service_key', 'sentinel').maybeSingle();
+
+            if (svc?.status !== 'active') {
+                grid.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa fa-lock text-slate-600 text-3xl mb-3 block"></i>
+                        <p class="text-slate-400 text-sm mb-1">AI Site Liaison is included with <strong class="text-white">Instant Sentinel</strong></p>
+                        <p class="text-slate-600 text-xs mb-4">Activate Sentinel to deploy an AI chat widget on your website.</p>
+                        <a href="billing.html?lock=sentinel" class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition">Upgrade to Unlock</a>
+                    </div>`;
+                return;
+            }
+
+            const smartLink = `https://www.getsalescloser.com/chat.html?org=${orgId}`;
+            const scriptTag = `<script src="https://www.getsalescloser.com/embed.js"\n  data-org-id="${orgId}"><\/script>`;
+            grid.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="border border-green-500/30 bg-green-500/5 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fa fa-link text-green-400 text-xs"></i>
+                            <span class="text-xs font-bold text-green-300">Recommended — Smart Link</span>
+                            <span class="ml-auto text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Zero Code</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3 mt-1">Share this URL anywhere — website, social media, WhatsApp. No coding needed.</p>
+                        <div class="bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono break-all mb-3 select-all" id="deploy-smart-link">${smartLink}</div>
+                        <button onclick="copyDeployLink()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-copy text-xs mr-1"></i> Copy Smart Link</button>
+                        <span id="deploy-link-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                    </div>
+                    <div class="border border-slate-700 bg-slate-800/40 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fa fa-code text-indigo-400 text-xs"></i>
+                            <span class="text-xs font-bold text-white">Website Widget</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3 mt-1">Paste before <code class="text-indigo-300">&lt;/body&gt;</code> to add a floating chat bubble.</p>
+                        <div class="bg-slate-900 rounded-lg p-3 text-xs text-indigo-300 font-mono break-all mb-3 select-all leading-5" id="deploy-script-tag">${scriptTag}</div>
+                        <div class="flex gap-2">
+                            <button onclick="copyDeployScript()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition">Copy Code</button>
+                            <button onclick="emailWebmaster()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-envelope text-xs mr-1"></i> Email Webmaster</button>
+                        </div>
+                        <span id="deploy-script-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                    </div>
+                </div>`;
+        }
+
+        // ── CRM Webhook — API Key (enterprise) ─────────────────────────────────
+        const ENT_HOOK_BASE = 'https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/hook_inbound';
+        const ENT_HOOK_SOURCES = [
+            { key: 'ghl', label: 'GoHighLevel (GHL)' }, { key: 'zapier', label: 'Zapier' },
+            { key: 'make', label: 'Make (Integromat)' }, { key: 'apollo', label: 'Apollo.io' },
+            { key: 'hubspot', label: 'HubSpot' },
+            { key: 'generic', label: 'Generic / Custom' },
+        ];
+        let _entApiKeyId = null, _entApiKeyFull = null, _entApiKeyRevealed = false;
+
+        async function entLoadApiKey(orgId) {
+            const body = document.getElementById('ent-api-key-body');
+            if (!body || !orgId) return;
+            const { data } = await _sb.from('api_keys').select('id, api_key, name, created_at').eq('org_id', orgId).maybeSingle();
+            entRenderApiKeyBody(body, data, orgId);
+            entRenderWebhookEndpoints(document.getElementById('ent-webhook-endpoints-list'));
+        }
+
+        function entRenderApiKeyBody(body, keyRow, orgId) {
+            if (!keyRow) {
+                body.innerHTML = `<p class="text-slate-500 text-sm mb-4">No API key yet. Generate one to connect your CRM.</p>
+                    <button onclick="entGenerateApiKey('${orgId}')" class="bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 font-bold text-sm px-5 py-2.5 rounded-lg transition"><i class="fa fa-plus mr-2"></i>Generate API Key</button>`;
+                return;
+            }
+            _entApiKeyId = keyRow.id; _entApiKeyFull = keyRow.api_key; _entApiKeyRevealed = false;
+            const masked = 'gsc_live_' + '•'.repeat(12) + _entApiKeyFull.slice(-4);
+            const created = new Date(keyRow.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            body.innerHTML = `
+                <div class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] font-bold uppercase text-slate-500 tracking-wider">API Key</span>
+                        <span class="text-[10px] text-slate-600">Created ${created}</span>
+                    </div>
+                    <code id="ent-api-key-display" class="text-sm font-mono text-yellow-300 break-all">${masked}</code>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="entToggleRevealKey()" id="ent-reveal-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition"><i class="fa fa-eye mr-1"></i>Reveal</button>
+                    <button onclick="entCopyApiKey()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition"><i class="fa fa-copy mr-1"></i>Copy</button>
+                    <button onclick="entConfirmRegenerateKey('${orgId}')" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-2 rounded-lg transition ml-auto"><i class="fa fa-rotate mr-1"></i>Regenerate</button>
+                </div>
+                <span id="ent-api-key-copy-flash" class="hidden text-xs text-green-400 mt-2 block">✓ Copied!</span>`;
+        }
+
+        function entToggleRevealKey() {
+            const display = document.getElementById('ent-api-key-display');
+            const btn = document.getElementById('ent-reveal-btn');
+            if (!display || !_entApiKeyFull) return;
+            _entApiKeyRevealed = !_entApiKeyRevealed;
+            display.textContent = _entApiKeyRevealed ? _entApiKeyFull : ('gsc_live_' + '•'.repeat(12) + _entApiKeyFull.slice(-4));
+            btn.innerHTML = _entApiKeyRevealed ? '<i class="fa fa-eye-slash mr-1"></i>Hide' : '<i class="fa fa-eye mr-1"></i>Reveal';
+        }
+
+        function entCopyApiKey() {
+            if (!_entApiKeyFull) return;
+            navigator.clipboard.writeText(_entApiKeyFull).then(() => {
+                const f = document.getElementById('ent-api-key-copy-flash');
+                if (f) { f.classList.remove('hidden'); setTimeout(() => f.classList.add('hidden'), 2000); }
+            });
+        }
+
+        async function entGenerateApiKey(orgId) {
+            const body = document.getElementById('ent-api-key-body');
+            if (body) body.innerHTML = '<p class="text-slate-500 text-sm">Generating...</p>';
+            const { data, error } = await _sb.from('api_keys').insert({ org_id: orgId, name: 'Default' }).select('id, api_key, name, created_at').single();
+            if (error) { if (body) body.innerHTML = `<p class="text-red-400 text-sm">Error: ${error.message}</p>`; return; }
+            entRenderApiKeyBody(body, data, orgId);
+            entRenderWebhookEndpoints(document.getElementById('ent-webhook-endpoints-list'));
+        }
+
+        function entConfirmRegenerateKey(orgId) {
+            if (!confirm('Regenerate your API key?\n\nYour current key will stop working immediately.')) return;
+            entRegenerateApiKey(orgId);
+        }
+
+        async function entRegenerateApiKey(orgId) {
+            const body = document.getElementById('ent-api-key-body');
+            if (body) body.innerHTML = '<p class="text-slate-500 text-sm">Regenerating...</p>';
+            if (_entApiKeyId) await _sb.from('api_keys').delete().eq('id', _entApiKeyId);
+            const { data, error } = await _sb.from('api_keys').insert({ org_id: orgId, name: 'Default' }).select('id, api_key, name, created_at').single();
+            if (error) { if (body) body.innerHTML = `<p class="text-red-400 text-sm">Error: ${error.message}</p>`; return; }
+            entRenderApiKeyBody(body, data, orgId);
+            entRenderWebhookEndpoints(document.getElementById('ent-webhook-endpoints-list'));
+        }
+
+        function entRenderWebhookEndpoints(list) {
+            if (!list) return;
+            list.innerHTML = '';
+            ENT_HOOK_SOURCES.forEach(src => {
+                const url = `${ENT_HOOK_BASE}?source=${src.key}`;
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2 bg-slate-800/50 border border-slate-700/60 rounded-lg px-3 py-2';
+                div.innerHTML = `<div class="flex-1 min-w-0"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">${src.label}</p><code class="text-xs text-slate-400 font-mono break-all">${url}</code></div>
+                    <button onclick="entCopyText('${url}', this)" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold px-2 py-1.5 rounded transition whitespace-nowrap flex-shrink-0"><i class="fa fa-copy mr-0.5"></i>Copy</button>`;
+                list.appendChild(div);
+            });
+        }
+
+        function entCopyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓';
+                btn.classList.add('text-green-400');
+                setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-400'); }, 1500);
+            });
+        }
+
+        let _entSetupGuideOpen = false;
+        function entToggleSetupGuide() {
+            _entSetupGuideOpen = !_entSetupGuideOpen;
+            const content = document.getElementById('ent-setup-guide-content');
+            const chevron = document.getElementById('ent-setup-guide-chevron');
+            if (!content) return;
+            if (_entSetupGuideOpen) {
+                content.classList.remove('hidden');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+                if (!content.innerHTML.trim()) entRenderSetupGuide(content);
+            } else {
+                content.classList.add('hidden');
+                if (chevron) chevron.style.transform = '';
+            }
+        }
+
+        function entRenderSetupGuide(container) {
+            container.innerHTML = `
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-orange-300 mb-3"><i class="fa fa-bolt mr-1"></i>GoHighLevel (GHL)</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Go to <strong class="text-white">Automations → Webhooks</strong> in your GHL sub-account</li>
+                        <li>Create a webhook — method <strong class="text-white">POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${ENT_HOOK_BASE}?source=ghl</code></li>
+                        <li>Header: <code class="text-indigo-300">Authorization: Bearer &lt;your-key&gt;</code></li>
+                        <li>Trigger: <strong class="text-white">Contact Created</strong> or <strong class="text-white">Form Submitted</strong></li>
+                    </ol>
+                </div>
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-orange-400 mb-3"><i class="fa fa-bolt mr-1"></i>Zapier</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Create a Zap with any trigger (CRM, form, spreadsheet)</li>
+                        <li>Action: <strong class="text-white">Webhooks by Zapier → POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${ENT_HOOK_BASE}?source=zapier</code></li>
+                        <li>Header: <code class="text-indigo-300">Authorization: Bearer &lt;your-key&gt;</code></li>
+                        <li>Map: <code class="text-indigo-300">first_name</code>, <code class="text-indigo-300">phone</code>, <code class="text-indigo-300">email</code></li>
+                    </ol>
+                </div>
+                <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                    <p class="text-xs font-bold text-purple-400 mb-3"><i class="fa fa-bolt mr-1"></i>Make (Integromat)</p>
+                    <ol class="space-y-1.5 text-xs text-slate-400 list-decimal list-inside">
+                        <li>Create a Scenario with your source module</li>
+                        <li>Add <strong class="text-white">HTTP → Make a Request</strong> — method <strong class="text-white">POST</strong></li>
+                        <li>URL: <code class="text-indigo-300 break-all">${ENT_HOOK_BASE}?source=make</code></li>
+                        <li>Header: <code class="text-indigo-300">Authorization: Bearer &lt;your-key&gt;</code></li>
+                        <li>Body: <strong class="text-white">JSON</strong> — map <code class="text-indigo-300">name</code>, <code class="text-indigo-300">phone</code>, <code class="text-indigo-300">email</code></li>
+                    </ol>
+                </div>
+                <div class="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4">
+                    <p class="text-xs font-bold text-blue-300 mb-2"><i class="fa-brands fa-facebook mr-1"></i>Facebook Lead Ads</p>
+                    <p class="text-xs text-slate-400">Facebook does not support direct webhooks from Lead Ads forms. To integrate Facebook Lead Ads, use <strong class="text-white">Zapier</strong> or <strong class="text-white">Make.com</strong>:<br><br>Set up a <strong class="text-white">Facebook Lead Ads</strong> trigger in your Zap/Scenario, then add a <strong class="text-white">Webhooks → POST</strong> action pointing to the Zapier or Make webhook URL above.</p>
+                </div>
+                <p class="text-xs text-slate-600 text-center pt-1">All integrations require header: <code class="text-slate-500">Authorization: Bearer &lt;your-api-key&gt;</code></p>`;
+        }
+
+        function copyDeployLink() {
+            const text = document.getElementById('deploy-smart-link').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const f = document.getElementById('deploy-link-flash');
+                f.classList.remove('hidden');
+                setTimeout(() => f.classList.add('hidden'), 2000);
+            });
+        }
+
+        function copyDeployScript() {
+            const text = document.getElementById('deploy-script-tag').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const f = document.getElementById('deploy-script-flash');
+                f.classList.remove('hidden');
+                setTimeout(() => f.classList.add('hidden'), 2000);
+            });
+        }
+
+        function emailWebmaster() {
+            const link = document.getElementById('deploy-smart-link').textContent;
+            const script = document.getElementById('deploy-script-tag').textContent;
+            const subject = encodeURIComponent('Add AI Chat to Our Website');
+            const body = encodeURIComponent(
+                `Hi,\n\nPlease add our AI chat widget to the website.\n\nOption 1 — Zero-code Smart Link (recommended):\nShare this URL on any page or button:\n${link}\n\nOption 2 — Floating Chat Widget:\nPaste this code before the </body> tag on every page:\n\n${script}\n\nThank you!`
+            );
+            window.open(`mailto:?subject=${subject}&body=${body}`);
         }
     </script>
 </body>

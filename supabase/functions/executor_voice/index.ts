@@ -265,14 +265,36 @@ serve(async (req) => {
     },
   };
 
-  const response = await fetch(VAPI_CALL_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${VAPI_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(vapiPayload),
-  });
+  let response: Response;
+  try {
+    response = await fetch(VAPI_CALL_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VAPI_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(vapiPayload),
+    });
+  } catch (networkErr) {
+    // Refund tokens on network failure
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id,
+      p_scope: "user",
+      p_user_id: task.actor_user_id,
+      p_token_key: TOKEN_KEY,
+      p_amount: VOICE_INIT_TOKENS,
+      p_idempotency_key: `${task_id}:voice:init_refund_net_err`,
+      p_intent_id: null,
+      p_provider: "vapi",
+      p_provider_payment_id: null,
+      p_metadata: { phase: "init_refund", channel: "voice", reason: "network_error", task_id },
+    });
+    await failTask(supabase, task_id, {
+      last_error: `VAPI_NETWORK_ERROR: ${String(networkErr)}`,
+      provider: "vapi",
+    });
+    return new Response("Network error reaching VAPI", { status: 500 });
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
