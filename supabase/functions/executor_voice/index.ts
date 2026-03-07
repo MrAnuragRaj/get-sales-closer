@@ -12,6 +12,85 @@ const VOICE_INIT_TOKENS = 5;
 // Vapi outbound calling requires a phoneNumberId.
 const VAPI_CALL_URL = "https://api.vapi.ai/call/phone";
 
+/**
+ * 3-step voice sender resolution with explicit fallback policy.
+ * Returns the VAPI phoneNumberId to use, or action='fail' to abort.
+ * Must be called BEFORE token pre-debit.
+ */
+async function resolveVoiceSender(supabase: any, orgId: string, taskId: string): Promise<{
+  action: "send" | "fail";
+  phoneNumberId: string;
+  usedShared: boolean;
+  orgSender: string | null;
+  fallbackPolicy: string;
+}> {
+  const sharedPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID") ?? "";
+
+  // Step 1: Active default org voice channel
+  const { data: activeRows } = await supabase
+    .from("org_channels")
+    .select("vapi_phone_number_id, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "voice")
+    .eq("is_default", true)
+    .eq("status", "active")
+    .limit(1);
+
+  if (activeRows?.[0]?.vapi_phone_number_id) {
+    return { action: "send", phoneNumberId: activeRows[0].vapi_phone_number_id, usedShared: false, orgSender: activeRows[0].vapi_phone_number_id, fallbackPolicy: "active" };
+  }
+
+  // Step 2: Most recent default org voice channel (any status) — authority row
+  const { data: anyRows } = await supabase
+    .from("org_channels")
+    .select("vapi_phone_number_id, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "voice")
+    .eq("is_default", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (!anyRows || anyRows.length === 0) {
+    // Brand-new org — no dedicated voice number ever.
+    console.info(`[executor_voice] event=new_org_shared_sender org_id=${orgId} task_id=${taskId} phone_number_id=${sharedPhoneNumberId}`);
+    return { action: "send", phoneNumberId: sharedPhoneNumberId, usedShared: true, orgSender: null, fallbackPolicy: "new_org" };
+  }
+
+  // Step 3: Apply fallback policy
+  const orgSender = anyRows[0].vapi_phone_number_id ?? null;
+  const policy = anyRows[0].fallback_policy ?? "allow_shared";
+
+  if (policy === "fail_task") {
+    console.error(`[executor_voice] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=voice original_sender=${orgSender} fallback_sender=${sharedPhoneNumberId} policy=fail_task reason=dedicated_channel_inactive`);
+    return { action: "fail", phoneNumberId: sharedPhoneNumberId, usedShared: true, orgSender, fallbackPolicy: "fail_task" };
+  }
+
+  if (policy === "admin_override") {
+    console.error(`[executor_voice] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=voice original_sender=${orgSender} fallback_sender=${sharedPhoneNumberId} policy=admin_override reason=dedicated_channel_inactive`);
+  } else {
+    console.warn(`[executor_voice] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=voice original_sender=${orgSender} fallback_sender=${sharedPhoneNumberId} policy=${policy} reason=dedicated_channel_inactive`);
+  }
+
+  return { action: "send", phoneNumberId: sharedPhoneNumberId, usedShared: true, orgSender, fallbackPolicy: policy };
+}
+
+async function writeVoiceFallbackAuditEvent(supabase: any, args: {
+  orgId: string; taskId: string;
+  orgSender: string | null; usedSender: string; fallbackPolicy: string;
+}) {
+  await supabase.from("audit_events").insert({
+    org_id: args.orgId,
+    actor_type: "system",
+    actor_id: null,
+    object_type: "execution_task",
+    object_id: args.taskId,
+    action: "channel_fallback_triggered",
+    reason: args.fallbackPolicy,
+    before_state: { org_sender: args.orgSender, channel: "voice" },
+    after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
+  }).catch((e: any) => console.error("[executor_voice] audit_event insert failed:", e));
+}
+
 async function isBillingLocked(
   supabase: any,
   orgId: string,
@@ -168,6 +247,30 @@ serve(async (req) => {
     );
   }
 
+  // 4.6) Resolve voice sender BEFORE token pre-debit (fail_task aborts cleanly)
+  const senderRes = await resolveVoiceSender(supabase, task.org_id, task_id);
+
+  if (senderRes.action === "fail") {
+    await writeVoiceFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id,
+      orgSender: senderRes.orgSender, usedSender: senderRes.phoneNumberId, fallbackPolicy: "fail_task",
+    });
+    await failTask(supabase, task_id, {
+      last_error: "CHANNEL_FALLBACK_POLICY_FAIL_TASK: dedicated voice sender inactive",
+    });
+    return new Response("Sender fallback policy: fail_task", { status: 200 });
+  }
+
+  const PHONE_NUMBER_ID = senderRes.phoneNumberId;
+
+  // Write fallback audit event if shared sender was selected (not brand-new org)
+  if (senderRes.usedShared && senderRes.orgSender !== null) {
+    await writeVoiceFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id,
+      orgSender: senderRes.orgSender, usedSender: PHONE_NUMBER_ID, fallbackPolicy: senderRes.fallbackPolicy,
+    });
+  }
+
   // 5) PRE-DEBIT TOKENS (IDEMPOTENT)
   const initIdem = `${task_id}:voice:init`;
 
@@ -225,24 +328,6 @@ serve(async (req) => {
   const VAPI_KEY = Deno.env.get("VAPI_PRIVATE_KEY") ?? "";
   const ASSISTANT_ID = (orgSettings?.vapi_assistant_id as string | undefined) ??
     (Deno.env.get("VAPI_ASSISTANT_ID") ?? "");
-  // Resolve per-org VAPI phone number; fall back to global env var
-  let PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") ?? "";
-  try {
-    const { data: orgVoiceChannels } = await supabase
-      .from("org_channels")
-      .select("vapi_phone_number_id")
-      .eq("org_id", task.org_id)
-      .eq("channel", "voice")
-      .eq("is_default", true)
-      .eq("status", "active")
-      .limit(1);
-    if (orgVoiceChannels && orgVoiceChannels.length > 0 && orgVoiceChannels[0].vapi_phone_number_id) {
-      PHONE_NUMBER_ID = orgVoiceChannels[0].vapi_phone_number_id;
-      console.log(`[executor_voice] Using org-dedicated VAPI phone number for org ${task.org_id}`);
-    }
-  } catch (channelErr) {
-    console.warn("[executor_voice] org_channels lookup failed, using shared VAPI number:", channelErr);
-  }
 
   if (!VAPI_KEY || !ASSISTANT_ID || !PHONE_NUMBER_ID) {
     const refundIdem = `${task_id}:voice:init_refund_missing_config`;

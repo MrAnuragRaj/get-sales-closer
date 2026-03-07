@@ -590,9 +590,44 @@ serve(async (req) => {
       leadId = lead.id;
       leadOrgId = lead.org_id;
     } else {
-      // Platform number fallback: only if unique lead match across orgs
+      // Platform number fallback: resolve by lead phone across orgs
       const { data: leads } = await supabase.from("leads").select("id, org_id").eq("phone", fromE164).limit(3);
-      if (!leads || leads.length !== 1) return new Response("OK", { status: 200 });
+
+      if (!leads || leads.length === 0) {
+        // No lead found for this phone — log and drop
+        console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=${channel} phone=${fromE164}`);
+        await supabase.from("audit_events").insert({
+          org_id: null,
+          actor_type: "system",
+          actor_id: null,
+          object_type: "inbound_message",
+          object_id: crypto.randomUUID(),
+          action: "inbound_route_no_lead",
+          reason: "no_lead_found_for_phone",
+          before_state: null,
+          after_state: { phone: fromE164, channel, provider: "twilio" },
+        }).catch(() => {});
+        return new Response("OK", { status: 200 });
+      }
+
+      if (leads.length > 1) {
+        // Multiple orgs have a lead with this phone — ambiguous, log and drop
+        const candidateOrgIds = leads.map((l: any) => l.org_id);
+        console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=${channel} phone=${fromE164} candidate_org_count=${leads.length}`);
+        await supabase.from("audit_events").insert({
+          org_id: null,
+          actor_type: "system",
+          actor_id: null,
+          object_type: "inbound_message",
+          object_id: crypto.randomUUID(),
+          action: "inbound_route_ambiguous",
+          reason: "multiple_orgs_match_phone",
+          before_state: null,
+          after_state: { phone: fromE164, channel, candidate_org_ids: candidateOrgIds },
+        }).catch(() => {});
+        return new Response("OK", { status: 200 });
+      }
+
       leadId = leads[0].id;
       leadOrgId = leads[0].org_id;
     }

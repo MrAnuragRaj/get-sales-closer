@@ -10,6 +10,85 @@ function safeString(x: unknown): string {
   try { return JSON.stringify(x); } catch { return String(x); }
 }
 
+/**
+ * 3-step WhatsApp sender resolution with explicit fallback policy.
+ * Called AFTER capability gate (which already handles whatsapp_enabled=false).
+ * Must be called BEFORE token consumption.
+ */
+async function resolveWaSender(supabase: any, orgId: string, taskId: string): Promise<{
+  action: "send" | "fail";
+  sender: string;
+  usedShared: boolean;
+  orgSender: string | null;
+  fallbackPolicy: string;
+}> {
+  const sharedSender = Deno.env.get("TWILIO_WA_FROM_NUMBER") ?? "";
+
+  // Step 1: Active default org WhatsApp channel
+  const { data: activeRows } = await supabase
+    .from("org_channels")
+    .select("from_e164, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "whatsapp")
+    .eq("is_default", true)
+    .eq("status", "active")
+    .limit(1);
+
+  if (activeRows?.[0]?.from_e164) {
+    return { action: "send", sender: activeRows[0].from_e164, usedShared: false, orgSender: activeRows[0].from_e164, fallbackPolicy: "active" };
+  }
+
+  // Step 2: Most recent default org WA channel (any status) — authority row
+  const { data: anyRows } = await supabase
+    .from("org_channels")
+    .select("from_e164, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "whatsapp")
+    .eq("is_default", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (!anyRows || anyRows.length === 0) {
+    // Brand-new org — no dedicated WA sender ever.
+    console.info(`[executor_whatsapp] event=new_org_shared_sender org_id=${orgId} task_id=${taskId} sender=${sharedSender}`);
+    return { action: "send", sender: sharedSender, usedShared: true, orgSender: null, fallbackPolicy: "new_org" };
+  }
+
+  // Step 3: Apply fallback policy
+  const orgSender = anyRows[0].from_e164 ?? null;
+  const policy = anyRows[0].fallback_policy ?? "allow_shared";
+
+  if (policy === "fail_task") {
+    console.error(`[executor_whatsapp] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=whatsapp original_sender=${orgSender} fallback_sender=${sharedSender} policy=fail_task reason=dedicated_channel_inactive`);
+    return { action: "fail", sender: sharedSender, usedShared: true, orgSender, fallbackPolicy: "fail_task" };
+  }
+
+  if (policy === "admin_override") {
+    console.error(`[executor_whatsapp] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=whatsapp original_sender=${orgSender} fallback_sender=${sharedSender} policy=admin_override reason=dedicated_channel_inactive`);
+  } else {
+    console.warn(`[executor_whatsapp] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=whatsapp original_sender=${orgSender} fallback_sender=${sharedSender} policy=${policy} reason=dedicated_channel_inactive`);
+  }
+
+  return { action: "send", sender: sharedSender, usedShared: true, orgSender, fallbackPolicy: policy };
+}
+
+async function writeWaFallbackAuditEvent(supabase: any, args: {
+  orgId: string; taskId: string;
+  orgSender: string | null; usedSender: string; fallbackPolicy: string;
+}) {
+  await supabase.from("audit_events").insert({
+    org_id: args.orgId,
+    actor_type: "system",
+    actor_id: null,
+    object_type: "execution_task",
+    object_id: args.taskId,
+    action: "channel_fallback_triggered",
+    reason: args.fallbackPolicy,
+    before_state: { org_sender: args.orgSender, channel: "whatsapp" },
+    after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
+  }).catch((e: any) => console.error("[executor_whatsapp] audit_event insert failed:", e));
+}
+
 serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const task_id = body?.task_id as string | undefined;
@@ -127,40 +206,39 @@ serve(async (req) => {
     return new Response("Missing actor_user_id", { status: 500 });
   }
 
-  // 4) Resolve WhatsApp sender FROM number (org-dedicated channel)
-  let WA_FROM: string | null = null;
-  try {
-    const { data: orgWaChannels } = await supabase
-      .from("org_channels")
-      .select("from_e164")
-      .eq("org_id", task.org_id)
-      .eq("channel", "whatsapp")
-      .eq("is_default", true)
-      .eq("status", "active")
-      .limit(1);
+  // 4) Resolve WhatsApp sender with explicit fallback policy (BEFORE token consumption)
+  const senderRes = await resolveWaSender(supabase, task.org_id, task_id);
 
-    if (orgWaChannels?.[0]?.from_e164) {
-      WA_FROM = orgWaChannels[0].from_e164;
-      console.log(`[executor_whatsapp] Using org-dedicated WA number ${WA_FROM} for org ${task.org_id}`);
-    }
-  } catch (channelErr) {
-    console.warn("[executor_whatsapp] org_channels lookup failed:", channelErr);
-  }
-
-  // Fall back to platform-level env var
-  if (!WA_FROM) {
-    WA_FROM = Deno.env.get("TWILIO_WA_FROM_NUMBER") ?? null;
-  }
-
-  if (!WA_FROM) {
+  if (senderRes.action === "fail") {
+    await writeWaFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id,
+      orgSender: senderRes.orgSender, usedSender: senderRes.sender, fallbackPolicy: "fail_task",
+    });
     await supabase.from("execution_tasks").update({
       status: "failed",
-      last_error: "NO_WA_FROM_NUMBER",
-      locked_by: null,
-      locked_until: null,
+      last_error: "CHANNEL_FALLBACK_POLICY_FAIL_TASK: dedicated WhatsApp sender inactive",
+      locked_by: null, locked_until: null,
     }).eq("id", task_id);
+    return new Response("Sender fallback policy: fail_task", { status: 200 });
+  }
 
+  if (!senderRes.sender) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "NO_WA_FROM_NUMBER: no shared sender configured (set TWILIO_WA_FROM_NUMBER)",
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
     return new Response("No WhatsApp sender number configured", { status: 500 });
+  }
+
+  const WA_FROM = senderRes.sender;
+
+  // Write fallback audit event if shared sender was selected (not brand-new org)
+  if (senderRes.usedShared && senderRes.orgSender !== null) {
+    await writeWaFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id,
+      orgSender: senderRes.orgSender, usedSender: WA_FROM, fallbackPolicy: senderRes.fallbackPolicy,
+    });
   }
 
   // 5) Generate message

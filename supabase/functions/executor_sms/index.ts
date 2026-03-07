@@ -10,6 +10,86 @@ function safeString(x: unknown): string {
   try { return JSON.stringify(x); } catch { return String(x); }
 }
 
+/**
+ * 3-step SMS sender resolution with explicit fallback policy.
+ * Returns action='send' with resolved sender, or action='fail' to abort.
+ * Must be called BEFORE token consumption.
+ */
+async function resolveSmsSender(supabase: any, orgId: string, taskId: string): Promise<{
+  action: "send" | "fail";
+  sender: string;
+  usedShared: boolean;
+  orgSender: string | null;
+  fallbackPolicy: string;
+}> {
+  const sharedSender = Deno.env.get("TWILIO_FROM_NUMBER") ?? "";
+
+  // Step 1: Active default org channel
+  const { data: activeRows } = await supabase
+    .from("org_channels")
+    .select("from_e164, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "sms")
+    .eq("is_default", true)
+    .eq("status", "active")
+    .limit(1);
+
+  if (activeRows?.[0]?.from_e164) {
+    return { action: "send", sender: activeRows[0].from_e164, usedShared: false, orgSender: activeRows[0].from_e164, fallbackPolicy: "active" };
+  }
+
+  // Step 2: Most recent default org channel (any status) — authority row for policy
+  const { data: anyRows } = await supabase
+    .from("org_channels")
+    .select("from_e164, fallback_policy")
+    .eq("org_id", orgId)
+    .eq("channel", "sms")
+    .eq("is_default", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (!anyRows || anyRows.length === 0) {
+    // Brand-new org — no dedicated sender ever. Expected behavior.
+    console.info(`[executor_sms] event=new_org_shared_sender org_id=${orgId} task_id=${taskId} sender=${sharedSender}`);
+    return { action: "send", sender: sharedSender, usedShared: true, orgSender: null, fallbackPolicy: "new_org" };
+  }
+
+  // Step 3: Apply fallback policy
+  const orgSender = anyRows[0].from_e164 ?? null;
+  const policy = anyRows[0].fallback_policy ?? "allow_shared";
+
+  if (policy === "fail_task") {
+    console.error(`[executor_sms] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=sms original_sender=${orgSender} fallback_sender=${sharedSender} policy=fail_task reason=dedicated_channel_inactive`);
+    return { action: "fail", sender: sharedSender, usedShared: true, orgSender, fallbackPolicy: "fail_task" };
+  }
+
+  // allow_shared or admin_override — use shared sender
+  if (policy === "admin_override") {
+    console.error(`[executor_sms] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=sms original_sender=${orgSender} fallback_sender=${sharedSender} policy=admin_override reason=dedicated_channel_inactive`);
+  } else {
+    console.warn(`[executor_sms] event=channel_fallback_triggered org_id=${orgId} task_id=${taskId} channel=sms original_sender=${orgSender} fallback_sender=${sharedSender} policy=${policy} reason=dedicated_channel_inactive`);
+  }
+
+  return { action: "send", sender: sharedSender, usedShared: true, orgSender, fallbackPolicy: policy };
+}
+
+async function writeFallbackAuditEvent(supabase: any, args: {
+  orgId: string; taskId: string; channel: string;
+  orgSender: string | null; usedSender: string; fallbackPolicy: string;
+}) {
+  await supabase.from("audit_events").insert({
+    org_id: args.orgId,
+    actor_type: "system",
+    actor_id: null,
+    object_type: "execution_task",
+    object_id: args.taskId,
+    action: "channel_fallback_triggered",
+    reason: args.fallbackPolicy,
+    before_state: { org_sender: args.orgSender, channel: args.channel },
+    after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
+  }).catch((e: any) => console.error("[executor_sms] audit_event insert failed:", e));
+}
+
 serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const task_id = body?.task_id as string | undefined;
@@ -79,7 +159,33 @@ serve(async (req) => {
     return new Response("Missing actor_user_id", { status: 500 });
   }
 
-  // 4) Generate message — skip AI if force_content is set (human takeover)
+  // 4) Resolve SMS sender (BEFORE token consumption — fail_task aborts cleanly)
+  const senderRes = await resolveSmsSender(supabase, task.org_id, task_id);
+
+  if (senderRes.action === "fail") {
+    await writeFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id, channel: "sms",
+      orgSender: senderRes.orgSender, usedSender: senderRes.sender, fallbackPolicy: "fail_task",
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "CHANNEL_FALLBACK_POLICY_FAIL_TASK: dedicated SMS sender inactive",
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Sender fallback policy: fail_task", { status: 200 });
+  }
+
+  const TWILIO_FROM = senderRes.sender;
+
+  // Write fallback audit event if shared sender was selected (not brand-new org)
+  if (senderRes.usedShared && senderRes.orgSender !== null) {
+    await writeFallbackAuditEvent(supabase, {
+      orgId: task.org_id, taskId: task_id, channel: "sms",
+      orgSender: senderRes.orgSender, usedSender: TWILIO_FROM, fallbackPolicy: senderRes.fallbackPolicy,
+    });
+  }
+
+  // 5) Generate message — skip AI if force_content is set (human takeover)
   let messageBody: string;
   if (task.metadata?.force_content) {
     messageBody = safeString(task.metadata.force_content);
@@ -107,7 +213,7 @@ serve(async (req) => {
     messageBody = brainResult.content;
   }
 
-  // 5) Token consumption
+  // 6) Token consumption
   const { data: consumeRes, error: consumeErr } = await supabase.rpc("consume_tokens_v1", {
     p_org_id: task.org_id,
     p_scope: "user",
@@ -146,29 +252,9 @@ serve(async (req) => {
     return new Response("Insufficient tokens", { status: 402 });
   }
 
-  // 6) Twilio send
+  // 7) Twilio send
   const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
   const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-
-  // Resolve FROM number: prefer org-dedicated channel, fall back to shared platform number
-  let TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER")!;
-  try {
-    const { data: orgChannels } = await supabase
-      .from("org_channels")
-      .select("from_e164")
-      .eq("org_id", task.org_id)
-      .eq("channel", "sms")
-      .eq("is_default", true)
-      .eq("status", "active")
-      .limit(1);
-    if (orgChannels && orgChannels.length > 0 && orgChannels[0].from_e164) {
-      TWILIO_FROM = orgChannels[0].from_e164;
-      console.log(`[executor_sms] Using org-dedicated number ${TWILIO_FROM} for org ${task.org_id}`);
-    }
-  } catch (channelErr) {
-    console.warn("[executor_sms] org_channels lookup failed, using shared number:", channelErr);
-  }
-
   const authHeader = `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`;
   const params = new URLSearchParams();
   params.append("To", task.leads.phone);
@@ -212,7 +298,7 @@ serve(async (req) => {
 
   const twilioJson = await twilioResp.json();
 
-  // 7) Finalize
+  // 8) Finalize
   await supabase.from("execution_tasks").update({
     status: "succeeded",
     executed_at: new Date().toISOString(),
