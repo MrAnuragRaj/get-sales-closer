@@ -48,7 +48,7 @@ serve(async (req) => {
     // ── 2. Fetch & validate billing_intent ──────────────────────────────────────
     const { data: intent, error: intentErr } = await sb
       .from("billing_intents")
-      .select("id, org_id, intent_source, pricing_snapshot, status")
+      .select("id, org_id, intent_source, pricing_snapshot, status, created_by")
       .eq("id", billing_intent_id)
       .single()
     if (intentErr || !intent) throw new Error("billing_intent not found: " + billing_intent_id)
@@ -102,7 +102,7 @@ serve(async (req) => {
       // Resolve or create wallet
       let { data: wallet } = await sb
         .from("credit_wallets")
-        .select("id, balance")
+        .select("id")
         .eq("org_id", org_id)
         .eq("token_key", line.token_key)
         .maybeSingle()
@@ -110,8 +110,8 @@ serve(async (req) => {
       if (!wallet) {
         const { data: newWallet } = await sb
           .from("credit_wallets")
-          .insert({ org_id, token_key: line.token_key, balance: 0 })
-          .select("id, balance")
+          .insert({ org_id, token_key: line.token_key, available_balance: 0, lifetime_credited: 0, lifetime_debited: 0 })
+          .select("id")
           .single()
         wallet = newWallet
       }
@@ -127,12 +127,13 @@ serve(async (req) => {
         wallet_id: wallet.id,
         token_key: line.token_key,
         entry_type: "grant",
+        direction: "credit",
         quantity: line.token_quantity,
         balance_after: 0, // placeholder; patched below
         idempotency_key: creditIdemKey,
-        source: "number_purchase_bundle",
-        reference_id: billing_intent_id,
-        metadata: { billing_intent_id, order_line_id: line.id, description: line.description },
+        source_object_type: "order_line",
+        source_object_id: line.id,
+        note: `Number purchase bundle (${line.description}) — billing_intent ${billing_intent_id}`,
       })
 
       if (ledgerErr?.code === "23505") {

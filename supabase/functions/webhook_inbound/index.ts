@@ -653,13 +653,14 @@ serve(async (req) => {
 
     // WhatsApp inbound: log to delivery_attempts as received
     if (channel === "whatsapp") {
-      const msgSidParam = url.searchParams.get("MessageSid") ?? null;
+      // MessageSid comes in the Twilio form body (params), not URL query string
+      const msgSid = params.MessageSid ?? params.SmsSid ?? null;
       await supabase.from("delivery_attempts").insert({
         org_id: leadOrgId,
         lead_id: leadId,
         channel: "whatsapp",
         provider: "twilio_wa",
-        provider_message_id: msgSidParam,
+        provider_message_id: msgSid,
         status: "received",
         sent_at: new Date().toISOString(),
         metadata: { from_e164: fromE164, to_e164: toE164, direction: "inbound" },
