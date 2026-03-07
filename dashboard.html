@@ -1726,62 +1726,76 @@
         }
 
         // ── Delivery Status Dashboard ──────────────────────────────────────────
+        function _buildDeliveryHTML(data) {
+            const CHANS = [
+                { key:'sms',       label:'SMS',       icon:'fa fa-message' },
+                { key:'whatsapp',  label:'WhatsApp',  icon:'fab fa-whatsapp' },
+                { key:'rcs',       label:'RCS',       icon:'fa fa-signal' },
+                { key:'messenger', label:'Messenger', icon:'fab fa-facebook-messenger' },
+                { key:'voice',     label:'Voice',     icon:'fa fa-phone' },
+            ];
+            const ST = ['sent','delivered','read','failed'];
+            const counts = {};
+            CHANS.forEach(c => { counts[c.key] = { sent:0, delivered:0, read:0, failed:0 }; });
+            data.forEach(r => {
+                if (!counts[r.channel]) counts[r.channel] = { sent:0, delivered:0, read:0, failed:0 };
+                if (ST.includes(r.status)) counts[r.channel][r.status]++;
+            });
+            function badge(key) {
+                const c = counts[key] || {}; const tot = ST.reduce((s,k)=>s+(c[k]||0),0);
+                if (!tot) return '<span class="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">No Data</span>';
+                const rate = (c.failed||0)/tot;
+                if (rate > 0.2) return '<span class="text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">Degraded</span>';
+                if (rate > 0.05) return '<span class="text-[10px] font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">Elevated</span>';
+                if (rate === 0) return '<span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Excellent</span>';
+                return '<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">Normal</span>';
+            }
+            const active = CHANS.filter(c => ST.reduce((s,k)=>s+(counts[c.key][k]||0),0) > 0);
+            const display = active.length ? active : CHANS;
+            const failures = data.filter(r => r.status === 'failed').slice(0, 5);
+            return `<div class="overflow-x-auto mb-5"><table class="w-full text-xs text-slate-400">
+                <thead class="text-[10px] uppercase font-bold text-slate-500"><tr>
+                    <th class="pb-2 text-left">Channel</th>
+                    <th class="pb-2 text-center">Sent</th><th class="pb-2 text-center">Delivered</th>
+                    <th class="pb-2 text-center">Read</th><th class="pb-2 text-center">Failed</th>
+                    <th class="pb-2 text-right">Health</th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-800">
+                ${display.map(ch => { const c = counts[ch.key]; const tot = ST.reduce((s,k)=>s+(c[k]||0),0);
+                    return `<tr class="${!tot?'opacity-30':''}">
+                        <td class="py-2"><div class="flex items-center gap-2">
+                            <i class="${ch.icon} text-slate-400 w-3.5 text-center text-[11px]"></i>
+                            <span class="font-bold text-slate-300 text-[11px]">${ch.label}</span>
+                        </div></td>
+                        <td class="py-2 text-center font-mono ${c.sent?'text-blue-300':'text-slate-700'}">${c.sent||'—'}</td>
+                        <td class="py-2 text-center font-mono ${c.delivered?'text-green-400':'text-slate-700'}">${c.delivered||'—'}</td>
+                        <td class="py-2 text-center font-mono ${c.read?'text-indigo-400':'text-slate-700'}">${c.read||'—'}</td>
+                        <td class="py-2 text-center font-mono ${c.failed?'text-red-400 font-bold':'text-slate-700'}">${c.failed||'—'}</td>
+                        <td class="py-2 text-right">${badge(ch.key)}</td>
+                    </tr>`;}).join('')}
+                </tbody></table></div>
+                ${failures.length ? `<div><p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Recent Failures</p>
+                <div class="space-y-2">${failures.map(f=>`<div class="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 text-xs flex items-center gap-3">
+                    <i class="fa fa-circle-exclamation text-red-400 shrink-0"></i>
+                    <div class="min-w-0"><span class="uppercase font-bold text-slate-400 mr-2">${f.channel}</span>
+                    <span class="text-red-300 font-mono">${f.error_code||'UNKNOWN'}</span>
+                    ${f.error_message?`<p class="text-slate-500 truncate mt-0.5">${f.error_message.slice(0,80)}</p>`:''}</div>
+                    <span class="ml-auto text-[10px] text-slate-600 shrink-0">${new Date(f.sent_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+                </div>`).join('')}</div></div>`
+                : '<p class="text-green-400 text-xs text-center"><i class="fa fa-check-circle mr-1"></i>No failures in the last 7 days</p>'}`;
+        }
+
         async function loadDashDeliveryStatus(orgId, sb) {
             const el = document.getElementById('dash-delivery-body');
             if (!el || !orgId) return;
-
             const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const { data, error } = await sb.from('delivery_attempts')
                 .select('channel, status, error_code, error_message, sent_at')
-                .eq('org_id', orgId)
-                .gte('sent_at', since)
-                .order('sent_at', { ascending: false })
-                .limit(500);
-
+                .eq('org_id', orgId).gte('sent_at', since)
+                .order('sent_at', { ascending: false }).limit(500);
             if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
             if (!data || data.length === 0) { el.innerHTML = '<p class="text-slate-600 text-sm italic text-center py-4">No delivery attempts in the last 7 days.</p>'; return; }
-
-            const channels = ['sms', 'whatsapp', 'voice'];
-            const statuses = ['sent', 'delivered', 'read', 'failed'];
-            const counts = {};
-            channels.forEach(c => { counts[c] = {}; statuses.forEach(s => counts[c][s] = 0); });
-            data.forEach(r => { if (counts[r.channel]) counts[r.channel][r.status] = (counts[r.channel][r.status] || 0) + 1; });
-
-            const failures = data.filter(r => r.status === 'failed').slice(0, 5);
-            const statusIcon = { sent: 'text-blue-400 fa-paper-plane', delivered: 'text-green-400 fa-check-double', read: 'text-indigo-400 fa-eye', failed: 'text-red-400 fa-circle-exclamation' };
-
-            el.innerHTML = `
-                <div class="overflow-x-auto mb-5">
-                    <table class="w-full text-xs text-slate-400">
-                        <thead class="text-[10px] uppercase font-bold text-slate-500">
-                            <tr>
-                                <th class="pb-2 text-left">Channel</th>
-                                ${statuses.map(s => `<th class="pb-2 text-center">${s}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800">
-                            ${channels.map(c => `<tr class="${Object.values(counts[c]).every(v=>v===0) ? 'opacity-40' : ''}">
-                                <td class="py-2 font-bold uppercase text-slate-300">${c}</td>
-                                ${statuses.map(s => `<td class="py-2 text-center font-mono ${counts[c][s]>0 && s==='failed' ? 'text-red-400 font-bold' : counts[c][s]>0 ? 'text-white' : 'text-slate-700'}">${counts[c][s] || '—'}</td>`).join('')}
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                ${failures.length > 0 ? `
-                <div>
-                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Recent Failures</p>
-                    <div class="space-y-2">
-                        ${failures.map(f => `<div class="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 text-xs flex items-center gap-3">
-                            <i class="fa fa-circle-exclamation text-red-400 shrink-0"></i>
-                            <div class="min-w-0">
-                                <span class="uppercase font-bold text-slate-400 mr-2">${f.channel}</span>
-                                <span class="text-red-300 font-mono">${f.error_code || 'UNKNOWN'}</span>
-                                ${f.error_message ? `<p class="text-slate-500 truncate mt-0.5">${f.error_message.slice(0,80)}</p>` : ''}
-                            </div>
-                            <span class="ml-auto text-[10px] text-slate-600 shrink-0">${new Date(f.sent_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
-                        </div>`).join('')}
-                    </div>
-                </div>` : '<p class="text-green-400 text-xs text-center"><i class="fa fa-check-circle mr-1"></i>No failures in the last 7 days</p>'}`;
+            el.innerHTML = _buildDeliveryHTML(data);
         }
 
         // ── Deploy AI Site Liaison ──────────────────────────────────────────────

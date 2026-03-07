@@ -799,9 +799,15 @@ serve(async (req) => {
             .eq("messenger_psid", psid)
             .limit(2);
 
+          let fbLeadId: string | null = null;
+          let fbLeadOrgId: string | null = null;
+
           if (!psidLead || psidLead.length === 0) {
-            // PSID not linked to any lead — check if this page belongs to a known org
-            // and try to resolve by page_id → org → create/link PSID on the fly
+            // PSID not yet linked — attempt safe auto-link:
+            // 1. Resolve which org owns this Messenger page.
+            // 2. In that org, find leads with messenger_psid IS NULL.
+            //    Exactly 1 → link. >1 → ambiguous, audit only.
+            let candidateOrgId: string | null = null;
             const { data: messengerChannels } = await supabase
               .from("org_channels")
               .select("org_id, metadata")
@@ -812,35 +818,76 @@ serve(async (req) => {
             const matchingOrg = (messengerChannels ?? []).find(
               (ch: any) => ch.metadata?.page_id === pageId,
             );
-
-            if (!matchingOrg) {
-              // Try platform page ID env var
-              const platformPageId = Deno.env.get("FACEBOOK_PAGE_ID");
-              if (pageId && pageId !== platformPageId) {
-                console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=messenger psid=${psid} page=${pageId}`);
-                await supabase.from("audit_events").insert({
-                  org_id: null, actor_type: "system", actor_id: null,
-                  object_type: "inbound_message", object_id: crypto.randomUUID(),
-                  action: "inbound_route_no_lead", reason: "psid_not_linked_unknown_page",
-                  before_state: null,
-                  after_state: { psid, page_id: pageId, channel: "messenger", provider: "facebook" },
-                }).catch(() => {});
-                continue;
-              }
+            if (matchingOrg) {
+              candidateOrgId = matchingOrg.org_id;
+            } else if (pageId && pageId === Deno.env.get("FACEBOOK_PAGE_ID")) {
+              // Shared platform page — can't safely infer org from PSID alone
+              candidateOrgId = null;
             }
 
-            console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=messenger psid=${psid} page=${pageId}`);
-            await supabase.from("audit_events").insert({
-              org_id: null, actor_type: "system", actor_id: null,
-              object_type: "inbound_message", object_id: crypto.randomUUID(),
-              action: "inbound_route_no_lead", reason: "psid_not_linked_to_lead",
-              before_state: null,
-              after_state: { psid, page_id: pageId, channel: "messenger", provider: "facebook" },
-            }).catch(() => {});
-            continue;
-          }
+            if (!candidateOrgId) {
+              console.warn(`[webhook_inbound] event=messenger_psid_no_match psid=${psid} page=${pageId} reason=no_org_for_page`);
+              await supabase.from("audit_events").insert({
+                org_id: null, actor_type: "system", actor_id: null,
+                object_type: "lead", object_id: crypto.randomUUID(),
+                action: "messenger_psid_no_match", reason: "no_org_for_page_id",
+                before_state: null,
+                after_state: { psid, page_id: pageId, channel: "messenger" },
+              }).catch(() => {});
+              continue;
+            }
 
-          if (psidLead.length > 1) {
+            // Find unlinked leads in this org (limit 2 to detect ambiguity)
+            const { data: unlinkedLeads } = await supabase
+              .from("leads")
+              .select("id")
+              .eq("org_id", candidateOrgId)
+              .is("messenger_psid", null)
+              .eq("is_dnc", false)
+              .limit(2);
+
+            if (!unlinkedLeads || unlinkedLeads.length === 0) {
+              await supabase.from("audit_events").insert({
+                org_id: candidateOrgId, actor_type: "system", actor_id: null,
+                object_type: "lead", object_id: crypto.randomUUID(),
+                action: "messenger_psid_no_match", reason: "no_unlinked_leads_in_org",
+                before_state: null,
+                after_state: { psid, page_id: pageId, org_id: candidateOrgId },
+              }).catch(() => {});
+              continue;
+            }
+
+            if (unlinkedLeads.length > 1) {
+              await supabase.from("audit_events").insert({
+                org_id: candidateOrgId, actor_type: "system", actor_id: null,
+                object_type: "lead", object_id: crypto.randomUUID(),
+                action: "messenger_psid_ambiguous", reason: "multiple_unlinked_leads_in_org",
+                before_state: null,
+                after_state: { psid, page_id: pageId, org_id: candidateOrgId, candidate_count: unlinkedLeads.length },
+              }).catch(() => {});
+              continue;
+            }
+
+            // Exactly 1 unlinked lead — safe to auto-link
+            const targetLeadId = unlinkedLeads[0].id;
+            await supabase.from("leads")
+              .update({ messenger_psid: psid })
+              .eq("id", targetLeadId)
+              .catch(() => {});
+
+            await supabase.from("audit_events").insert({
+              org_id: candidateOrgId, actor_type: "system", actor_id: null,
+              object_type: "lead", object_id: targetLeadId,
+              action: "messenger_psid_linked", reason: "safe_auto_link_single_candidate",
+              before_state: { messenger_psid: null },
+              after_state: { messenger_psid: psid, page_id: pageId, org_id: candidateOrgId },
+            }).catch(() => {});
+
+            console.log(`[webhook_inbound] Messenger PSID auto-linked: lead=${targetLeadId} org=${candidateOrgId} psid=${psid}`);
+            fbLeadId = targetLeadId;
+            fbLeadOrgId = candidateOrgId;
+
+          } else if (psidLead.length > 1) {
             const candidateOrgIds = psidLead.map((l: any) => l.org_id);
             console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=messenger psid=${psid} count=${psidLead.length}`);
             await supabase.from("audit_events").insert({
@@ -851,10 +898,13 @@ serve(async (req) => {
               after_state: { psid, page_id: pageId, channel: "messenger", candidate_org_ids: candidateOrgIds },
             }).catch(() => {});
             continue;
+
+          } else {
+            fbLeadId = psidLead[0].id;
+            fbLeadOrgId = psidLead[0].org_id;
           }
 
-          const fbLeadId = psidLead[0].id;
-          const fbLeadOrgId = psidLead[0].org_id;
+          if (!fbLeadId || !fbLeadOrgId) continue;
 
           // Insert interaction
           await supabase.from("interactions").insert({
