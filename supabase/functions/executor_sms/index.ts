@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -117,6 +117,10 @@ serve(async (req) => {
     return new Response("Task already processed", { status: 200 });
   }
 
+  // 1.4) Platform kill switch (TERMINAL) — checked before org-level
+  const platformGate = await enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "sms");
+  if (!platformGate.allow) return platformGate.response;
+
   // 1.5) Kill-switch wins over everything (TERMINAL) — unified helper
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
@@ -158,6 +162,10 @@ serve(async (req) => {
 
     return new Response("Missing actor_user_id", { status: 500 });
   }
+
+  // 3.5) Rate limit gate — BEFORE token consumption and before provider send
+  const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "sms");
+  if (!rlGate.allow) return rlGate.response;
 
   // 4) Resolve SMS sender (BEFORE token consumption — fail_task aborts cleanly)
   const senderRes = await resolveSmsSender(supabase, task.org_id, task_id);
@@ -252,6 +260,31 @@ serve(async (req) => {
     return new Response("Insufficient tokens", { status: 402 });
   }
 
+  // 6.5) Log delivery attempt (pre-send) — idempotency guard via UNIQUE(task_id, attempt_number)
+  const attemptNumber = task.attempt ?? 1;
+  const { data: deliveryAttempt, error: daInsertErr } = await supabase
+    .from("delivery_attempts")
+    .insert({
+      task_id,
+      org_id: task.org_id,
+      lead_id: task.lead_id,
+      channel: "sms",
+      provider: "twilio",
+      status: "pending",
+      attempt_number: attemptNumber,
+      metadata: { from: TWILIO_FROM, to: task.leads?.phone },
+    })
+    .select("id")
+    .maybeSingle();
+
+  // 23505 = unique_violation — another executor instance is already handling this attempt
+  if (daInsertErr?.code === "23505") {
+    console.log(`[executor_sms] Duplicate invocation for task ${task_id} attempt ${attemptNumber} — idempotent skip`);
+    return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
+  }
+
+  const deliveryAttemptId = deliveryAttempt?.id;
+
   // 7) Twilio send
   const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
   const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
@@ -275,6 +308,9 @@ serve(async (req) => {
       }
     );
   } catch (networkErr) {
+    if (deliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId).catch(() => {});
+    }
     await supabase.from("execution_tasks").update({
       status: "failed",
       last_error: `TWILIO_NETWORK_ERROR: ${String(networkErr)}`,
@@ -286,6 +322,9 @@ serve(async (req) => {
 
   if (!twilioResp.ok) {
     const errorText = await twilioResp.text();
+    if (deliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "TWILIO_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId).catch(() => {});
+    }
     await supabase.from("execution_tasks").update({
       status: "failed",
       last_error: `TWILIO_FAILED: ${errorText}`,
@@ -297,6 +336,15 @@ serve(async (req) => {
   }
 
   const twilioJson = await twilioResp.json();
+
+  // Update delivery_attempt to "sent"
+  if (deliveryAttemptId) {
+    await supabase.from("delivery_attempts").update({
+      status: "sent",
+      provider_message_id: twilioJson.sid,
+      sent_at: new Date().toISOString(),
+    }).eq("id", deliveryAttemptId).catch(() => {});
+  }
 
   // 8) Finalize
   await supabase.from("execution_tasks").update({

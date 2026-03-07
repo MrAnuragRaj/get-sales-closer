@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 const TOKEN_KEY = "sentinel.email";
@@ -48,6 +48,10 @@ serve(async (req) => {
   if (!["pending", "running"].includes(task.status)) {
     return new Response("Task already processed", { status: 200 });
   }
+
+  // 1.9) Platform kill switch (TERMINAL) — checked before org-level
+  const platformGate = await enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "email");
+  if (!platformGate.allow) return platformGate.response;
 
   // 2) Kill-switch enforcement (TERMINAL)
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
@@ -154,6 +158,10 @@ serve(async (req) => {
 
     return new Response("Missing actor_user_id", { status: 500 });
   }
+
+  // Rate limit gate — BEFORE token consumption and before provider send
+  const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "email");
+  if (!rlGate.allow) return rlGate.response;
 
   // Generate email content (AI or RAW bypass inside brain.ts)
   const brainResult = await generateMessage(supabase, {
@@ -263,6 +271,31 @@ serve(async (req) => {
     return new Response("Missing Resend config", { status: 500 });
   }
 
+  // Pre-send delivery attempt — idempotency guard via UNIQUE(task_id, attempt_number)
+  const attemptNumber = task.attempt ?? 1;
+  const { data: deliveryAttempt, error: daInsertErr } = await supabase
+    .from("delivery_attempts")
+    .insert({
+      task_id,
+      org_id: task.org_id,
+      lead_id: task.lead_id,
+      channel: "email",
+      provider: "resend",
+      status: "pending",
+      attempt_number: attemptNumber,
+      metadata: { from: FROM_EMAIL, to: toEmail, subject },
+    })
+    .select("id")
+    .maybeSingle();
+
+  // 23505 = unique_violation — another executor instance is already handling this attempt
+  if (daInsertErr?.code === "23505") {
+    console.log(`[executor_email] Duplicate invocation for task ${task_id} attempt ${attemptNumber} — idempotent skip`);
+    return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
+  }
+
+  const deliveryAttemptId = deliveryAttempt?.id;
+
   let res: Response;
   try {
     res = await fetch("https://api.resend.com/emails", {
@@ -280,6 +313,9 @@ serve(async (req) => {
       }),
     });
   } catch (networkErr) {
+    if (deliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId).catch(() => {});
+    }
     await supabase
       .from("execution_tasks")
       .update({
@@ -295,7 +331,9 @@ serve(async (req) => {
 
   if (!res.ok) {
     const errorText = await res.text();
-
+    if (deliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "RESEND_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId).catch(() => {});
+    }
     await supabase
       .from("execution_tasks")
       .update({
@@ -312,6 +350,15 @@ serve(async (req) => {
 
   const respJson = await res.json().catch(() => ({}));
   const providerId = (respJson as any)?.id ?? null;
+
+  // Update delivery_attempt to "sent"
+  if (deliveryAttemptId) {
+    await supabase.from("delivery_attempts").update({
+      status: "sent",
+      provider_message_id: providerId,
+      sent_at: new Date().toISOString(),
+    }).eq("id", deliveryAttemptId).catch(() => {});
+  }
 
   // Log interaction
   await supabase.from("interactions").insert({

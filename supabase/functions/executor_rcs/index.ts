@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 // executor_rcs
 // Sends RCS messages via Google RCS Business Messaging (RBM) / Business Communications API.
@@ -202,6 +202,10 @@ serve(async (req) => {
     return new Response("Task already processed", { status: 200 });
   }
 
+  // 1.4) Platform kill switch (TERMINAL) — checked before org-level
+  const platformGate = await enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "rcs");
+  if (!platformGate.allow) return platformGate.response;
+
   // 1.5) Kill-switch gate (TERMINAL)
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
@@ -287,6 +291,10 @@ serve(async (req) => {
     }).eq("id", task_id);
     return new Response("actor_user_id required", { status: 400 });
   }
+
+  // 3.5) Rate limit gate — BEFORE token consumption and before provider send
+  const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "rcs");
+  if (!rlGate.allow) return rlGate.response;
 
   // 4) Resolve RCS sender (BEFORE token consumption — fail_task aborts cleanly)
   const senderRes = await resolveRcsSender(supabase, task.org_id, task_id);
@@ -381,11 +389,12 @@ serve(async (req) => {
     return new Response("Token declined", { status: 200 });
   }
 
-  // 7) Log delivery attempt (pre-send)
+  // 7) Log delivery attempt (pre-send) — idempotency guard via UNIQUE(task_id, attempt_number)
   const toPhone = (task.leads?.phone ?? "").replace(/^\+?/, "+");
   const messageId = crypto.randomUUID();
+  const attemptNumber = task.attempt ?? 1;
 
-  const { data: deliveryAttempt } = await supabase
+  const { data: deliveryAttempt, error: daInsertErr } = await supabase
     .from("delivery_attempts")
     .insert({
       task_id,
@@ -395,10 +404,17 @@ serve(async (req) => {
       provider: "google_rbm",
       provider_message_id: messageId,
       status: "pending",
+      attempt_number: attemptNumber,
       metadata: { rbm_agent_id: RBM_AGENT_ID, to_phone: toPhone },
     })
     .select("id")
     .maybeSingle();
+
+  // 23505 = unique_violation — another executor instance is already handling this attempt
+  if (daInsertErr?.code === "23505") {
+    console.log(`[executor_rcs] Duplicate invocation for task ${task_id} attempt ${attemptNumber} — idempotent skip`);
+    return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
+  }
 
   const deliveryAttemptId = deliveryAttempt?.id;
 

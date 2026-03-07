@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { getVoiceContext } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -152,6 +152,10 @@ serve(async (req) => {
     return new Response("Task already processed", { status: 200 });
   }
 
+  // 1.4) Platform kill switch (TERMINAL) — checked before org-level
+  const platformGate = await enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "voice");
+  if (!platformGate.allow) return platformGate.response;
+
   // 1.5) Kill-switch wins over everything (TERMINAL)
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
@@ -239,7 +243,11 @@ serve(async (req) => {
     return new Response("Missing actor_user_id", { status: 500 });
   }
 
-  // 4.5) If already linked to a provider call, exit idempotently
+  // 4.5) Rate limit gate — BEFORE token pre-debit and before VAPI call
+  const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "voice");
+  if (!rlGate.allow) return rlGate.response;
+
+  // 4.6) If already linked to a provider call, exit idempotently
   if (task.provider === "vapi" && task.provider_id) {
     return new Response(
       JSON.stringify({ success: true, call_id: task.provider_id, mode: "already_linked" }),
@@ -324,6 +332,31 @@ serve(async (req) => {
     .eq("org_id", task.org_id)
     .maybeSingle();
 
+  // 7.5) Log delivery attempt (pre-call) — idempotency guard via UNIQUE(task_id, attempt_number)
+  const attemptNumber = task.attempt ?? 1;
+  const { data: voiceDeliveryAttempt, error: vdaInsertErr } = await supabase
+    .from("delivery_attempts")
+    .insert({
+      task_id,
+      org_id: task.org_id,
+      lead_id: task.lead_id,
+      channel: "voice",
+      provider: "vapi",
+      status: "pending",
+      attempt_number: attemptNumber,
+      metadata: { phone_number_id: PHONE_NUMBER_ID, to: leadPhone },
+    })
+    .select("id")
+    .maybeSingle();
+
+  // 23505 = unique_violation — another executor instance is already handling this attempt
+  if (vdaInsertErr?.code === "23505") {
+    console.log(`[executor_voice] Duplicate invocation for task ${task_id} attempt ${attemptNumber} — idempotent skip`);
+    return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
+  }
+
+  const voiceDeliveryAttemptId = voiceDeliveryAttempt?.id;
+
   // 8) Vapi call start
   const VAPI_KEY = Deno.env.get("VAPI_PRIVATE_KEY") ?? "";
   const ASSISTANT_ID = (orgSettings?.vapi_assistant_id as string | undefined) ??
@@ -343,6 +376,10 @@ serve(async (req) => {
       p_provider_payment_id: null,
       p_metadata: { phase: "init_refund", reason: "missing_vapi_config", task_id },
     });
+
+    if (voiceDeliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "CONFIG_MISSING", error_message: "Missing VAPI_PRIVATE_KEY, assistantId, or PHONE_NUMBER_ID" }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+    }
 
     await failTask(supabase, task_id, {
       last_error: "MISSING_VAPI_CONFIG (need VAPI_PRIVATE_KEY, assistantId, VAPI_PHONE_NUMBER_ID)",
@@ -395,6 +432,9 @@ serve(async (req) => {
       p_provider_payment_id: null,
       p_metadata: { phase: "init_refund", channel: "voice", reason: "network_error", task_id },
     });
+    if (voiceDeliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+    }
     await failTask(supabase, task_id, {
       last_error: `VAPI_NETWORK_ERROR: ${String(networkErr)}`,
       provider: "vapi",
@@ -427,6 +467,10 @@ serve(async (req) => {
       },
     });
 
+    if (voiceDeliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: `VAPI_${response.status}`, error_message: errorText.slice(0, 500) }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+    }
+
     await failTask(supabase, task_id, {
       last_error: `VAPI_CALL_START_FAILED: ${errorText}${refundErr ? ` | REFUND_FAILED: ${refundErr.message}` : ""}`,
       provider: "vapi",
@@ -437,6 +481,15 @@ serve(async (req) => {
 
   const vapiJson = await response.json();
   const callId = vapiJson?.id ?? null;
+
+  // Update delivery_attempt: call initiated = "sent" (async delivery tracked via VAPI webhook)
+  if (voiceDeliveryAttemptId && callId) {
+    await supabase.from("delivery_attempts").update({
+      status: "sent",
+      provider_message_id: callId,
+      sent_at: new Date().toISOString(),
+    }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+  }
 
   if (!callId) {
     const refundIdem = `${task_id}:voice:init_refund_no_call_id`;

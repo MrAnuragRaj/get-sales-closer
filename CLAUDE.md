@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-07 (Session 21) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-08 (Session 24) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -105,6 +105,7 @@
 **Cancellation (Session 20):** `subscription_contracts`, `cancellation_feedback`, `refund_quotes`, `subscription_cancellations`, `refund_executions`
 
 **Channels (Session 20-21):** `org_channel_capabilities`, `message_routing_policies`, `delivery_attempts`, `message_threads`
+**Hardening (Sessions 22–24):** `platform_control_flags`, `rate_limit_buckets`, `execution_dead_letters`, `provider_webhook_events`, `channel_health_current`
 
 ### Key Columns Added (all sessions)
 | Column | Table | Type | Notes |
@@ -160,6 +161,7 @@
 | 11 | process-activations | `* * * * *` | `process_pending_activations()` |
 | 12 | low-balance-alerts | `*/15 * * * *` | `run-low-balance-alerts` |
 | 13 | wallet-ledger-reconcile | `0 4 * * *` | `run_wallet_ledger_reconciliation()` SQL fn |
+| 14 | channel-health | `*/5 * * * *` | `compute_channel_health_v1()` SQL fn |
 
 ### Storage Buckets
 `logos` (company branding), `documents` (Knowledge Brain PDFs)
@@ -465,18 +467,23 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
   - Thread upsert after successful routing (updates `last_message_at`)
 - RLS: `is_org_member` SELECT policy
 
-### ⚠️ NEXT SESSION — Institutional-Grade Hardening (see `roadmap.md`)
+### ✅ Completed — Sessions 22–24: Institutional-Grade Hardening
 
-Full plan in `roadmap.md`. Build order (each = schema + enforcement + admin UI + audit + tests):
+All 5 completed steps below. Step 6 pending.
 
-1. **Platform Kill Switch** — `platform_control_flags` table; admin toggle panel (P10); 3-layer enforcement (campaign_ticker + dispatcher + executors); audit: `platform_flag_enabled/disabled`, `platform_execution_blocked`
-2. **Global Rate Limiter** — `rate_limit_buckets` table; `check_and_increment_rate_limit_v1` atomic RPC; per-org + platform limits per channel; admin monitor panel (P11)
-3. **Dead-Letter Queue** — `execution_dead_letters` table; dispatcher moves exhausted tasks; admin DLQ panel (P12) with retry/cancel actions; audit: `execution_dead_lettered`
-4. **Provider Webhook Event Store** — `provider_webhook_events` table; webhook_inbound persists raw before processing; duplicate guard on `provider_event_id`; admin panel (P13)
-5. **Channel Health Monitor** — `channel_health_metrics` + `channel_health_current` tables; pg_cron aggregation every 5min from `delivery_attempts`; thresholds: excellent(<1%), normal(<3%), elevated(<7%), degraded(≥7%); admin health panel; org portal reads current-state table
+1. **Platform Kill Switch** ✅ — `platform_control_flags` table (7 rows seeded); `enforcePlatformKillSwitchFor*` in `_shared/security.ts`; 3-layer enforcement (campaign_ticker + dispatcher + all 6 executors); admin P10 panel in `admin.html` (toggle + mandatory reason + audit); audit: `platform_flag_enabled/disabled`
+2. **Global Rate Limiter** ✅ — `rate_limit_buckets` table + indexes; `check_and_increment_rate_limit_v1` atomic dual-scope RPC; `RATE_LIMIT_DEFAULTS` in `security.ts` (sms 30/1000, voice 5/50, email/wa/rcs/messenger 30/500); enforced in all 6 executors BEFORE token consumption — rate-limited tasks rescheduled 60s out (NOT terminal); admin P11 monitor panel; fail-open on RPC error, fail-closed on limit exceeded; audit: `rate_limit_blocked_org`, `rate_limit_blocked_platform`
+3. **Dead-Letter Queue** ✅ — `execution_dead_letters` table (snapshot + resolution fields); `execution_policy_v1` updated: MAX_ATTEMPTS_EXCEEDED → `set_status='dead_lettered'` (was `failed_permanent`); dispatcher `applyPolicyToTask`: inserts DLQ snapshot after task update, original task preserved at `status='dead_lettered'` — full forensic record intact; admin P12 panel with Inspect modal / Retry (creates fresh task, attempt=0) / Cancel; "Show resolved" toggle; audit: `execution_dead_lettered`, `execution_dead_letter_retry_requested`, `execution_dead_letter_cancelled`
+4. **Provider Webhook Event Store** ✅ — `provider_webhook_events` table (UNIQUE on `provider, provider_event_id`); `persistWebhookEvent` / `markWebhookProcessed` / `markWebhookFailed` helpers in `webhook_inbound/index.ts`; 7 event types instrumented: `sms_inbound` / `whatsapp_inbound` / `whatsapp_status` (Twilio), `vapi_end_of_call` / `vapi_transcript` (VAPI), `rbm_inbound` / `rbm_delivery_receipt` (RBM), `messenger_inbound` (Facebook); idempotency gate on `already_processed=true` → return 200 immediately (prevents double token settlement, double routing); VAPI end-of-call gated because it settles voice tokens; `messageSid` hoisted to outer scope (fixes latent `params` block-scope bug in WA delivery_attempts); admin P13 panel with provider/status/time filters + summary counts + Inspect modal; `webhook_inbound` redeployed with `--no-verify-jwt` (was missing — caused Facebook GET verification 401)
+5. **Channel Health Monitor** ✅ — `channel_health_current` (single table; `org_id IS NULL` = platform row, org UUID = org row); two partial unique indexes: `(org_id, channel) WHERE org_id IS NOT NULL` and `(channel) WHERE org_id IS NULL`; `compute_channel_health_v1()` PL/pgSQL function (UPSERT from `delivery_attempts` over last 1h); pg_cron job #14 every 5min; thresholds: excellent(<1%), normal(<3%), elevated(<7%), degraded(≥7%), unknown(no data); `delivery_attempts.sent_at` index added; dashboard: new "Channel Health" card reads from `channel_health_current` (canonical badge); existing "Delivery Status" 7-day card no longer shows client-computed badge (removed — single source of truth); admin P14: platform-level table + degraded/elevated orgs breakdown
+6. **Idempotency Guard for Executors** ✅ — `UNIQUE INDEX delivery_attempts_task_attempt_uidx ON delivery_attempts (task_id, attempt_number) WHERE task_id IS NOT NULL`; all 6 executors: pre-send INSERT with `attempt_number: task.attempt ?? 1`; on 23505 unique_violation → idempotent skip (return 200) — prevents double-send on dispatcher retry / network timeout; executor_sms + executor_email + executor_voice: delivery_attempts fully added for the first time (tracking + idempotency); executor_whatsapp + executor_rcs + executor_messenger: delivery_attempts existing, now include `attempt_number` + 23505 guard; all 6 redeployed
+
+### ⚠️ NEXT SESSION — E2E Live Testing
+
+**E2E live testing is the priority** — real bugs only surface under live traffic (example: `webhook_inbound` missing `--no-verify-jwt` was invisible in code review, caught only when Facebook tried to verify).
 
 **Guard order after hardening (mandatory for all executors):**
-platform kill switch → org cancellation → rate limit → channel capability → binding/fallback resolution → token/billing → send → delivery_attempt → usage rating → health metrics update
+platform kill switch → org kill switch → org cancellation → rate limit → channel capability → binding/fallback resolution → token/billing → send → delivery_attempt → usage rating → health metrics update
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
