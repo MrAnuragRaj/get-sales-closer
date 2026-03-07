@@ -95,10 +95,10 @@ export async function replyRouter(params: {
   org_id: string;
   lead_id: string;
   inbound_text: string;
-  channel_source: "sms" | "voice";
-  // ✅ REQUIRED for execution_tasks correctness
-  actor_user_id: string;
-  plan_id: string;
+  channel_source: "sms" | "voice" | "whatsapp" | "rcs";
+  // Required for execution_tasks — omit only when resolving from webhook (actor/plan resolved inside)
+  actor_user_id?: string;
+  plan_id?: string;
 }) {
   const { supabase, org_id, lead_id, inbound_text, channel_source, actor_user_id, plan_id } =
     params;

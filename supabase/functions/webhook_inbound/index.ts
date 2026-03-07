@@ -184,6 +184,7 @@ serve(async (req) => {
     const source = url.searchParams.get("source");
     const isTwilio = source === "twilio";
     const isVapi = source === "vapi";
+    const isRbm = source === "google_rbm";
 
     // Vapi requires shared secret token (deploy webhook with --no-verify-jwt)
     if (isVapi) {
@@ -553,6 +554,139 @@ serve(async (req) => {
       }
 
       return new Response("OK", { status: 200 });
+    } else if (isRbm) {
+      // ─────────────────────────────────────────────────────────────
+      // GOOGLE RBM (RCS Business Messaging) — Pub/Sub push webhook
+      // Source: POST ?source=google_rbm&token={RBM_WEBHOOK_SECRET}
+      // Google pushes events via Cloud Pub/Sub (userEvent or agentEvent).
+      // Pub/Sub envelope: { message: { data: base64(RbmEvent), messageId } }
+      // ─────────────────────────────────────────────────────────────
+
+      // Token validation (shared secret in query param — simple but effective for Phase 5A)
+      const rbmToken = url.searchParams.get("token") ?? "";
+      const expectedToken = (Deno.env.get("GOOGLE_RBM_WEBHOOK_SECRET") ?? "").trim();
+      if (!expectedToken || rbmToken !== expectedToken) {
+        console.warn("[webhook_inbound] RBM webhook: invalid or missing token");
+        // Always return 200 to Pub/Sub (avoid redelivery storms on auth failure)
+        return new Response("OK", { status: 200 });
+      }
+
+      const rbmBody = await req.json().catch(() => ({}));
+      const rawData = rbmBody?.message?.data as string | undefined;
+      if (!rawData) {
+        // Heartbeat / empty message from Pub/Sub — ack and ignore
+        return new Response("OK", { status: 200 });
+      }
+
+      let rbmEvent: Record<string, any>;
+      try {
+        rbmEvent = JSON.parse(atob(rawData));
+      } catch {
+        console.warn("[webhook_inbound] RBM event decode failed");
+        return new Response("OK", { status: 200 });
+      }
+
+      // ── Delivery receipt (agentEvent) — update delivery_attempts ──
+      const agentEvent = rbmEvent?.agentEvent;
+      if (agentEvent) {
+        const rbmMessageId = agentEvent.requestId ?? null;
+        const eventType: string = agentEvent.eventType ?? "";
+        // RBM eventTypes: DELIVERED, READ
+        if (rbmMessageId && (eventType === "DELIVERED" || eventType === "READ")) {
+          const patch: Record<string, any> = {
+            status: eventType === "READ" ? "read" : "delivered",
+          };
+          if (eventType === "DELIVERED") patch.delivered_at = new Date().toISOString();
+          if (eventType === "READ") patch.read_at = new Date().toISOString();
+
+          await supabase.from("delivery_attempts")
+            .update(patch)
+            .eq("provider_message_id", rbmMessageId)
+            .catch(() => {});
+
+          console.log(`[webhook_inbound] RBM delivery receipt: message_id=${rbmMessageId} event=${eventType}`);
+        }
+        return new Response("OK", { status: 200 });
+      }
+
+      // ── Inbound user message (userEvent) ──────────────────────────
+      const userEvent = rbmEvent?.userEvent;
+      if (!userEvent) return new Response("OK", { status: 200 });
+
+      const rbmFromPhone = (userEvent.phoneNumber ?? "") as string;
+      const rbmText = (userEvent.text ?? userEvent.suggestionResponse?.text ?? "") as string;
+      const rbmMessageId = (userEvent.messageId ?? null) as string | null;
+
+      if (!rbmFromPhone || !rbmText) return new Response("OK", { status: 200 });
+
+      const rbmFromE164 = normalizeE164Loose(rbmFromPhone, "US");
+
+      // Cross-org lead lookup (all orgs use platform RBM agent in Phase 5A)
+      const { data: rbmLeads } = await supabase
+        .from("leads").select("id, org_id").eq("phone", rbmFromE164).limit(3);
+
+      if (!rbmLeads || rbmLeads.length === 0) {
+        console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=rcs phone=${rbmFromE164}`);
+        await supabase.from("audit_events").insert({
+          org_id: null, actor_type: "system", actor_id: null,
+          object_type: "inbound_message", object_id: crypto.randomUUID(),
+          action: "inbound_route_no_lead", reason: "no_lead_found_for_phone",
+          before_state: null,
+          after_state: { phone: rbmFromE164, channel: "rcs", provider: "google_rbm" },
+        }).catch(() => {});
+        return new Response("OK", { status: 200 });
+      }
+
+      if (rbmLeads.length > 1) {
+        const candidateOrgIds = rbmLeads.map((l: any) => l.org_id);
+        console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=rcs phone=${rbmFromE164} count=${rbmLeads.length}`);
+        await supabase.from("audit_events").insert({
+          org_id: null, actor_type: "system", actor_id: null,
+          object_type: "inbound_message", object_id: crypto.randomUUID(),
+          action: "inbound_route_ambiguous", reason: "multiple_orgs_match_phone",
+          before_state: null,
+          after_state: { phone: rbmFromE164, channel: "rcs", candidate_org_ids: candidateOrgIds },
+        }).catch(() => {});
+        return new Response("OK", { status: 200 });
+      }
+
+      const rbmLeadId = rbmLeads[0].id;
+      const rbmLeadOrgId = rbmLeads[0].org_id;
+
+      // Insert interaction
+      await supabase.from("interactions").insert({
+        lead_id: rbmLeadId,
+        org_id: rbmLeadOrgId,
+        type: "rcs",
+        direction: "inbound",
+        content: rbmText,
+        metadata: { provider: "google_rbm", from_e164: rbmFromE164, rbm_message_id: rbmMessageId },
+      }).select();
+
+      // Log to delivery_attempts (inbound)
+      await supabase.from("delivery_attempts").insert({
+        org_id: rbmLeadOrgId,
+        lead_id: rbmLeadId,
+        channel: "rcs",
+        provider: "google_rbm",
+        provider_message_id: rbmMessageId,
+        status: "received",
+        sent_at: new Date().toISOString(),
+        metadata: { from_e164: rbmFromE164, direction: "inbound" },
+      }).catch(() => {});
+
+      // Route to reply_router
+      await replyRouter({
+        supabase,
+        org_id: rbmLeadOrgId,
+        lead_id: rbmLeadId,
+        inbound_text: rbmText,
+        channel_source: "rcs",
+      });
+
+      console.log(`[webhook_inbound] RBM inbound: lead=${rbmLeadId} org=${rbmLeadOrgId} phone=${rbmFromE164}`);
+      return new Response("OK", { status: 200 });
+
     } else {
       return new Response("Unknown Source", { status: 400 });
     }

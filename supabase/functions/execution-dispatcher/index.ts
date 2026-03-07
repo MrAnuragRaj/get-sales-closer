@@ -23,6 +23,7 @@ function executorPath(channel: string) {
   if (channel === "email") return "/functions/v1/executor_email";
   if (channel === "voice") return "/functions/v1/executor_voice";
   if (channel === "whatsapp") return "/functions/v1/executor_whatsapp";
+  if (channel === "rcs") return "/functions/v1/executor_rcs";
   return null;
 }
 
