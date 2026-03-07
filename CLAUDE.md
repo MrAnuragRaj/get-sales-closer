@@ -397,17 +397,24 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 - `fulfill-number-request`: `billing_intents` missing `created_by` in select; `credit_wallets` wrong column names (`balance` → `available_balance`); `credit_ledger` wrong column names (`source`/`reference_id`/`metadata` → `source_object_type`/`source_object_id`/`note`); missing `direction: "credit"`
 - `webhook_inbound`: WA inbound `delivery_attempts.provider_message_id` was always null (was reading from URL query instead of Twilio form body `params.MessageSid`)
 
-### ⚠️ NEXT — Phase 5B: Facebook Messenger
-Follow same institutional discipline as Phase 4. Planned items:
-- **Meta Messenger** — Facebook Page Messenger via Graph API; `executor_messenger`; `org_channel_type` ENUM value 'messenger'; inbound via Facebook webhook; page token stored in `org_channels.provider_token`
-- `org_channel_capabilities`: add `messenger_enabled` (default false), `messenger_page_id`
-- `message_routing_policies`: add `messenger_fallback_to_sms` (default true)
-- `execution-dispatcher`: route 'messenger' to `executor_messenger`
-- Webhook: `source=facebook_messenger`; validate `X-Hub-Signature-256` (HMAC-SHA256)
-- Inbound: Messenger sends `entry[].messaging[]` events; extract sender PSID + text
-- PSID-to-phone: `org_channels` stores page token; need FB Graph API call to get user phone (or use PSID directly as lead identifier)
-- `credit_wallets`: seed `messenger_msg` for all orgs; add to `create-credit-topup-order`
-- Delivery status dashboard: add messenger rows to aggregation
+### Phase 5B — Facebook Messenger ✅ (Session 20 part 6)
+
+**DB changes:** `org_channel_type` ENUM: 'messenger'; `org_channels.provider_token TEXT`; `org_channel_capabilities`: `messenger_enabled` + `messenger_page_id`; `message_routing_policies.messenger_fallback_to_sms`; `leads.messenger_psid TEXT` + index; `messenger_msg` wallets for all 11 orgs
+
+**`executor_messenger`** — Graph API `POST /v21.0/me/messages`; per-org `org_channels.provider_token`; 3-step fallback_policy resolver; capability gate + SMS fallback; PSID guard (step 1.8 — fails task if `leads.messenger_psid=null`); 24h window expiry → audited `channel_fallback_triggered` + SMS fallback (refunds `messenger_msg`); terminal error codes 551/190 = no retry; token key `messenger_msg`; delivery_attempts pre/post-send
+
+**`webhook_inbound` (facebook_messenger):** GET = hub challenge (`FACEBOOK_VERIFY_TOKEN`); POST = `X-Hub-Signature-256` HMAC-SHA256 (`FACEBOOK_APP_SECRET`); delivery/read watermark → `delivery_attempts` updates; inbound text → PSID lookup → interaction + delivery_attempts(received) + replyRouter; no PSID / ambiguous → audit_events (same pattern as all channels)
+
+**Env vars:** `FACEBOOK_PAGE_ACCESS_TOKEN`, `FACEBOOK_PAGE_ID`, `FACEBOOK_VERIFY_TOKEN`, `FACEBOOK_APP_SECRET`
+
+**Per-org page:** `org_channels(channel='messenger', provider_token='{token}', metadata={"page_id":"123"}, is_default=true, status='active')`
+
+**PSID auto-link (deferred):** Currently requires manual `UPDATE leads SET messenger_psid='{psid}'`. Future: auto-link on first inbound if lead resolved by phone.
+
+### ⚠️ NEXT SESSION
+- E2E live testing (deferred checklist below)
+- Delivery status dashboard: add rcs + messenger rows to aggregation in all 3 portals
+- PSID auto-link on first inbound Messenger message
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
