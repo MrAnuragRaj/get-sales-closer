@@ -409,12 +409,45 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 
 **Per-org page:** `org_channels(channel='messenger', provider_token='{token}', metadata={"page_id":"123"}, is_default=true, status='active')`
 
-**PSID auto-link (deferred):** Currently requires manual `UPDATE leads SET messenger_psid='{psid}'`. Future: auto-link on first inbound if lead resolved by phone.
+**PSID auto-link:** Implemented in Session 21 (see below).
+
+### Session 21 Completed ✅ (2026-03-07)
+
+**Item 1 — Delivery status dashboard (all 5 channels + health badge):**
+- All 3 portals: replaced old 3-channel table with `_buildDeliveryHTML(data)` helper
+- Covers: sms, whatsapp, rcs, messenger, voice
+- Columns: Channel (icon+label), Sent, Delivered, Read, Failed, Health badge
+- Health badge: Excellent (0% fail), Normal (<5%), Elevated (>5%), Degraded (>20%)
+- Active channel filter: shows only channels with data; falls back to all 5 if no data
+
+**Item 2 — Messenger PSID auto-link:**
+- On inbound Messenger: resolve org from page_id via `org_channels(channel='messenger',is_default=true)`
+- Among unlinked leads in that org (`messenger_psid IS NULL, is_dnc=false`): exactly 1 → `UPDATE leads SET messenger_psid = psid`
+- Audit actions: `messenger_psid_linked`, `messenger_psid_ambiguous`, `messenger_psid_no_match`
+- Shared platform page (FACEBOOK_PAGE_ID env) → audit `no_match` (can't infer org)
+
+**Item 3 — Channel Infrastructure widget (all 3 portals):**
+- New card "Channel Infrastructure" (fa-tower-broadcast, cyan) after Delivery Status card
+- Per channel (SMS/WhatsApp/RCS/Messenger): Dedicated (green) or Shared (grey) badge + Sender ID
+- Dedicated = `org_channels.provider_id` exists; Shared = no provider_id
+- CTA: "Upgrade to dedicated numbers →" (billing.html) shown if any channel is shared
+- JS: `_buildInfraHTML(channels)` shared helper; wrappers `loadDashInfraStatus`/`agLoadInfraStatus`/`entLoadInfraStatus`
+
+**Item 4 — Admin operational controls (admin.html):**
+- `loadChannelSenders`: enhanced with Health (7d failure rate badge) and Toggle (Enable/Disable) columns
+- `toggleChannelStatus(btn)`: updates `org_channels.status` active↔disabled
+- New panel P8c: "Channel Fallback Events" — queries `audit_events WHERE action='channel_fallback_triggered'`, last 7 days, table with Time/Org/Channel/Reason/Fallback To
+
+**Item 5 — Message thread/context routing hardening:**
+- `message_threads` table: `(org_id, lead_id, channel, from_identifier, to_identifier, last_message_at)`
+- UNIQUE index: `(from_identifier, to_identifier, channel)` — routing key
+- `webhook_inbound` SMS/WhatsApp path: thread-first lookup before phone lookup
+  - Resolves shared-number ambiguity: same phone on 2 orgs → thread wins unambiguously
+  - Thread upsert after successful routing (updates `last_message_at`)
+- RLS: `is_org_member` SELECT policy
 
 ### ⚠️ NEXT SESSION
 - E2E live testing (deferred checklist below)
-- Delivery status dashboard: add rcs + messenger rows to aggregation in all 3 portals
-- PSID auto-link on first inbound Messenger message
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
