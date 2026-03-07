@@ -356,15 +356,58 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 - Production: Register WhatsApp Business Number in Twilio → get approved number → set as `TWILIO_WA_FROM_NUMBER` or per-org `org_channels` row
 - Meta Business: Must verify Business Manager + WhatsApp Business Account for production template messages
 
-### ⚠️ NEXT — Phase 5: RCS and Messenger Channels
+### Phase 5A — RCS (Google RBM) ✅ (Session 20 part 5)
+
+**DB changes:**
+- `org_channel_type` ENUM: `rcs` value added
+- `org_channel_capabilities`: `rcs_enabled BOOLEAN DEFAULT false`
+- `message_routing_policies`: `rcs_fallback_to_sms BOOLEAN DEFAULT true`
+- `credit_wallets`: `rcs_msg` seeded for all 11 orgs
+
+**`executor_rcs`** — Google RCS Business Messaging (RBM) / Business Communications REST API
+- Auth: Google Service Account → OAuth2 JWT (RFC 7523) via WebCrypto — no third-party deps
+- API: `POST https://rcsbusinessmessaging.googleapis.com/v1/phones/{msisdn}/agentMessages?agentId={id}&messageId={uuid}`
+- 3-step fallback_policy resolver (per-org dedicated agent stored in `org_channels.provider_id`)
+- Capability gate: `rcs_enabled=false` → `rcs_fallback_to_sms` → delegate to `executor_sms` (rewrites channel)
+- Device capability fallback: RBM API 403/404 → SMS fallback if `rcs_fallback_to_sms=true` (refunds `rcs_msg`, SMS executor consumes `sms_msg`)
+- Token key: `rcs_msg` (1 token/msg); refund on auth/network/provider failure via `grant_tokens_core_v1`
+- `delivery_attempts`: pre-send (status=pending) + post-send update (status=sent)
+- Env vars: `GOOGLE_RBM_SERVICE_ACCOUNT_JSON` (full SA JSON), `GOOGLE_RBM_AGENT_ID` (platform agent)
+
+**`webhook_inbound` (google_rbm path):**
+- `source=google_rbm&token={GOOGLE_RBM_WEBHOOK_SECRET}` — token validated against env var
+- Parses Google Pub/Sub push envelope: `{ message: { data: base64(RbmEvent) } }`
+- `agentEvent` (DELIVERED/READ): updates `delivery_attempts.status` + timestamps
+- `userEvent.text`: cross-org lead lookup → interaction (type='rcs') + delivery_attempts (status=received) + `replyRouter(channel_source='rcs')`
+- Ambiguity/no-lead: `audit_events` written (same pattern as WA)
+
+**Other updates:**
+- `execution-dispatcher`: routes `channel='rcs'` to `executor_rcs`
+- `create-credit-topup-order`: `rcs_msg` added ($0.01/msg, min 2000)
+- `reply_router.ts`: `channel_source` type updated to `"sms"|"voice"|"whatsapp"|"rcs"`; `actor_user_id`/`plan_id` made optional
+
+**RBM setup required (user action):**
+- Create Google Cloud project → enable Business Communications API → create RBM agent at https://business.google.com/business-messages
+- Create Service Account with `rcsbusinessmessaging` scope → download JSON → set as `GOOGLE_RBM_SERVICE_ACCOUNT_JSON` secret
+- Register test devices at the Business Communications Console (pre-launch only test devices can receive messages)
+- Configure Pub/Sub push subscription → webhook URL: `https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/webhook_inbound?source=google_rbm&token={GOOGLE_RBM_WEBHOOK_SECRET}`
+- For launch: submit RBM agent for Google review (takes 1-5 days)
+
+**Bug fixes also shipped in this session:**
+- `fulfill-number-request`: `billing_intents` missing `created_by` in select; `credit_wallets` wrong column names (`balance` → `available_balance`); `credit_ledger` wrong column names (`source`/`reference_id`/`metadata` → `source_object_type`/`source_object_id`/`note`); missing `direction: "credit"`
+- `webhook_inbound`: WA inbound `delivery_attempts.provider_message_id` was always null (was reading from URL query instead of Twilio form body `params.MessageSid`)
+
+### ⚠️ NEXT — Phase 5B: Facebook Messenger
 Follow same institutional discipline as Phase 4. Planned items:
-- **RCS (Rich Communication Services)** — Google Business Messages / Jibe Cloud; `executor_rcs`; `org_channel_type` ENUM value 'rcs'; `delivery_attempts` channel='rcs'; fallback to SMS
 - **Meta Messenger** — Facebook Page Messenger via Graph API; `executor_messenger`; `org_channel_type` ENUM value 'messenger'; inbound via Facebook webhook; page token stored in `org_channels.provider_token`
-- Add 'rcs' + 'messenger' to `execution-dispatcher` `executorPath()`
-- `org_channel_capabilities`: add `rcs_enabled` (default false), `messenger_enabled` (default false), `messenger_page_id`
-- `message_routing_policies`: add `messenger_fallback_to_sms` (default true), `rcs_fallback_to_sms` (default true)
-- Same 3-step fallback_policy resolver for both new channels
-- Delivery status dashboard: add rcs + messenger rows to aggregation
+- `org_channel_capabilities`: add `messenger_enabled` (default false), `messenger_page_id`
+- `message_routing_policies`: add `messenger_fallback_to_sms` (default true)
+- `execution-dispatcher`: route 'messenger' to `executor_messenger`
+- Webhook: `source=facebook_messenger`; validate `X-Hub-Signature-256` (HMAC-SHA256)
+- Inbound: Messenger sends `entry[].messaging[]` events; extract sender PSID + text
+- PSID-to-phone: `org_channels` stores page token; need FB Graph API call to get user phone (or use PSID directly as lead identifier)
+- `credit_wallets`: seed `messenger_msg` for all orgs; add to `create-credit-topup-order`
+- Delivery status dashboard: add messenger rows to aggregation
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
