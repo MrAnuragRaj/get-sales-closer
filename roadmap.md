@@ -1,92 +1,229 @@
-\# MISSION: GetSalesCloser - Pre-Launch Ledger 
 
 
+Your understanding is very close, but there are three small corrections and one clarification needed before coding so the implementation stays fully consistent with the institutional-grade spec.
 
-\## Context \& Objective
+I’ll go point-by-point.
 
-We are shifting from "foundation building" to "growth and retention engineering." We must implement a strict set of features to handle inbound data ingestion, psychological trust for enterprise users, and actionable ROI reporting.
+1. DB Changes
+1.1 org_channels.fallback_policy
 
+Your interpretation is correct.
 
+ALTER TABLE org_channels
+ADD COLUMN fallback_policy TEXT NOT NULL DEFAULT 'allow_shared';
 
-Please read and ingest this roadmap. \*\*Do not begin coding yet.\*\* Acknowledge this plan, and I will instruct you when to begin Sprint 1.
+Backfill happens automatically because of DEFAULT.
 
+Allowed values remain:
 
+allow_shared
+fail_task
+admin_override
 
----
+No changes needed here.
 
+1.2 platform_channels WhatsApp row
 
+Conceptually correct, but do not hard-code the sandbox number in production schema migrations.
 
-\## PART 1: The Pre-Launch Ledger (Feature Scope)
+Instead:
 
+INSERT INTO platform_channels
+(provider, channel, from_e164, status, created_at)
+VALUES
+('twilio', 'whatsapp', '<TWILIO_WA_FROM_NUMBER>', 'active', now());
 
+Where <TWILIO_WA_FROM_NUMBER> must match the environment variable.
 
-\### 1. The Ingestion Engine \& Data Sourcing
+If you insert the sandbox number directly, then later switch the env var to a production WA number, the resolver will mismatch.
 
-We are the "Conversion Engine," so we must build bridges to where the client's leads currently sit.
+Rule
 
-\* \*\*Webhook Pipeline:\*\* Build an `api\_keys` table for Org security and a master `hook\_inbound` Edge Function. We need normalization schemas to catch leads from GoHighLevel, Zapier/Make, HubSpot, Apollo, and Facebook Lead Ads, and instantly push them to our `leads` and `execution\_tasks` tables.
+platform_channels.from_e164
+must equal
+TWILIO_WA_FROM_NUMBER env var
 
-\* \*\*The "Site Liaison" (Web Agent):\*\* A lightweight Javascript widget (`embed.js`) that clients install on their site to act as a real-time lead trap, interacting with our existing GPT-4o routing logic and Cal.com booking system.
+So either:
 
+• run the migration with the correct number
+or
+• update the row when switching to production.
 
+2. Executor Resolution Algorithm
 
-\### 2. Persona System 2.0 (The Guardrails)
+Your description is correct and aligned with the spec.
 
-Our AI persona database must support high-liability verticals (Legal, Medical, Real Estate, Home Services). Ensure the schema supports:
+But there is one safety rule you should add.
 
-1\. \*\*AI Agent Name:\*\* (e.g., 'Alex')
+When doing Step 2:
 
-2\. \*\*Tone Preset:\*\* (Formal, Warm, Casual, Urgent, Educational, Neutral)
+SELECT *
+FROM org_channels
+WHERE org_id = ?
+AND channel = ?
+ORDER BY updated_at DESC
+LIMIT 1
 
-3\. \*\*Industry Language Pack:\*\* (Hardcoded vocab per vertical)
+You should exclude rows that were never default senders.
 
-4\. \*\*Custom Terminology Overrides:\*\* (Key-value swaps, e.g., 'appointment' -> 'discovery call')
+Otherwise a random historical row might become the authority.
 
-5\. \*\*Strict Compliance Guardrails:\*\* (Hardcoded restrictions, e.g., "Never provide legal advice")
+So the correct query should be:
 
-6\. \*\*Bot Disclosure Policy:\*\* (Rules on how to answer "Are you a robot?")
+WHERE org_id = ?
+AND channel = ?
+AND is_default = true
 
-7\. \*\*Primary Conversion Objective:\*\* (The finish line: e.g., "Drop Cal.com link")
+Then order by updated_at DESC.
 
+This ensures the authority row is the most recent default sender for that org/channel.
 
+3. Token Consumption Timing
 
-\### 3. The Trust \& Retention UX (The Driver's Seat)
+You mentioned moving channel resolution before token consumption.
 
-\* \*\*Live Wire \& Intercept (Trust):\*\* A real-time websocket feed on the Agent Dashboard showing active AI conversations. Must include a "Takeover" button that pauses the AI (`campaigns\_paused` flag) for that specific lead so the human can intervene seamlessly.
+This is exactly correct and should be done.
 
-\* \*\*Red Carpet Handoff (Empowerment):\*\* A cron job that triggers 5 minutes before a booked Cal.com meeting, sending the assigned human closer a 3-bullet SMS summary of the lead (extracted from the AI's Dual-Layer Memory).
+Correct order should be:
 
-\* \*\*3-Minute "Mirror Test" (Time-to-Value):\*\* A post-signup onboarding flow where the admin enters their own phone number and our system instantly texts/calls them to prove the AI's capability.
+resolve sender
+apply fallback policy
+only then consume tokens
+send message/call
 
-\* \*\*Shadow ROI Receipt (Retention):\*\* An automated email sent every Monday morning to the `org\_admin` detailing unit economics (e.g., "We disqualified 84 tire-kickers, saving 14 hours. Equivalent human cost: $1,400. Your AI cost: $112").
+Otherwise a fail_task policy wastes tokens.
 
+So your adjustment is correct.
 
+4. Fallback Behavior for Brand-New Orgs
 
----
+Your interpretation:
 
+no org_channels rows → use shared sender → console.log only
 
+That is correct.
 
-\## PART 2: The Sprint Execution Timeline
+Reason: this is not a degradation state.
 
+So:
 
+NO audit event
+ONLY runtime log
+5. audit_events Insert
 
-To hit the launch deadline, we will execute in strict, isolated sprints. 
+Your payload shape is correct and matches the table contract.
 
-\*Do not jump ahead. Wait for explicit authorization to begin each sprint.\*
+One small improvement:
 
+Use structured JSON for before_state and after_state.
 
+Example:
 
-\* \*\*SPRINT 1: Ingestion \& Site Liaison.\*\* (Focus: `api\_keys` schema, hook edge functions, data normalization, and the `embed.js` web widget).
+before_state: {
+  org_sender: orgSender,
+  channel: channel
+}
 
-\* \*\*SPRINT 2: Live Wire \& Persona Guardrails.\*\* (Focus: Websocket real-time UI, the "Takeover" DB logic, and upgrading the Persona table schema).
+after_state: {
+  used_sender: resolvedSender,
+  fallback_policy: fallback_policy,
+  shared: true
+}
 
-\* \*\*SPRINT 3: The "Aha!" Onboarding.\*\* (Focus: Frontend "Mirror Test" flow triggering the immediate AI dispatch).
+Your structure already matches this.
 
-\* \*\*SPRINT 4: Automations \& Handoff.\*\* (Focus: Cron jobs for the Cal.com Red Carpet Handoff and the Shadow ROI reporting).
+So this is correct.
 
-\* \*\*SPRINT 5: Polish \& Launch.\*\* (Focus: QA, billing hooks, final deployment).
+6. Logging Levels
 
+Your plan for log levels is good:
 
+Policy	Log Level
+allow_shared	console.warn
+admin_override	console.error
+fail_task	console.error
 
-\*\*Action Required from Claude:\*\* Please confirm you have ingested this architectural roadmap and understand the priorities. Ask any clarifying questions about the Supabase schema, and state "Ready for Sprint 1 instructions" when done.
+Brand-new org case:
+
+console.info
+
+This separation is helpful for ops debugging.
+
+7. Inbound Ambiguity Logging
+
+Your description is exactly correct.
+
+Two events:
+
+inbound_route_no_lead
+inbound_route_ambiguous
+
+Payload:
+
+phone
+channel
+provider
+candidate_org_ids
+
+No routing change.
+
+This matches the spec.
+
+8. WhatsApp Capability Gate
+
+Correct.
+
+Do not change:
+
+org_channel_capabilities.whatsapp_enabled
+
+This protects sender reputation.
+
+9. Tests
+
+Your test plan is correct.
+
+The only additional rule I would enforce:
+
+Tests must verify audit_events rows exist when expected.
+
+Not just success/failure.
+
+Example:
+
+SELECT COUNT(*)
+FROM audit_events
+WHERE action='channel_fallback_triggered'
+
+Should equal expected count.
+
+10. Answer to Your Question (WhatsApp Number)
+
+You asked whether to use sandbox or production number.
+
+Use the sandbox number for now:
++14155238886
+
+because:
+
+• it works with Twilio sandbox
+• it matches whatsapp:+14155238886 format
+• you can replace it later once Meta approves your WA sender
+
+Just remember to update both:
+
+platform_channels.from_e164
+TWILIO_WA_FROM_NUMBER
+
+when moving to production.
+
+Final Confirmation
+
+Your implementation plan is correct and approved, with only these adjustments:
+
+Use is_default=true in Step 2 query
+
+Ensure platform_channels.from_e164 always matches TWILIO_WA_FROM_NUMBER
+
+Verify audit events in tests
 

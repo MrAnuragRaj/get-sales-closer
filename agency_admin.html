@@ -168,6 +168,26 @@
             </div>
         </div>
 
+        <!-- WhatsApp Settings -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa-brands fa-whatsapp text-green-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">WhatsApp Settings</h2>
+                <span class="text-xs text-slate-500 ml-auto">Channel capability</span>
+            </div>
+            <div id="ag-wa-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+        </div>
+
+        <!-- Delivery Status -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-paper-plane text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Delivery Status</h2>
+                <span class="text-xs text-slate-500 ml-auto">Last 7 days</span>
+            </div>
+            <div id="ag-delivery-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+        </div>
+
         <!-- Credit Wallet -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
             <div class="flex items-center gap-3 mb-4">
@@ -244,6 +264,8 @@
                 initDeploySection(_orgId);
                 agLoadApiKey(_orgId);
                 window.Credits.initCreditWallet(sb, _orgId, { walletContainerId: 'ag-wallet-grid' });
+                agLoadWaSettings(_orgId, _sb);
+                agLoadDeliveryStatus(_orgId, _sb);
             }
         });
 
@@ -500,6 +522,59 @@
             } else {
                 alert('Save failed: ' + error.message);
             }
+        }
+
+        // ── WhatsApp Settings (agency) ────────────────────────────────────────
+        async function agLoadWaSettings(orgId, sb) {
+            const el = document.getElementById('ag-wa-body');
+            if (!el || !orgId) return;
+            const [capRes, chanRes] = await Promise.all([
+                sb.from('org_channel_capabilities').select('whatsapp_enabled').eq('org_id', orgId).maybeSingle(),
+                sb.from('org_channels').select('from_e164, status').eq('org_id', orgId).eq('channel', 'whatsapp').eq('is_default', true).limit(1)
+            ]);
+            const enabled = capRes.data?.whatsapp_enabled ?? false;
+            const waChan = chanRes.data?.[0] || null;
+            const senderInfo = waChan
+                ? `<span class="font-mono text-xs text-white">${waChan.from_e164}</span> <span class="text-[10px] px-1.5 py-0.5 rounded ${waChan.status==='active'?'bg-green-500/10 text-green-400':'bg-red-500/10 text-red-400'}">${waChan.status}</span>`
+                : '<span class="text-slate-500 text-xs">No dedicated WA number — shared sender in use</span>';
+            el.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <div><p class="text-sm font-semibold text-white">WhatsApp Outbound</p><p class="text-xs text-slate-500 mt-0.5">Enable to send messages via WhatsApp</p></div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="ag-wa-toggle" class="sr-only" ${enabled?'checked':''} onchange="agToggleWa(this,'${orgId}')">
+                        <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-green-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-3 flex items-center gap-3">
+                    <i class="fa-brands fa-whatsapp text-green-400"></i>
+                    <div><p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Dedicated Sender</p>${senderInfo}</div>
+                </div>
+                ${!waChan?'<p class="text-[11px] text-yellow-500 mt-3"><i class="fa fa-triangle-exclamation mr-1"></i>Contact platform admin to provision a dedicated WhatsApp number.</p>':''}`;
+        }
+        async function agToggleWa(el, orgId) {
+            const enabled = el.checked; el.disabled = true;
+            const { error } = await _sb.from('org_channel_capabilities').update({ whatsapp_enabled: enabled, updated_at: new Date().toISOString() }).eq('org_id', orgId);
+            el.disabled = false;
+            if (error) { el.checked = !enabled; alert('Update failed: ' + error.message); }
+        }
+
+        // ── Delivery Status (agency) ──────────────────────────────────────────
+        async function agLoadDeliveryStatus(orgId, sb) {
+            const el = document.getElementById('ag-delivery-body');
+            if (!el || !orgId) return;
+            const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data, error } = await sb.from('delivery_attempts').select('channel, status, error_code, error_message, sent_at').eq('org_id', orgId).gte('sent_at', since).order('sent_at', { ascending: false }).limit(500);
+            if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
+            if (!data || data.length === 0) { el.innerHTML = '<p class="text-slate-600 text-sm italic text-center py-4">No delivery attempts in the last 7 days.</p>'; return; }
+            const channels = ['sms','whatsapp','voice']; const statuses = ['sent','delivered','read','failed'];
+            const counts = {}; channels.forEach(c => { counts[c] = {}; statuses.forEach(s => counts[c][s] = 0); });
+            data.forEach(r => { if (counts[r.channel]) counts[r.channel][r.status] = (counts[r.channel][r.status]||0)+1; });
+            const failures = data.filter(r => r.status === 'failed').slice(0, 5);
+            el.innerHTML = `<div class="overflow-x-auto mb-5"><table class="w-full text-xs text-slate-400">
+                <thead class="text-[10px] uppercase font-bold text-slate-500"><tr><th class="pb-2 text-left">Channel</th>${statuses.map(s=>`<th class="pb-2 text-center">${s}</th>`).join('')}</tr></thead>
+                <tbody class="divide-y divide-slate-800">${channels.map(c=>`<tr class="${Object.values(counts[c]).every(v=>v===0)?'opacity-40':''}"><td class="py-2 font-bold uppercase text-slate-300">${c}</td>${statuses.map(s=>`<td class="py-2 text-center font-mono ${counts[c][s]>0&&s==='failed'?'text-red-400 font-bold':counts[c][s]>0?'text-white':'text-slate-700'}">${counts[c][s]||'—'}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table></div>
+            ${failures.length>0?`<div><p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Recent Failures</p><div class="space-y-2">${failures.map(f=>`<div class="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2 text-xs flex items-center gap-3"><i class="fa fa-circle-exclamation text-red-400 shrink-0"></i><div class="min-w-0"><span class="uppercase font-bold text-slate-400 mr-2">${f.channel}</span><span class="text-red-300 font-mono">${f.error_code||'UNKNOWN'}</span>${f.error_message?`<p class="text-slate-500 truncate mt-0.5">${f.error_message.slice(0,80)}</p>`:''}</div><span class="ml-auto text-[10px] text-slate-600 shrink-0">${new Date(f.sent_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span></div>`).join('')}</div></div>`:'<p class="text-green-400 text-xs text-center"><i class="fa fa-check-circle mr-1"></i>No failures in the last 7 days</p>'}`;
         }
 
         // ── Deploy AI Site Liaison ──────────────────────────────────────────────

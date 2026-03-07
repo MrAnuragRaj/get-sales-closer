@@ -276,6 +276,53 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 - Number purchase fees (`intent_source=number_purchase`): excluded if `org_channel_provision_requests.status='succeeded'`; refunded if provision pending/failed
 - No refund for end_of_term cancellations (amount=0)
 
+### Routing Fixes ✅ (Session 20 part 4b — Sprint 7 routing hardening)
+
+**Problem:** All three executors silently fell back from inactive org numbers to shared sender with no logging, audit, or policy control. WhatsApp inbound on shared sender was broken (no `platform_channels` row). Cross-org ambiguity was silently dropped.
+
+**`org_channels.fallback_policy`** — TEXT NOT NULL DEFAULT 'allow_shared'; backfill automatic via DEFAULT
+- Values: `allow_shared` (use shared + audit), `fail_task` (abort before token, + audit), `admin_override` (use shared + audit + console.error)
+
+**3-step outbound resolution algorithm** (applied in all 3 executors — resolution BEFORE token consumption):
+1. Active `is_default=true` org channel → use it (no fallback)
+2. Most recent `is_default=true` org channel (any status) → read `fallback_policy`
+3. Apply policy: `allow_shared` → shared + `audit_events(action='channel_fallback_triggered')`; `fail_task` → abort, no token consumed; `admin_override` → shared + audit
+
+**`executor_sms`** — `resolveSmsSender()` + `writeFallbackAuditEvent()` at top; resolution at step 4 (before AI + before `consume_tokens_v1`); old inline lookup removed
+
+**`executor_voice`** — `resolveVoiceSender()` selects `vapi_phone_number_id`; moved to step 4.6 (before pre-debit at step 5); `fail_task` calls `failTask()` with no token consumed
+
+**`executor_whatsapp`** — `resolveWaSender()` + `writeWaFallbackAuditEvent()` at top; WhatsApp capability gate at step 1.7 (checks `org_channel_capabilities.whatsapp_enabled`); if false + `whatsapp_fallback_to_sms=true` → rewrites task to `sms` + invokes `executor_sms`
+
+**`webhook_inbound`** — cross-org lead lookup now structured: 0 leads → `audit_events(action='inbound_route_no_lead')`; 2+ leads → `audit_events(action='inbound_route_ambiguous', candidate_org_ids=[...])`; exactly 1 → routes correctly
+
+**`platform_channels` row** — inserted `(twilio, whatsapp, +14155238886, active)` so `resolve_inbound_org_channel_v1` returns `source='platform'` for shared WA inbound (was broken — returned not_found)
+
+**`tests/channel-routing-tests.sql`** — 5 regression tests: SMS allow_shared, SMS fail_task, Voice allow_shared, Shared WA inbound routing, Inbound ambiguity logging. Each test: SETUP (DO $$ block) + VERIFY (checks task status + `COUNT(*) FROM audit_events WHERE action=...`) + TEARDOWN.
+
+**Two frozen operating rules:**
+- Rule 1: When moving from sandbox WA to production, always update BOTH `platform_channels.from_e164` AND `TWILIO_WA_FROM_NUMBER` in the same change window
+- Rule 2: For premium/branding-sensitive orgs, explicitly set `fallback_policy='fail_task'`
+
+### Items 3/4/5 ✅ (Session 20 part 4c — Admin UI + Org toggles + Delivery dashboard)
+
+**Item 3 — Admin UI for fallback_policy (`admin.html`):**
+- "Channel Sender Management" section (P8b) added between P8 (Number Provisioning Queue) and P9 (Rate Limit)
+- Table: Org, Channel, Sender, Status, Default, Fallback Policy (editable dropdown per row)
+- `loadChannelSenders()` — queries all `org_channels`, joins org names, renders table
+- `updateFallbackPolicy(selectEl)` — saves on change via Supabase JS; disables select during save
+
+**Item 4 — Org-facing WhatsApp capability toggle (all 3 portals):**
+- `dashboard.html` — WhatsApp Settings card (`dash-wa-body`): reads `org_channel_capabilities.whatsapp_enabled` + `org_channels(channel='whatsapp')`, shows toggle + sender info; `loadDashWaSettings()` + `toggleDashWa()`
+- `agency_admin.html` — WhatsApp Settings card (`ag-wa-body`): same pattern, uses `_sb` client; `agLoadWaSettings()` + `agToggleWa()`
+- `enterprise_admin.html` — WhatsApp Settings card (`ent-wa-body`): same pattern, uses `sb` client; `entLoadWaSettings()` + `entToggleWa()`
+
+**Item 5 — Delivery status dashboard (all 3 portals):**
+- All 3 portals: Delivery Status card alongside WA Settings; fetches `delivery_attempts` last 7 days (limit 500), aggregates by channel×status in JS, renders summary table + recent failures list
+- `dashboard.html`: `loadDashDeliveryStatus(orgId, sb)` → card id `dash-delivery-body`
+- `agency_admin.html`: `agLoadDeliveryStatus(orgId, sb)` → card id `ag-delivery-body`
+- `enterprise_admin.html`: `entLoadDeliveryStatus(orgId, sb)` → card id `ent-delivery-body`
+
 ### Phase 4 — WhatsApp ✅ (Session 20 part 4)
 
 **New DB tables (all seeded for all 11 orgs):**
@@ -308,6 +355,16 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 - Twilio Sandbox: Enable at console.twilio.com → Messaging → Try it out → WhatsApp; set sandbox webhook to `https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/webhook_inbound?source=twilio`
 - Production: Register WhatsApp Business Number in Twilio → get approved number → set as `TWILIO_WA_FROM_NUMBER` or per-org `org_channels` row
 - Meta Business: Must verify Business Manager + WhatsApp Business Account for production template messages
+
+### ⚠️ NEXT — Phase 5: RCS and Messenger Channels
+Follow same institutional discipline as Phase 4. Planned items:
+- **RCS (Rich Communication Services)** — Google Business Messages / Jibe Cloud; `executor_rcs`; `org_channel_type` ENUM value 'rcs'; `delivery_attempts` channel='rcs'; fallback to SMS
+- **Meta Messenger** — Facebook Page Messenger via Graph API; `executor_messenger`; `org_channel_type` ENUM value 'messenger'; inbound via Facebook webhook; page token stored in `org_channels.provider_token`
+- Add 'rcs' + 'messenger' to `execution-dispatcher` `executorPath()`
+- `org_channel_capabilities`: add `rcs_enabled` (default false), `messenger_enabled` (default false), `messenger_page_id`
+- `message_routing_policies`: add `messenger_fallback_to_sms` (default true), `rcs_fallback_to_sms` (default true)
+- Same 3-step fallback_policy resolver for both new channels
+- Delivery status dashboard: add rcs + messenger rows to aggregation
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
