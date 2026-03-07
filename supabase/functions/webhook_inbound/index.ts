@@ -968,58 +968,78 @@ serve(async (req) => {
     let leadId: string | null = null;
     let leadOrgId: string | null = null;
 
-    if (orgId) {
-      const { data: lead } = await supabase
-        .from("leads")
-        .select("id, org_id")
-        .eq("org_id", orgId)
-        .eq("phone", fromE164)
+    // ── Thread-first routing: prefer prior conversation context ───────────────
+    // If this from+to+channel combo has routed before, use that lead directly.
+    // This resolves shared-number ambiguity without cross-org phone lookup.
+    if (fromE164 && toE164) {
+      const { data: thread } = await supabase
+        .from("message_threads")
+        .select("lead_id, org_id")
+        .eq("from_identifier", fromE164)
+        .eq("to_identifier", toE164)
+        .eq("channel", channel)
         .maybeSingle();
-
-      if (!lead) return new Response("OK", { status: 200 });
-      leadId = lead.id;
-      leadOrgId = lead.org_id;
-    } else {
-      // Platform number fallback: resolve by lead phone across orgs
-      const { data: leads } = await supabase.from("leads").select("id, org_id").eq("phone", fromE164).limit(3);
-
-      if (!leads || leads.length === 0) {
-        // No lead found for this phone — log and drop
-        console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=${channel} phone=${fromE164}`);
-        await supabase.from("audit_events").insert({
-          org_id: null,
-          actor_type: "system",
-          actor_id: null,
-          object_type: "inbound_message",
-          object_id: crypto.randomUUID(),
-          action: "inbound_route_no_lead",
-          reason: "no_lead_found_for_phone",
-          before_state: null,
-          after_state: { phone: fromE164, channel, provider: "twilio" },
-        }).catch(() => {});
-        return new Response("OK", { status: 200 });
+      if (thread) {
+        leadId = thread.lead_id;
+        leadOrgId = thread.org_id;
+        console.log(`[webhook_inbound] thread-routed: channel=${channel} lead=${leadId} org=${leadOrgId}`);
       }
+    }
 
-      if (leads.length > 1) {
-        // Multiple orgs have a lead with this phone — ambiguous, log and drop
-        const candidateOrgIds = leads.map((l: any) => l.org_id);
-        console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=${channel} phone=${fromE164} candidate_org_count=${leads.length}`);
-        await supabase.from("audit_events").insert({
-          org_id: null,
-          actor_type: "system",
-          actor_id: null,
-          object_type: "inbound_message",
-          object_id: crypto.randomUUID(),
-          action: "inbound_route_ambiguous",
-          reason: "multiple_orgs_match_phone",
-          before_state: null,
-          after_state: { phone: fromE164, channel, candidate_org_ids: candidateOrgIds },
-        }).catch(() => {});
-        return new Response("OK", { status: 200 });
+    if (!leadId) {
+      if (orgId) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("id, org_id")
+          .eq("org_id", orgId)
+          .eq("phone", fromE164)
+          .maybeSingle();
+
+        if (!lead) return new Response("OK", { status: 200 });
+        leadId = lead.id;
+        leadOrgId = lead.org_id;
+      } else {
+        // Platform number fallback: resolve by lead phone across orgs
+        const { data: leads } = await supabase.from("leads").select("id, org_id").eq("phone", fromE164).limit(3);
+
+        if (!leads || leads.length === 0) {
+          // No lead found for this phone — log and drop
+          console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=${channel} phone=${fromE164}`);
+          await supabase.from("audit_events").insert({
+            org_id: null,
+            actor_type: "system",
+            actor_id: null,
+            object_type: "inbound_message",
+            object_id: crypto.randomUUID(),
+            action: "inbound_route_no_lead",
+            reason: "no_lead_found_for_phone",
+            before_state: null,
+            after_state: { phone: fromE164, channel, provider: "twilio" },
+          }).catch(() => {});
+          return new Response("OK", { status: 200 });
+        }
+
+        if (leads.length > 1) {
+          // Multiple orgs have a lead with this phone — ambiguous, log and drop
+          const candidateOrgIds = leads.map((l: any) => l.org_id);
+          console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=${channel} phone=${fromE164} candidate_org_count=${leads.length}`);
+          await supabase.from("audit_events").insert({
+            org_id: null,
+            actor_type: "system",
+            actor_id: null,
+            object_type: "inbound_message",
+            object_id: crypto.randomUUID(),
+            action: "inbound_route_ambiguous",
+            reason: "multiple_orgs_match_phone",
+            before_state: null,
+            after_state: { phone: fromE164, channel, candidate_org_ids: candidateOrgIds },
+          }).catch(() => {});
+          return new Response("OK", { status: 200 });
+        }
+
+        leadId = leads[0].id;
+        leadOrgId = leads[0].org_id;
       }
-
-      leadId = leads[0].id;
-      leadOrgId = leads[0].org_id;
     }
 
     await supabase
@@ -1115,6 +1135,18 @@ serve(async (req) => {
       inbound_text: inboundText,
       channel_source: channel === "whatsapp" ? "whatsapp" : "sms",
     });
+
+    // Upsert message thread for future routing continuity (resolves shared-number ambiguity)
+    if (fromE164 && toE164 && leadId && leadOrgId) {
+      await supabase.from("message_threads").upsert({
+        org_id: leadOrgId,
+        lead_id: leadId,
+        channel,
+        from_identifier: fromE164,
+        to_identifier: toE164,
+        last_message_at: new Date().toISOString(),
+      }, { onConflict: "from_identifier,to_identifier,channel" }).catch(() => {});
+    }
 
     return new Response("OK", { status: 200 });
   } catch (error) {

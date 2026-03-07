@@ -188,6 +188,16 @@
             <div id="ag-delivery-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
         </div>
 
+        <!-- Channel Infrastructure -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-5">
+            <div class="flex items-center gap-3 mb-5">
+                <i class="fa fa-tower-broadcast text-cyan-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Channel Infrastructure</h2>
+                <span class="text-xs text-slate-500 ml-auto">Sender status</span>
+            </div>
+            <div id="ag-infra-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+        </div>
+
         <!-- Credit Wallet -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
             <div class="flex items-center gap-3 mb-4">
@@ -266,6 +276,7 @@
                 window.Credits.initCreditWallet(sb, _orgId, { walletContainerId: 'ag-wallet-grid' });
                 agLoadWaSettings(_orgId, _sb);
                 agLoadDeliveryStatus(_orgId, _sb);
+                agLoadInfraStatus(_orgId, _sb);
             }
         });
 
@@ -630,6 +641,61 @@
             if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
             if (!data || data.length === 0) { el.innerHTML = '<p class="text-slate-600 text-sm italic text-center py-4">No delivery attempts in the last 7 days.</p>'; return; }
             el.innerHTML = _buildDeliveryHTML(data);
+        }
+
+        // ── Channel Infrastructure (agency) ───────────────────────────────────
+        function _buildInfraHTML(channels) {
+            const CHANS = [
+                { key:'sms',       label:'SMS',       icon:'fa fa-message' },
+                { key:'whatsapp',  label:'WhatsApp',  icon:'fab fa-whatsapp' },
+                { key:'rcs',       label:'RCS',       icon:'fa fa-signal' },
+                { key:'messenger', label:'Messenger', icon:'fab fa-facebook-messenger' },
+            ];
+            const activeMap = {};
+            (channels ?? []).forEach(c => { if (c.is_default) activeMap[c.channel] = c; });
+            const anyShared = CHANS.some(c => !activeMap[c.key]?.provider_id);
+            const rows = CHANS.map(ch => {
+                const active = activeMap[ch.key];
+                const isDedicated = !!active?.provider_id;
+                const badge = isDedicated
+                    ? '<span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Dedicated</span>'
+                    : '<span class="text-[10px] font-bold text-slate-400 bg-slate-700/60 px-2 py-0.5 rounded-full">Shared</span>';
+                const senderId = isDedicated ? active.provider_id : (active ? 'Platform shared' : '—');
+                return `<tr class="${!active ? 'opacity-40' : ''}">
+                    <td class="py-2"><div class="flex items-center gap-2">
+                        <i class="${ch.icon} text-slate-400 w-3.5 text-center text-[11px]"></i>
+                        <span class="font-bold text-slate-300 text-[11px]">${ch.label}</span>
+                    </div></td>
+                    <td class="py-2 text-center">${badge}</td>
+                    <td class="py-2 text-right font-mono text-[10px] text-slate-500 max-w-[140px] truncate" title="${senderId}">${senderId}</td>
+                </tr>`;
+            }).join('');
+            const cta = anyShared
+                ? `<div class="mt-4 pt-4 border-t border-slate-800">
+                    <p class="text-xs text-slate-400 mb-2"><i class="fa fa-circle-info text-cyan-400 mr-1"></i>One or more channels use a <strong class="text-white">shared platform number</strong>. Dedicated numbers improve deliverability and brand trust.</p>
+                    <a href="billing.html" class="inline-block text-xs font-bold text-cyan-400 hover:text-cyan-300 transition">Upgrade to dedicated numbers →</a>
+                   </div>`
+                : `<div class="mt-4 pt-4 border-t border-slate-800">
+                    <p class="text-green-400 text-xs text-center"><i class="fa fa-check-circle mr-1"></i>All active channels use dedicated sender infrastructure</p>
+                   </div>`;
+            return `<div class="overflow-x-auto">
+                <table class="w-full text-xs text-slate-400">
+                    <thead class="text-[10px] uppercase font-bold text-slate-500">
+                        <tr><th class="pb-2 text-left">Channel</th><th class="pb-2 text-center">Type</th><th class="pb-2 text-right">Sender ID</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">${rows}</tbody>
+                </table>
+            </div>${cta}`;
+        }
+
+        async function agLoadInfraStatus(orgId, sb) {
+            const el = document.getElementById('ag-infra-body');
+            if (!el || !orgId) return;
+            const { data, error } = await sb.from('org_channels')
+                .select('channel, status, is_default, provider_id, provider, metadata')
+                .eq('org_id', orgId).eq('status', 'active');
+            if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
+            el.innerHTML = _buildInfraHTML(data);
         }
 
         // ── Deploy AI Site Liaison ──────────────────────────────────────────────
