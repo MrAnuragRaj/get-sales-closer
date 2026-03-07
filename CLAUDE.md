@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-07 (Session 20) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-07 (Session 21) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -27,11 +27,13 @@
 | `index.html` | Landing page, ROI calculator, dynamic pricing engine | ✅ Complete |
 | `login.html` | Auth (OTP + OAuth + Email/Password) + invitation claim + role routing | ✅ Complete |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ Complete |
-| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test onboarding, Live Wire | ✅ Complete (Session 18) |
-| `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, deploy widget, API keys, Live Wire | ✅ Complete (Session 18) |
-| `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, closed won review, AI persona, deploy widget, API keys, Live Wire | ✅ Complete (Session 18) |
+| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test onboarding, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure | ✅ Complete (Session 21) |
+| `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, deploy widget, API keys, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure | ✅ Complete (Session 21) |
+| `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, closed won review, AI persona, deploy widget, API keys, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure | ✅ Complete (Session 21) |
 | `agent_dashboard.html` | Agent view — my leads, action panel, takeover/manual reply/resume AI, pending actions, Live Wire | ✅ Complete (Session 18) |
-| `admin.html` | Finance command — bank transfers, entitlements, prompt editor, rate limits, partial payment, deals | ✅ Complete |
+| `admin.html` | Finance command — bank transfers, entitlements, prompt editor, rate limits, partial payment, deals, Channel Sender Mgmt, Channel Fallback Events, Provisioning Queue | ✅ Complete (Session 21) |
+| `number_request_checkout.html` | $110 dedicated number bundle purchase flow → payment.html | ✅ Complete (Session 20) |
+| `cancel.html` | 3-step subscription cancellation: feedback → refund preview → confirm | ✅ Complete (Session 20) |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + conversion probability | ✅ Complete |
 | `pricing.html` | New user plan selector → `create_checkout_intent` | ✅ Complete |
 | `billing.html` | Upgrade/manage plan for existing subscribers | ✅ Complete |
@@ -65,6 +67,12 @@
 | `intent_ai` | ✅ | GPT-4o-mini intent classifier (13 labels) |
 | `knowledge_brain` | ✅ | GPT-4o-mini (general) / GPT-4o (law, medical) |
 | `executor_whatsapp` | ✅ | Twilio WhatsApp; capability+routing gate; wa_msg token; delivery_attempts logging; SMS fallback |
+| `executor_rcs` | ✅ | Google RBM; WebCrypto SA→OAuth2 JWT; 3-step fallback; device capability → SMS fallback; rcs_msg token |
+| `executor_messenger` | ✅ | Graph API v21.0; PSID guard; 24h window → SMS fallback; terminal 551/190; messenger_msg token |
+| `initiate-cancellation` | ✅ | Feedback capture → prorated refund quote (1h expiry); top-up/number exclusions; audit_events |
+| `confirm-cancellation` | ✅ | Validates quote; immediate: cancel services + tasks + refund; end_of_term: set service_ends_at |
+| `execute-refund` | ✅ | Idempotent; finds Razorpay payment_id via payment_attempts; POST /v1/payments/{id}/refund |
+| `run-low-balance-alerts` | ✅ | 24h debounce; email+SMS per token key; `run-low-balance-alerts` pg_cron #12 every 15min |
 | `campaign_ticker` | ✅ | Campaign execution scheduler |
 | `decision_engine` | ✅ | Core execution decision logic |
 | `execution_planner` | ✅ | Plans execution steps |
@@ -90,7 +98,13 @@
 ## Database — Current Schema
 
 ### All Confirmed Tables
-`profiles`, `leads`, `interactions`, `appointments`, `voice_usage`, `lead_timeline_events`, `lead_actions`, `org_members`, `org_services`, `org_settings`, `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`, `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`, `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts` (VIEW), `decision_plans`, `organizations`, `org_invitations`, `manual_action_requests`, `org_billing_profiles`, `org_prompts`, `api_keys`, `beta_interest`, `app_admins`, `members` (legacy)
+**Core:** `profiles`, `leads`, `interactions`, `appointments`, `voice_usage`, `lead_timeline_events`, `lead_actions`, `org_members`, `org_services`, `org_settings`, `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`, `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`, `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts` (VIEW), `decision_plans`, `organizations`, `org_invitations`, `manual_action_requests`, `org_billing_profiles`, `org_prompts`, `api_keys`, `beta_interest`, `app_admins`, `members` (legacy), `platform_channels`
+
+**Credits (Session 20):** `credit_wallets`, `credit_ledger`, `credit_alert_state`, `orders`, `order_lines`, `idempotency_keys`, `usage_rating_events`, `usage_settlements`
+
+**Cancellation (Session 20):** `subscription_contracts`, `cancellation_feedback`, `refund_quotes`, `subscription_cancellations`, `refund_executions`
+
+**Channels (Session 20-21):** `org_channel_capabilities`, `message_routing_policies`, `delivery_attempts`, `message_threads`
 
 ### Key Columns Added (all sessions)
 | Column | Table | Type | Notes |
@@ -110,6 +124,11 @@
 | `bot_disclosure` | `org_settings` | TEXT DEFAULT 'transparent' | |
 | `conversion_objective` | `org_settings` | TEXT DEFAULT 'book_appointment' | |
 | `terminology_overrides` | `org_settings` | JSONB DEFAULT '{}' | |
+| `messenger_psid` | `leads` | TEXT | Facebook Messenger PSID; indexed; NULL until auto-linked |
+| `fallback_policy` | `org_channels` | TEXT DEFAULT 'allow_shared' | allow_shared \| fail_task \| admin_override |
+| `provider_token` | `org_channels` | TEXT | Per-org Facebook page access token |
+| `cancellation_status` | `organizations` | TEXT | NULL \| cancelled_immediate \| cancelled_end_of_term |
+| `service_ends_at` | `organizations` | TIMESTAMPTZ | End-of-term cancellation effective date |
 
 ### `api_keys` Table (exact columns — important!)
 `id` (uuid), `org_id` (uuid), `api_key` (text, DEFAULT `generate_api_key()`), `name` (text label), `created_at`, `last_used_at`
@@ -446,8 +465,18 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
   - Thread upsert after successful routing (updates `last_message_at`)
 - RLS: `is_org_member` SELECT policy
 
-### ⚠️ NEXT SESSION
-- E2E live testing (deferred checklist below)
+### ⚠️ NEXT SESSION — Institutional-Grade Hardening (see `roadmap.md`)
+
+Full plan in `roadmap.md`. Build order (each = schema + enforcement + admin UI + audit + tests):
+
+1. **Platform Kill Switch** — `platform_control_flags` table; admin toggle panel (P10); 3-layer enforcement (campaign_ticker + dispatcher + executors); audit: `platform_flag_enabled/disabled`, `platform_execution_blocked`
+2. **Global Rate Limiter** — `rate_limit_buckets` table; `check_and_increment_rate_limit_v1` atomic RPC; per-org + platform limits per channel; admin monitor panel (P11)
+3. **Dead-Letter Queue** — `execution_dead_letters` table; dispatcher moves exhausted tasks; admin DLQ panel (P12) with retry/cancel actions; audit: `execution_dead_lettered`
+4. **Provider Webhook Event Store** — `provider_webhook_events` table; webhook_inbound persists raw before processing; duplicate guard on `provider_event_id`; admin panel (P13)
+5. **Channel Health Monitor** — `channel_health_metrics` + `channel_health_current` tables; pg_cron aggregation every 5min from `delivery_attempts`; thresholds: excellent(<1%), normal(<3%), elevated(<7%), degraded(≥7%); admin health panel; org portal reads current-state table
+
+**Guard order after hardening (mandatory for all executors):**
+platform kill switch → org cancellation → rate limit → channel capability → binding/fallback resolution → token/billing → send → delivery_attempt → usage rating → health metrics update
 
 ### E2E Manual Test Checklist (still needs live testing)
 - [ ] Mirror Test: enter your phone in onboarding step 2 → verify SMS received
