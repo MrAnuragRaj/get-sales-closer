@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 const TOKEN_KEY = "sentinel.email";
@@ -52,6 +52,10 @@ serve(async (req) => {
   // 2) Kill-switch enforcement (TERMINAL)
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
+
+  // 2.1) Cancellation gate (TERMINAL)
+  const cancGate = await enforceOrgCancellationForTaskExecutor(supabase, task.org_id, task_id);
+  if (!cancGate.allow) return cancGate.response;
 
   // 3) Lease enforcement
   if (worker_id) {

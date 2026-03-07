@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { getVoiceContext } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -76,6 +76,10 @@ serve(async (req) => {
   // 1.5) Kill-switch wins over everything (TERMINAL)
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
+
+  // 1.55) Cancellation gate (TERMINAL)
+  const cancGate = await enforceOrgCancellationForTaskExecutor(supabase, task.org_id, task_id);
+  if (!cancGate.allow) return cancGate.response;
 
   // 1.6) Billing lock guard (bridge)
   const bill = await isBillingLocked(supabase, task.org_id);
@@ -221,7 +225,24 @@ serve(async (req) => {
   const VAPI_KEY = Deno.env.get("VAPI_PRIVATE_KEY") ?? "";
   const ASSISTANT_ID = (orgSettings?.vapi_assistant_id as string | undefined) ??
     (Deno.env.get("VAPI_ASSISTANT_ID") ?? "");
-  const PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") ?? "";
+  // Resolve per-org VAPI phone number; fall back to global env var
+  let PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") ?? "";
+  try {
+    const { data: orgVoiceChannels } = await supabase
+      .from("org_channels")
+      .select("vapi_phone_number_id")
+      .eq("org_id", task.org_id)
+      .eq("channel", "voice")
+      .eq("is_default", true)
+      .eq("status", "active")
+      .limit(1);
+    if (orgVoiceChannels && orgVoiceChannels.length > 0 && orgVoiceChannels[0].vapi_phone_number_id) {
+      PHONE_NUMBER_ID = orgVoiceChannels[0].vapi_phone_number_id;
+      console.log(`[executor_voice] Using org-dedicated VAPI phone number for org ${task.org_id}`);
+    }
+  } catch (channelErr) {
+    console.warn("[executor_voice] org_channels lookup failed, using shared VAPI number:", channelErr);
+  }
 
   if (!VAPI_KEY || !ASSISTANT_ID || !PHONE_NUMBER_ID) {
     const refundIdem = `${task_id}:voice:init_refund_missing_config`;

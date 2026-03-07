@@ -172,7 +172,7 @@
       // Poll billing_intents by reference_id — flips to 'paid' when Razorpay webhook processes.
       supabase
         .from("billing_intents")
-        .select("status")
+        .select("status, intent_source, pricing_snapshot")
         .eq("reference_id", refId)
         .maybeSingle()
         .then(function(response) {
@@ -187,14 +187,29 @@
 
             if (data && data.status === "paid") {
                 ui.spinner.classList.add("hidden");
-                ui.title.innerText = "Setup Complete!";
-                ui.message.innerText = "Redirecting you to your dashboard…";
-                ui.debug.innerText = "LICENSE ACTIVE";
-                
+                ui.debug.innerText = "SUCCESS";
+
+                if (data.intent_source === "credit_topup") {
+                    var snap = data.pricing_snapshot || {};
+                    var desc = snap.description || "Credits";
+                    ui.title.innerText = "Credits Added!";
+                    ui.message.innerText = snap.quantity
+                        ? snap.quantity.toLocaleString() + " " + desc + " have been added to your account."
+                        : desc + " have been added to your account.";
+                    try { sessionStorage.setItem('credits_wallet_refresh', '1'); } catch(e) {}
+                } else if (data.intent_source === "number_purchase") {
+                    ui.title.innerText = "Number Requested!";
+                    ui.message.innerText = "Payment confirmed. Your dedicated phone number will be provisioned within 72 hours. We'll notify you by email once it's active.";
+                    ui.debug.innerText = "PROVISIONING QUEUED";
+                } else {
+                    ui.title.innerText = "Setup Complete!";
+                    ui.message.innerText = "Redirecting you to your dashboard…";
+                    ui.debug.innerText = "LICENSE ACTIVE";
+                }
+
                 setTimeout(function() {
-                    // UPDATED REDIRECT HERE:
                     window.location.href = "dashboard.html";
-                }, 1500);
+                }, 2000);
 
                 return;
             }

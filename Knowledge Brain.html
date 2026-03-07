@@ -20,9 +20,17 @@
             <h1 class="text-3xl font-bold flex items-center gap-3">
                 <i class="fa-solid fa-brain text-indigo-500"></i> Knowledge Brain
             </h1>
-            <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition flex items-center gap-2">
-                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-            </a>
+            <div class="flex items-center gap-3">
+                <div id="brain-ai-chip" class="hidden items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5 text-sm">
+                    <i class="fa fa-brain text-emerald-400 text-xs"></i>
+                    <span id="brain-ai-count" class="text-white font-bold">—</span>
+                    <span class="text-slate-500 text-xs">AI credits</span>
+                    <button onclick="window.Credits.showTopupModal('ai_credit')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-md transition ml-1">+ Buy</button>
+                </div>
+                <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
         </div>
 
         <div class="bg-slate-800/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
@@ -66,6 +74,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="credits.js"></script>
     <script>
         let _currentUser, _sb, _currentOrgId;
 
@@ -265,6 +274,19 @@
                 const entitled = await checkEntitlement(sb, user, 'brain');
                 if (!entitled) { window.location.href = 'billing.html?lock=brain'; return; }
                 initPageLogic(profile, user, sb);
+
+                // Load AI credit balance
+                const { data: members } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1);
+                const orgId = members?.[0]?.org_id;
+                if (orgId) {
+                    await window.Credits.initCreditWallet(sb, orgId, { primaryTokenKey: 'ai_credit' });
+                    const { data: rows } = await sb.from('credit_wallets').select('available_balance').eq('org_id', orgId).eq('token_key', 'ai_credit').limit(1);
+                    const balance = rows?.[0]?.available_balance ?? 0;
+                    const countEl = document.getElementById('brain-ai-count');
+                    const chip = document.getElementById('brain-ai-chip');
+                    if (countEl) countEl.textContent = Number(balance).toLocaleString();
+                    if (chip) chip.classList.remove('hidden'), chip.style.display = 'flex';
+                }
             }
         });
     </script>

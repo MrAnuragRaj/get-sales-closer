@@ -31,13 +31,21 @@
         <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
     </div>
 
-    <div class="h-20 border-b border-white/5 bg-slate-900 flex items-center justify-between px-8">
-        <h1 class="text-xl font-bold flex items-center gap-3">
+    <div class="h-16 border-b border-white/5 bg-slate-900 flex items-center justify-between px-8 gap-4">
+        <h1 class="text-xl font-bold flex items-center gap-3 shrink-0">
             <i class="fa-solid fa-bolt text-indigo-500"></i> Instant Sentinel
         </h1>
-        <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition">
-            <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
-        </a>
+        <div class="flex items-center gap-3 ml-auto">
+            <div id="sentinel-sms-balance" class="hidden items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5 text-sm">
+                <i class="fa fa-comment-sms text-indigo-400 text-xs"></i>
+                <span id="sentinel-sms-count" class="text-white font-bold">—</span>
+                <span class="text-slate-500 text-xs">SMS</span>
+                <button onclick="window.Credits.showTopupModal('sms_msg')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-md transition ml-1">+ Buy</button>
+            </div>
+            <a href="dashboard.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition">
+                <i class="fa-solid fa-arrow-left mr-2"></i>Dashboard
+            </a>
+        </div>
     </div>
 
     <div class="flex-1 flex overflow-hidden">
@@ -80,6 +88,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="credits.js"></script>
 <script>
     let _sb, _currentLeadId;
 
@@ -239,6 +248,21 @@
             if (!entitled) { window.location.href = 'billing.html?lock=sentinel'; return; }
             _sb = sb;
             loadLeads(sb);
+
+            // Load SMS credit balance
+            const { data: members } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1);
+            const orgId = members?.[0]?.org_id;
+            if (orgId) {
+                await window.Credits.initCreditWallet(sb, orgId, { primaryTokenKey: 'sms_msg' });
+                const bal = document.getElementById('sentinel-sms-count');
+                const balCard = document.getElementById('sentinel-sms-balance');
+                if (bal && window.Credits._wallets) {
+                    const smsWallets = (await sb.from('credit_wallets').select('available_balance').eq('org_id', orgId).eq('token_key', 'sms_msg').limit(1)).data;
+                    const smsBalance = smsWallets?.[0]?.available_balance ?? 0;
+                    bal.textContent = Number(smsBalance).toLocaleString();
+                    if (balCard) balCard.classList.remove('hidden'), balCard.style.display = 'flex';
+                }
+            }
         }
     });
 </script>

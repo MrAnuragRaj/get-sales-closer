@@ -9,7 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="auth.js"></script> 
+    <script src="auth.js"></script>
+    <script src="credits.js"></script>
 
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
@@ -257,6 +258,7 @@
         </div>
 
         <div class="p-4 border-t border-white/5 bg-slate-900/50 absolute bottom-0 left-0 w-72">
+            <a href="cancel.html" class="text-xs text-slate-600 hover:text-red-400 w-full block text-left mb-1 transition"><i class="fa-solid fa-ban mr-2"></i> Cancel Subscription</a>
             <button onclick="handleLogout()" class="text-xs text-red-400 hover:text-red-300 w-full text-left mb-4"><i class="fa-solid fa-power-off mr-2"></i> Sign Out</button>
             <div class="text-xs overflow-hidden">
                 <p class="text-white font-semibold truncate" id="user-name-display">Loading...</p>
@@ -499,6 +501,18 @@
                     </div>
                 </div>
 
+                <!-- Credit Wallet Card -->
+                <div id="credit-wallet-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-wallet text-indigo-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Credit Wallet</h2>
+                        <button onclick="window.Credits.showTopupModal('sms_msg', true)" class="ml-auto text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg transition">+ Buy Credits</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3" id="dash-wallet-grid">
+                        <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
+                    </div>
+                </div>
+
                 <!-- Revenue Intelligence Upsell Card -->
                 <div id="upsell-card" class="hidden bg-slate-900/70 border border-slate-700 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-5">
@@ -663,6 +677,9 @@
                     loadPersonaSettings();
                     initDeploySection(currentOrgId);
                     loadApiKey(currentOrgId);
+                    if (currentOrgId) {
+                        window.Credits.initCreditWallet(sbClient, currentOrgId, { walletContainerId: 'dash-wallet-grid' });
+                    }
                     setInterval(loadManualActions, 30000);
                 }
             });

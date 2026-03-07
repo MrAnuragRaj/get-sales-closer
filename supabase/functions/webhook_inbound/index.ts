@@ -194,7 +194,7 @@ serve(async (req) => {
     let inboundText = "";
     let rawFromPhone = "";
     let rawToPhone = "";
-    let channel: "sms" | "voice" = "sms";
+    let channel: "sms" | "voice" | "whatsapp" = "sms";
     let vapiEventType: string | null = null;
 
     // Vapi hints
@@ -280,9 +280,51 @@ serve(async (req) => {
         return new Response("Unauthorized", { status: 403 });
       }
 
-      inboundText = params.Body || "";
-      rawFromPhone = params.From || "";
-      rawToPhone = params.To || ""; // destination number (tenant routing)
+      // ── WhatsApp status callback (has MessageStatus but no Body) ─────────────
+      if (params.MessageStatus && !params.Body) {
+        const sid = params.MessageSid ?? params.SmsSid ?? null;
+        const status = params.MessageStatus; // sent|delivered|read|failed|undelivered
+
+        if (sid) {
+          const deliveryStatus = status === "delivered"
+            ? "delivered"
+            : status === "read"
+            ? "read"
+            : ["failed", "undelivered"].includes(status)
+            ? "failed"
+            : "sent";
+
+          const patch: Record<string, any> = { status: deliveryStatus };
+          if (status === "delivered") patch.delivered_at = new Date().toISOString();
+          if (status === "read") patch.read_at = new Date().toISOString();
+          if (["failed", "undelivered"].includes(status)) {
+            patch.error_code = `TWILIO_${status.toUpperCase()}`;
+            patch.error_message = params.ErrorCode ?? null;
+          }
+
+          await supabase
+            .from("delivery_attempts")
+            .update(patch)
+            .eq("provider_message_id", sid)
+            .catch(() => {});
+        }
+
+        return new Response("OK", { status: 200 });
+      }
+
+      // ── Detect WhatsApp inbound (From starts with "whatsapp:") ──────────────
+      const isWhatsApp = (params.From ?? "").startsWith("whatsapp:");
+      if (isWhatsApp) {
+        channel = "whatsapp";
+        // Strip "whatsapp:" prefix for E.164 handling below
+        rawFromPhone = (params.From ?? "").replace(/^whatsapp:/, "");
+        rawToPhone = (params.To ?? "").replace(/^whatsapp:/, "");
+        inboundText = params.Body || "";
+      } else {
+        inboundText = params.Body || "";
+        rawFromPhone = params.From || "";
+        rawToPhone = params.To || ""; // destination number (tenant routing)
+      }
     }
 
     // -----------------------------
@@ -516,14 +558,14 @@ serve(async (req) => {
     }
 
     // -----------------------------
-    // SMS INBOUND PATH
+    // SMS / WHATSAPP INBOUND PATH
     // -----------------------------
     if (!inboundText || !rawFromPhone) return new Response("No content", { status: 200 });
 
     const toE164 = rawToPhone ? normalizeE164Loose(rawToPhone, "US") : null;
     const resolved = await resolveInboundOrg(supabase, {
       provider: "twilio",
-      channel: "sms",
+      channel: channel === "whatsapp" ? "whatsapp" as any : "sms",
       to_e164: toE164,
       provider_number_id: null,
     });
@@ -560,11 +602,11 @@ serve(async (req) => {
       .insert({
         lead_id: leadId,
         org_id: leadOrgId,
-        type: "sms",
+        type: channel, // "sms" or "whatsapp"
         direction: "inbound",
         content: inboundText,
         metadata: {
-          provider: "twilio",
+          provider: channel === "whatsapp" ? "twilio_wa" : "twilio",
           to_e164: toE164,
           from_e164: fromE164,
           routing_source: resolved.source,
@@ -573,6 +615,21 @@ serve(async (req) => {
       .select()
       .single()
       .catch(() => {});
+
+    // WhatsApp inbound: log to delivery_attempts as received
+    if (channel === "whatsapp") {
+      const msgSidParam = url.searchParams.get("MessageSid") ?? null;
+      await supabase.from("delivery_attempts").insert({
+        org_id: leadOrgId,
+        lead_id: leadId,
+        channel: "whatsapp",
+        provider: "twilio_wa",
+        provider_message_id: msgSidParam,
+        status: "received",
+        sent_at: new Date().toISOString(),
+        metadata: { from_e164: fromE164, to_e164: toE164, direction: "inbound" },
+      }).catch(() => {});
+    }
 
     const intent = ruleBasedIntentClassifier(inboundText);
 
@@ -630,7 +687,7 @@ serve(async (req) => {
       org_id: leadOrgId,
       lead_id: leadId,
       inbound_text: inboundText,
-      channel_source: "sms",
+      channel_source: channel === "whatsapp" ? "whatsapp" : "sms",
     });
 
     return new Response("OK", { status: 200 });

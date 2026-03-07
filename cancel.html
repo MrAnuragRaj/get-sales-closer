@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cancel Subscription | GetSalesCloser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 min-h-screen text-white font-sans">
+
+  <div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+    <div class="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+    <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Verifying Session...</p>
+  </div>
+
+  <div id="page-content" class="hidden flex items-center justify-center min-h-screen px-4 py-12">
+    <div class="w-full max-w-lg">
+
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 bg-red-600/20 border border-red-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <i class="fa-solid fa-triangle-exclamation text-red-400 text-2xl"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-white mb-1">Cancel Subscription</h1>
+        <p class="text-slate-400 text-sm">We're sorry to see you go. Complete all steps to cancel.</p>
+      </div>
+
+      <!-- Step indicator -->
+      <div class="flex items-center justify-center gap-2 mb-8">
+        <div id="step-dot-1" class="h-2 w-8 rounded-full bg-indigo-500 transition-all"></div>
+        <div id="step-dot-2" class="h-2 w-8 rounded-full bg-slate-700 transition-all"></div>
+        <div id="step-dot-3" class="h-2 w-8 rounded-full bg-slate-700 transition-all"></div>
+      </div>
+
+      <!-- STEP 1: Feedback form -->
+      <div id="step-1">
+        <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 mb-5">
+          <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Why are you leaving?</h2>
+          <div class="space-y-2" id="reason-options">
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="too_expensive" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Too expensive</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="not_using" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Not using it enough</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="missing_feature" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Missing a feature I need</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="switching_competitor" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Switching to a competitor</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="technical_issues" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Technical issues</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="reason" value="other" class="accent-indigo-500">
+              <span class="text-sm text-slate-300">Other</span>
+            </label>
+          </div>
+          <textarea id="reason-detail" rows="2" placeholder="Optional: tell us more…"
+            class="w-full mt-4 bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"></textarea>
+        </div>
+
+        <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 mb-5">
+          <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Cancellation type</h2>
+          <div class="space-y-3">
+            <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="cancel-mode" value="end_of_term" checked class="accent-indigo-500 mt-0.5">
+              <div>
+                <p class="text-sm font-semibold text-white">End of billing period</p>
+                <p class="text-xs text-slate-400 mt-0.5">Access preserved until your current period ends. No refund issued.</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-700 cursor-pointer hover:border-indigo-500/50 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/10">
+              <input type="radio" name="cancel-mode" value="immediate" class="accent-indigo-500 mt-0.5">
+              <div>
+                <p class="text-sm font-semibold text-white">Immediate cancellation</p>
+                <p class="text-xs text-slate-400 mt-0.5">Access ends now. Prorated refund computed for remaining days.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <button id="btn-step1" onclick="submitStep1()"
+          class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl transition text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-arrow-right text-sm"></i>
+          Continue to Refund Preview
+        </button>
+        <a href="javascript:history.back()" class="block text-center text-slate-500 hover:text-slate-300 text-sm mt-4 transition">
+          &larr; Keep my subscription
+        </a>
+      </div>
+
+      <!-- STEP 2: Refund quote preview -->
+      <div id="step-2" class="hidden">
+        <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 mb-5">
+          <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Refund Preview</h2>
+          <div id="quote-body" class="space-y-3 text-sm">
+            <div class="h-4 bg-slate-700 rounded animate-pulse"></div>
+            <div class="h-4 bg-slate-700 rounded animate-pulse w-3/4"></div>
+          </div>
+        </div>
+
+        <div id="ambiguous-warning" class="hidden bg-amber-900/30 border border-amber-500/30 rounded-xl p-4 mb-5 text-xs text-amber-300">
+          <i class="fa-solid fa-circle-exclamation mr-2"></i>
+          Your subscription record was set up manually and exact payment data is unavailable. The refund calculation above is an estimate. Our team will review and process the accurate amount within 3 business days.
+        </div>
+
+        <button id="btn-confirm" onclick="confirmCancellation()"
+          class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl transition text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-xmark text-sm"></i>
+          <span id="confirm-btn-label">Confirm Cancellation</span>
+        </button>
+        <button onclick="goBack()" class="block w-full text-center text-slate-500 hover:text-slate-300 text-sm mt-4 transition">
+          &larr; Go back
+        </button>
+      </div>
+
+      <!-- STEP 3: Cancelled confirmation -->
+      <div id="step-3" class="hidden text-center">
+        <div class="w-20 h-20 bg-emerald-600/20 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
+          <i class="fa-solid fa-check text-emerald-400 text-3xl"></i>
+        </div>
+        <h2 id="done-title" class="text-xl font-bold text-white mb-2">Subscription Cancelled</h2>
+        <p id="done-msg" class="text-slate-400 text-sm mb-6"></p>
+        <a href="dashboard.html" class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition text-sm">
+          Go to Dashboard
+        </a>
+      </div>
+
+      <p id="error-msg" class="hidden text-center text-red-400 text-sm mt-4"></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://klbwigcvrdfeeeeotehu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+
+    let _sb, _session;
+    let _quoteId = null;
+    let _cancMode = null;
+
+    requireAuth({
+      requireOnboarding: false,
+      onAuthenticated: async (profile, user, sb) => {
+        _sb = sb;
+        const { data: { session } } = await sb.auth.getSession();
+        _session = session;
+      }
+    });
+
+    function setStep(n) {
+      [1, 2, 3].forEach(i => {
+        document.getElementById(`step-${i}`).classList.toggle('hidden', i !== n);
+        const dot = document.getElementById(`step-dot-${i}`);
+        if (dot) dot.className = `h-2 rounded-full transition-all ${i <= n ? 'w-8 bg-indigo-500' : 'w-8 bg-slate-700'}`;
+      });
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.add('hidden');
+    }
+
+    function goBack() {
+      setStep(1);
+      hideError();
+    }
+
+    async function submitStep1() {
+      hideError();
+      const reasonCode = document.querySelector('input[name="reason"]:checked')?.value;
+      if (!reasonCode) { showError('Please select a reason before continuing.'); return; }
+      const reasonDetail = document.getElementById('reason-detail').value.trim() || null;
+      _cancMode = document.querySelector('input[name="cancel-mode"]:checked')?.value || 'end_of_term';
+
+      const btn = document.getElementById('btn-step1');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i> Computing refund...';
+
+      try {
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/initiate-cancellation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + _session.access_token,
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            cancellation_mode: _cancMode,
+            reason_code: reasonCode,
+            reason_detail: reasonDetail,
+          }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Failed to compute refund');
+
+        _quoteId = result.quote_id;
+        renderQuote(result);
+        setStep(2);
+      } catch (err) {
+        showError('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrow-right text-sm"></i> Continue to Refund Preview';
+      }
+    }
+
+    function formatCurrency(v) {
+      return '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function renderQuote(q) {
+      const body = document.getElementById('quote-body');
+      const isEndOfTerm = q.cancellation_mode === 'end_of_term';
+      const endsAt = new Date(q.service_ends_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      let html = '';
+      if (isEndOfTerm) {
+        html = `
+          <div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Access preserved until</span>
+            <span class="font-semibold text-white">${endsAt}</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-slate-400">Refund</span>
+            <span class="font-semibold text-slate-400">None (end-of-term)</span>
+          </div>`;
+      } else {
+        html = `
+          <div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Days remaining in cycle</span>
+            <span class="font-semibold text-white">${q.days_remaining} / ${q.days_in_cycle}</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Prorated subscription refund</span>
+            <span class="font-semibold text-emerald-400">${formatCurrency(q.gross_refund_amount)}</span>
+          </div>`;
+        if (q.refund_breakdown?.number_refund_failed_fulfillment > 0) {
+          html += `<div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Number purchase (unfulfilled)</span>
+            <span class="font-semibold text-emerald-400">${formatCurrency(q.refund_breakdown.number_refund_failed_fulfillment)}</span>
+          </div>`;
+        }
+        if (q.excluded_credits_amount > 0) {
+          html += `<div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Credit top-ups (excluded)</span>
+            <span class="font-semibold text-slate-500">${formatCurrency(q.excluded_credits_amount)} not refunded</span>
+          </div>`;
+        }
+        if (q.excluded_number_amount > 0) {
+          html += `<div class="flex justify-between items-center py-2 border-b border-white/5">
+            <span class="text-slate-400">Number fees — fulfilled (excluded)</span>
+            <span class="font-semibold text-slate-500">${formatCurrency(q.excluded_number_amount)} not refunded</span>
+          </div>`;
+        }
+        html += `<div class="flex justify-between items-center py-2 font-bold text-base">
+            <span class="text-white">Total refund</span>
+            <span class="text-emerald-400">${formatCurrency(q.net_refund_amount)}</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Access ends immediately upon confirmation.</p>`;
+      }
+
+      body.innerHTML = html;
+
+      const confirmLabel = document.getElementById('confirm-btn-label');
+      confirmLabel.textContent = isEndOfTerm
+        ? `Cancel at end of period (${endsAt})`
+        : `Cancel now & refund ${formatCurrency(q.net_refund_amount)}`;
+
+      if (q.is_contract_ambiguous) {
+        document.getElementById('ambiguous-warning').classList.remove('hidden');
+      }
+    }
+
+    async function confirmCancellation() {
+      if (!_quoteId) return;
+      hideError();
+
+      const btn = document.getElementById('btn-confirm');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i> Cancelling...';
+
+      try {
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/confirm-cancellation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + _session.access_token,
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ quote_id: _quoteId }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Cancellation failed');
+
+        const effectiveAt = result.effective_at ? new Date(result.effective_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        document.getElementById('done-title').textContent =
+          result.cancellation_mode === 'end_of_term' ? 'Cancellation Scheduled' : 'Subscription Cancelled';
+        document.getElementById('done-msg').textContent =
+          result.cancellation_mode === 'end_of_term'
+            ? `Your subscription will end on ${effectiveAt}. You have full access until then.`
+            : `Your access has ended. ${result.net_refund_amount > 0 ? 'Refund of ₹' + Number(result.net_refund_amount).toFixed(2) + ' has been initiated.' : 'No refund applicable.'}`;
+
+        setStep(3);
+      } catch (err) {
+        showError('Error: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-xmark text-sm"></i> <span id="confirm-btn-label">Confirm Cancellation</span>';
+      }
+    }
+  </script>
+</body>
+</html>

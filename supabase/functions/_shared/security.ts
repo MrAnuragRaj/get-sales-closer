@@ -157,6 +157,96 @@ export async function enforceKillSwitchForDispatcherTask(
   return { action: "allow" };
 }
 
+// ── Cancellation gate ─────────────────────────────────────────────────────────
+
+export async function checkOrgCancellation(
+  supabase: any,
+  org_id: string,
+): Promise<{ ok: true; cancelled: boolean } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc("is_org_cancelled_v1", { p_org_id: org_id });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, cancelled: Boolean(data) };
+}
+
+/**
+ * EXECUTOR semantic gate for cancellation.
+ * Same shape as enforceKillSwitchForTaskExecutor — call it right after kill-switch.
+ */
+export async function enforceOrgCancellationForTaskExecutor(
+  supabase: any,
+  org_id: string,
+  task_id: string | null,
+): Promise<{ allow: true } | { allow: false; response: Response }> {
+  const check = await checkOrgCancellation(supabase, org_id);
+
+  if (!check.ok) {
+    const reason = `CANCELLATION_CHECK_FAILED: ${check.error}`;
+    if (task_id) {
+      await markTaskSecurityTerminal(supabase, { task_id, status: "failed_security_policy", reason });
+    }
+    return { allow: false, response: new Response(reason, { status: 500 }) };
+  }
+
+  if (check.cancelled) {
+    if (task_id) {
+      await markTaskSecurityTerminal(supabase, { task_id, status: "blocked", reason: "ORG_CANCELLED" });
+    }
+    return { allow: false, response: new Response("BLOCKED_ORG_CANCELLED", { status: 200 }) };
+  }
+
+  return { allow: true };
+}
+
+/**
+ * DISPATCHER semantic gate for cancellation.
+ */
+export async function enforceOrgCancellationForDispatcher(
+  supabase: any,
+  org_id: string,
+  task_id: string,
+): Promise<
+  | { action: "allow" }
+  | { action: "blocked"; reason: string }
+  | { action: "failed_security_policy"; reason: string }
+> {
+  const check = await checkOrgCancellation(supabase, org_id);
+
+  if (!check.ok) {
+    const reason = `CANCELLATION_CHECK_FAILED: ${check.error}`;
+    await markTaskSecurityTerminal(supabase, { task_id, status: "failed_security_policy", reason });
+    return { action: "failed_security_policy", reason };
+  }
+
+  if (check.cancelled) {
+    await markTaskSecurityTerminal(supabase, { task_id, status: "blocked", reason: "ORG_CANCELLED" });
+    return { action: "blocked", reason: "ORG_CANCELLED" };
+  }
+
+  return { action: "allow" };
+}
+
+/**
+ * CAMPAIGN semantic gate for cancellation.
+ * - check fail -> fail-closed (pause campaign)
+ * - cancelled  -> pause campaign
+ */
+export async function enforceOrgCancellationForCampaign(
+  supabase: any,
+  org_id: string,
+): Promise<{ allow: true } | { allow: false; cancelled: boolean; reason: string }> {
+  const check = await checkOrgCancellation(supabase, org_id);
+
+  if (!check.ok) {
+    return { allow: false, cancelled: false, reason: `CANCELLATION_CHECK_FAILED: ${check.error}` };
+  }
+
+  if (check.cancelled) {
+    return { allow: false, cancelled: true, reason: "ORG_CANCELLED" };
+  }
+
+  return { allow: true };
+}
+
 /**
  * CAMPAIGN semantic gate:
  * - check fail -> fail-closed; caller should pause to avoid thrash

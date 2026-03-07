@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
-import { enforceKillSwitchForCampaign } from "../_shared/security.ts";
+import { enforceKillSwitchForCampaign, enforceOrgCancellationForCampaign } from "../_shared/security.ts";
 
 serve(async (req) => {
   const supabase = getSupabaseClient(req);
@@ -25,7 +25,15 @@ serve(async (req) => {
   let campaignsPausedByKillSwitchCheckFailure = 0;
 
   for (const camp of campaigns) {
-    // 2.0) Unified kill-switch guard (org scoped)
+    // 2.0) Cancellation gate — checked before kill-switch (org terminated = no execution ever)
+    const cancGate = await enforceOrgCancellationForCampaign(supabase, camp.org_id);
+    if (!cancGate.allow) {
+      await supabase.from("campaigns").update({ status: "paused" }).eq("id", camp.id);
+      console.log(`[campaign_ticker] ${cancGate.reason}. Pausing campaign ${camp.id} (org ${camp.org_id}).`);
+      continue;
+    }
+
+    // 2.1) Unified kill-switch guard (org scoped)
     const gate = await enforceKillSwitchForCampaign(supabase, camp.org_id);
 
     if (!gate.allow) {

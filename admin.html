@@ -236,7 +236,51 @@
             </div>
         </div>
 
-        <!-- P8: RATE LIMIT & SECURITY OVERVIEW -->
+        <!-- P8: NUMBER PROVISIONING QUEUE -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-indigo-400 animate-pulse"></div>
+                    <h2 class="text-xl font-bold text-white">Number Provisioning Queue</h2>
+                </div>
+                <button onclick="loadProvisioningQueue()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <div id="provisioning-queue">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Provision Number Modal -->
+        <div id="provision-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-bold text-white mb-1">Provision Number</h3>
+                <p class="text-slate-400 text-xs mb-4" id="provision-modal-org"></p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Twilio Phone Number (E.164)</label>
+                        <input id="provision-phone" type="text" placeholder="+14155551234"
+                            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <p class="text-[11px] text-slate-500 mt-1">Purchase the number in Twilio first, then enter it here.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Channel</label>
+                        <select id="provision-channel" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none">
+                            <option value="sms">SMS</option>
+                            <option value="voice">Voice</option>
+                        </select>
+                    </div>
+                </div>
+                <p id="provision-error" class="hidden text-xs text-red-400 mt-2"></p>
+                <div class="flex gap-3 mt-4">
+                    <button id="provision-confirm-btn" onclick="confirmProvision()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition">Provision via Twilio</button>
+                    <button onclick="closeProvisionModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- P9: RATE LIMIT & SECURITY OVERVIEW -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 mb-10">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
@@ -387,6 +431,7 @@
                 fetchPendingDeals();
                 fetchOrgPrompts();
                 fetchRateLimitStats();
+                loadProvisioningQueue();
             } catch (err) {
                 setStatus('Error: ' + err.message + '. Redirecting…');
                 console.error('Admin init error:', err);
@@ -733,7 +778,135 @@
             btn.textContent = 'Save';
         }
 
-        // P8: RATE LIMIT & SECURITY STATS
+        // ── NUMBER PROVISIONING QUEUE ─────────────────────────────────────────────
+        let _provisionTargetOrgId = null;
+        let _provisionRequestId = null;
+
+        async function loadProvisioningQueue() {
+            const el = document.getElementById('provisioning-queue');
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+
+            const { data: reqs, error } = await supabase
+                .from('org_channel_provision_requests')
+                .select('id, org_id, channel, mode, status, area_code, created_at, detail')
+                .in('status', ['payment_received', 'pending'])
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                el.innerHTML = `<p class="text-red-400 text-sm text-center py-4">Error: ${error.message}</p>`;
+                return;
+            }
+
+            if (!reqs || reqs.length === 0) {
+                el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">No pending provisioning requests.</p>';
+                return;
+            }
+
+            // Fetch org names
+            const orgIds = [...new Set(reqs.map(r => r.org_id))];
+            const { data: orgs } = await supabase.from('organizations').select('id, name').in('id', orgIds);
+            const orgMap = {};
+            (orgs || []).forEach(o => orgMap[o.id] = o.name);
+
+            el.innerHTML = reqs.map(req => {
+                const orgName = orgMap[req.org_id] || req.org_id;
+                const paid = req.status === 'payment_received';
+                const date = new Date(req.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                const areaCode = req.area_code || req.detail?.area_code || 'Any';
+                const requester = req.detail?.requester_email || '—';
+                const amountPaid = req.detail?.amount_paid ? `$${Number(req.detail.amount_paid).toFixed(2)}` : '—';
+                const statusBadge = paid
+                    ? '<span class="bg-yellow-500/10 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Payment Received</span>'
+                    : '<span class="bg-slate-600/40 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Pending</span>';
+
+                return `<div class="flex items-center justify-between gap-4 py-4 border-b border-white/5 last:border-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-bold text-sm text-white">${orgName}</span>
+                            ${statusBadge}
+                        </div>
+                        <p class="text-xs text-slate-400">Channel: <strong>${req.channel}</strong> · Area: ${areaCode} · Paid: ${amountPaid} · By: ${requester}</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">${date}</p>
+                    </div>
+                    <button onclick="openProvisionModal('${req.org_id}', '${req.id}', '${req.channel}', '${orgName}')"
+                        class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+                        Provision
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        function openProvisionModal(orgId, reqId, channel, orgName) {
+            _provisionTargetOrgId = orgId;
+            _provisionRequestId = reqId;
+            document.getElementById('provision-modal-org').textContent = orgName + ' — ' + channel.toUpperCase();
+            document.getElementById('provision-channel').value = channel === 'both' ? 'sms' : channel;
+            document.getElementById('provision-phone').value = '';
+            document.getElementById('provision-error').classList.add('hidden');
+            document.getElementById('provision-modal').classList.remove('hidden');
+        }
+
+        function closeProvisionModal() {
+            document.getElementById('provision-modal').classList.add('hidden');
+            _provisionTargetOrgId = null;
+            _provisionRequestId = null;
+        }
+
+        async function confirmProvision() {
+            const phone = document.getElementById('provision-phone').value.trim();
+            const channel = document.getElementById('provision-channel').value;
+            const errEl = document.getElementById('provision-error');
+            const btn = document.getElementById('provision-confirm-btn');
+
+            errEl.classList.add('hidden');
+
+            if (!/^\+\d{7,15}$/.test(phone)) {
+                errEl.textContent = 'Phone must be E.164 format (e.g. +14155551234)';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Provisioning...';
+
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const resp = await fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/org_channels_purchase', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + session.access_token,
+                    },
+                    body: JSON.stringify({
+                        org_id: _provisionTargetOrgId,
+                        channel,
+                        phone_number: phone,
+                        set_default: true,
+                        idempotency_key: 'admin-provision:' + _provisionRequestId,
+                    }),
+                });
+
+                const result = await resp.json();
+                if (!resp.ok || !result.ok) throw new Error((result.error?.message) || 'Provisioning failed');
+
+                // Mark the provision request as succeeded
+                await supabase.from('org_channel_provision_requests')
+                    .update({ status: 'succeeded', requested_from_e164: phone })
+                    .eq('id', _provisionRequestId);
+
+                closeProvisionModal();
+                alert('Number provisioned successfully: ' + phone);
+                loadProvisioningQueue();
+            } catch (err) {
+                errEl.textContent = 'Error: ' + err.message;
+                errEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Provision via Twilio';
+            }
+        }
+
+        // ── RATE LIMIT & SECURITY STATS ──────────────────────────────────────────
+        // P9: RATE LIMIT & SECURITY STATS
         async function fetchRateLimitStats() {
             const tbody = document.getElementById('rateLimitTbody');
             const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();

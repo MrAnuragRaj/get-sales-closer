@@ -1,6 +1,7 @@
 // supabase/functions/execution-dispatcher/index.ts
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
+import { enforceOrgCancellationForDispatcher } from "../_shared/security.ts";
 
 const DEFAULT_LIMIT = 25;
 const DEFAULT_LEASE_SECONDS = 90;
@@ -21,6 +22,7 @@ function executorPath(channel: string) {
   if (channel === "sms") return "/functions/v1/executor_sms";
   if (channel === "email") return "/functions/v1/executor_email";
   if (channel === "voice") return "/functions/v1/executor_voice";
+  if (channel === "whatsapp") return "/functions/v1/executor_whatsapp";
   return null;
 }
 
@@ -396,6 +398,18 @@ serve(async (req) => {
         executor_status: "failed",
         policy_applied: "failed_permanent",
         error: updErr?.message ?? null,
+      });
+      continue;
+    }
+
+    // ── Cancellation gate (Layer 2: dispatcher lease) ────────────────────────
+    const cancCheck = await enforceOrgCancellationForDispatcher(supabase, t.org_id, taskId);
+    if (cancCheck.action !== "allow") {
+      results.push({
+        task_id: taskId,
+        channel,
+        executor_status: "blocked",
+        reason: cancCheck.reason,
       });
       continue;
     }

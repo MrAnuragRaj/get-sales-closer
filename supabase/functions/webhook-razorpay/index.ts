@@ -44,8 +44,61 @@ serve(async (req) => {
     }
 
     console.log("Authority Response:", data)
-    return new Response(JSON.stringify({ status: 'ok' }), { 
-        status: 200, headers: { "Content-Type": "application/json" } 
+
+    // --- Credit top-up fulfillment ---
+    // If payment.captured and the billing_intent is a credit_topup, grant credits via ledger.
+    // We pass razorpay_amount_raw for audit logging only — credits are NEVER computed from it.
+    // Amount integrity is verified server-to-server inside fulfill-paid-order.
+    try {
+      const event = payload?.event as string
+      const paymentEntity = payload?.payload?.payment?.entity as Record<string, unknown> | undefined
+      const notes = paymentEntity?.notes as Record<string, string> | undefined
+      const intent_id = notes?.intent_id
+      const payment_id = paymentEntity?.id as string | undefined
+      // Razorpay amount is in paise (INR) or smallest currency unit — for audit only
+      const razorpay_amount_raw = paymentEntity?.amount as number | undefined
+
+      if (event === 'payment.captured' && intent_id) {
+        const { data: intentRows } = await supabaseAdmin
+          .from('billing_intents')
+          .select('id, intent_source')
+          .eq('id', intent_id)
+          .limit(1)
+
+        const intent = intentRows?.[0]
+        if (intent?.intent_source === 'credit_topup') {
+          console.log('[webhook-razorpay] credit_topup captured — amount_raw:', razorpay_amount_raw, 'intent:', intent_id)
+          const { error: fulfillErr } = await supabaseAdmin.functions.invoke('fulfill-paid-order', {
+            body: {
+              billing_intent_id: intent_id,
+              payment_event_id: payment_id ?? 'webhook',
+              razorpay_amount_raw,
+            },
+          })
+          if (fulfillErr) {
+            console.error('[webhook-razorpay] fulfill-paid-order error (non-fatal):', fulfillErr)
+          }
+        } else if (intent?.intent_source === 'number_purchase') {
+          console.log('[webhook-razorpay] number_purchase captured — amount_raw:', razorpay_amount_raw, 'intent:', intent_id)
+          const { error: fulfillErr } = await supabaseAdmin.functions.invoke('fulfill-number-request', {
+            body: {
+              billing_intent_id: intent_id,
+              payment_event_id: payment_id ?? 'webhook',
+              razorpay_amount_raw,
+            },
+          })
+          if (fulfillErr) {
+            console.error('[webhook-razorpay] fulfill-number-request error (non-fatal):', fulfillErr)
+          }
+        }
+      }
+    } catch (fulfillEx) {
+      // Non-fatal — do not fail the webhook response
+      console.error('[webhook-razorpay] credit fulfillment error (non-fatal):', fulfillEx)
+    }
+
+    return new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200, headers: { "Content-Type": "application/json" }
     })
 
   } catch (err) {

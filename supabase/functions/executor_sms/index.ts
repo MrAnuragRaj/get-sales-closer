@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
-import { enforceKillSwitchForTaskExecutor } from "../_shared/security.ts";
+import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -40,6 +40,10 @@ serve(async (req) => {
   // 1.5) Kill-switch wins over everything (TERMINAL) — unified helper
   const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
+
+  // 1.6) Cancellation gate (TERMINAL) — blocks immediately if org is cancelled
+  const cancGate = await enforceOrgCancellationForTaskExecutor(supabase, task.org_id, task_id);
+  if (!cancGate.allow) return cancGate.response;
 
   // 2) Lease enforcement
   if (worker_id) {
@@ -145,7 +149,25 @@ serve(async (req) => {
   // 6) Twilio send
   const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
   const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-  const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER")!;
+
+  // Resolve FROM number: prefer org-dedicated channel, fall back to shared platform number
+  let TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER")!;
+  try {
+    const { data: orgChannels } = await supabase
+      .from("org_channels")
+      .select("from_e164")
+      .eq("org_id", task.org_id)
+      .eq("channel", "sms")
+      .eq("is_default", true)
+      .eq("status", "active")
+      .limit(1);
+    if (orgChannels && orgChannels.length > 0 && orgChannels[0].from_e164) {
+      TWILIO_FROM = orgChannels[0].from_e164;
+      console.log(`[executor_sms] Using org-dedicated number ${TWILIO_FROM} for org ${task.org_id}`);
+    }
+  } catch (channelErr) {
+    console.warn("[executor_sms] org_channels lookup failed, using shared number:", channelErr);
+  }
 
   const authHeader = `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`;
   const params = new URLSearchParams();

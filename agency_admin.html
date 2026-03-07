@@ -37,6 +37,7 @@
             <div class="flex items-center gap-4">
                 <span id="seat-pill" class="bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-bold px-3 py-1.5 rounded-full">— / — seats</span>
                 <span id="admin-name" class="text-slate-400 text-sm"></span>
+                <a href="cancel.html" class="text-slate-600 hover:text-red-400 text-sm transition">Cancel Plan</a>
                 <button onclick="logout()" class="text-slate-500 hover:text-white text-sm transition">Sign Out</button>
             </div>
         </div>
@@ -166,6 +167,18 @@
                 <div id="ag-setup-guide-content" class="hidden mt-4 space-y-4"></div>
             </div>
         </div>
+
+        <!-- Credit Wallet -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-wallet text-indigo-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Credit Wallet</h2>
+                <button onclick="window.Credits.showTopupModal('sms_msg', true)" class="ml-auto text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg transition">+ Buy Credits</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3" id="ag-wallet-grid">
+                <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
+            </div>
+        </div>
         </div>
     </div>
 
@@ -186,6 +199,7 @@
     </div>
 
     <script src="auth.js"></script>
+    <script src="credits.js"></script>
     <script>
         let _sb, _orgId, _seatLimit, _currentUserId, _orgName, _adminName;
 
@@ -229,6 +243,7 @@
                 agLoadPersonaSettings();
                 initDeploySection(_orgId);
                 agLoadApiKey(_orgId);
+                window.Credits.initCreditWallet(sb, _orgId, { walletContainerId: 'ag-wallet-grid' });
             }
         });
 
