@@ -24,6 +24,7 @@ function executorPath(channel: string) {
   if (channel === "voice") return "/functions/v1/executor_voice";
   if (channel === "whatsapp") return "/functions/v1/executor_whatsapp";
   if (channel === "rcs") return "/functions/v1/executor_rcs";
+  if (channel === "messenger") return "/functions/v1/executor_messenger";
   return null;
 }
 

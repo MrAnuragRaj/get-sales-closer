@@ -21,7 +21,8 @@ const CREDIT_CONFIG: Record<string, {
   sms_msg:    { label: "SMS Credits",      unit_price: 0.01,          min_qty: 2000,  line_type: "credit_sms",   step: 1000 },
   ai_credit:  { label: "AI Credits",       unit_price: 0.01 / 30,     min_qty: 90000, line_type: "credit_ai",    step: 90000, ai_bundle: true },
   wa_msg:     { label: "WhatsApp Credits", unit_price: 0.01,          min_qty: 2000,  line_type: "credit_wa",    step: 1000 },
-  rcs_msg:    { label: "RCS Credits",      unit_price: 0.01,          min_qty: 2000,  line_type: "credit_rcs",   step: 1000 },
+  rcs_msg:       { label: "RCS Credits",       unit_price: 0.01, min_qty: 2000, line_type: "credit_rcs",       step: 1000 },
+  messenger_msg: { label: "Messenger Credits", unit_price: 0.01, min_qty: 2000, line_type: "credit_messenger", step: 1000 },
 }
 
 function computeLineAmount(token_key: string, qty: number): number {

@@ -95,7 +95,7 @@ export async function replyRouter(params: {
   org_id: string;
   lead_id: string;
   inbound_text: string;
-  channel_source: "sms" | "voice" | "whatsapp" | "rcs";
+  channel_source: "sms" | "voice" | "whatsapp" | "rcs" | "messenger";
   // Required for execution_tasks — omit only when resolving from webhook (actor/plan resolved inside)
   actor_user_id?: string;
   plan_id?: string;

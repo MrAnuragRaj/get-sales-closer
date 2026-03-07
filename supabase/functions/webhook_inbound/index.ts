@@ -185,6 +185,7 @@ serve(async (req) => {
     const isTwilio = source === "twilio";
     const isVapi = source === "vapi";
     const isRbm = source === "google_rbm";
+    const isMessenger = source === "facebook_messenger";
 
     // Vapi requires shared secret token (deploy webhook with --no-verify-jwt)
     if (isVapi) {
@@ -685,6 +686,211 @@ serve(async (req) => {
       });
 
       console.log(`[webhook_inbound] RBM inbound: lead=${rbmLeadId} org=${rbmLeadOrgId} phone=${rbmFromE164}`);
+      return new Response("OK", { status: 200 });
+
+    } else if (isMessenger) {
+      // ─────────────────────────────────────────────────────────────
+      // FACEBOOK MESSENGER webhook
+      // Source: GET/POST ?source=facebook_messenger
+      //
+      // GET = webhook verification challenge from Meta.
+      // POST = message/delivery/read events from the Messenger Platform.
+      //        Secured with X-Hub-Signature-256 (HMAC-SHA256 of body using FACEBOOK_APP_SECRET).
+      // ─────────────────────────────────────────────────────────────
+
+      // ── Webhook verification (GET — Meta subscribes or re-verifies) ──────────
+      if (req.method === "GET") {
+        const mode = url.searchParams.get("hub.mode");
+        const token = url.searchParams.get("hub.verify_token");
+        const challenge = url.searchParams.get("hub.challenge");
+        const expectedToken = (Deno.env.get("FACEBOOK_VERIFY_TOKEN") ?? "").trim();
+
+        if (mode === "subscribe" && token === expectedToken && challenge) {
+          console.log("[webhook_inbound] Messenger webhook verification successful");
+          return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+        }
+
+        console.warn("[webhook_inbound] Messenger webhook verification failed: invalid token or mode");
+        return new Response("Forbidden", { status: 403 });
+      }
+
+      // ── POST: validate X-Hub-Signature-256 ───────────────────────────────────
+      const fbBodyText = await req.text().catch(() => "");
+      const fbSignatureHeader = (req.headers.get("x-hub-signature-256") ?? "").replace(/^sha256=/, "");
+      const fbAppSecret = (Deno.env.get("FACEBOOK_APP_SECRET") ?? "").trim();
+
+      if (fbAppSecret && fbSignatureHeader) {
+        const encoder = new TextEncoder();
+        const sigKey = await crypto.subtle.importKey(
+          "raw", encoder.encode(fbAppSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+        );
+        const sigBytes = await crypto.subtle.sign("HMAC", sigKey, encoder.encode(fbBodyText));
+        const expectedSig = Array.from(new Uint8Array(sigBytes))
+          .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+        if (expectedSig !== fbSignatureHeader) {
+          console.warn("[webhook_inbound] Messenger: X-Hub-Signature-256 mismatch — rejecting");
+          return new Response("Unauthorized", { status: 401 });
+        }
+      } else if (!fbAppSecret) {
+        // FACEBOOK_APP_SECRET not set — log and continue (dev/test mode)
+        console.warn("[webhook_inbound] Messenger: FACEBOOK_APP_SECRET not set — signature validation skipped");
+      }
+
+      let fbPayload: Record<string, any>;
+      try {
+        fbPayload = JSON.parse(fbBodyText);
+      } catch {
+        return new Response("OK", { status: 200 });
+      }
+
+      if (fbPayload?.object !== "page") {
+        return new Response("OK", { status: 200 });
+      }
+
+      for (const entry of (fbPayload?.entry ?? []) as any[]) {
+        const pageId = entry?.id as string | undefined;
+
+        for (const event of (entry?.messaging ?? []) as any[]) {
+          const psid = event?.sender?.id as string | undefined;
+          if (!psid) continue;
+
+          // ── Delivery receipt (messaging_deliveries) ──────────────
+          if (event.delivery) {
+            // Watermark = all messages sent before this timestamp are delivered
+            const watermarkMs = event.delivery.watermark as number | undefined;
+            if (watermarkMs) {
+              const watermarkTs = new Date(watermarkMs).toISOString();
+              await supabase.from("delivery_attempts")
+                .update({ status: "delivered", delivered_at: watermarkTs })
+                .eq("channel", "messenger")
+                .lte("sent_at", watermarkTs)
+                .eq("status", "sent")
+                .catch(() => {});
+              console.log(`[webhook_inbound] Messenger delivery watermark: page=${pageId} watermark=${watermarkTs}`);
+            }
+            continue;
+          }
+
+          // ── Read receipt (messaging_reads) ───────────────────────
+          if (event.read) {
+            const watermarkMs = event.read.watermark as number | undefined;
+            if (watermarkMs) {
+              const watermarkTs = new Date(watermarkMs).toISOString();
+              await supabase.from("delivery_attempts")
+                .update({ status: "read", read_at: watermarkTs })
+                .eq("channel", "messenger")
+                .lte("sent_at", watermarkTs)
+                .in("status", ["sent", "delivered"])
+                .catch(() => {});
+            }
+            continue;
+          }
+
+          // ── Inbound text message (messaging.message.text) ────────
+          const msgText = event?.message?.text as string | undefined;
+          const msgId = event?.message?.mid as string | undefined;
+          if (!msgText) continue; // echoes, stickers, attachments — skip for now
+
+          // Resolve lead by messenger_psid
+          const { data: psidLead } = await supabase
+            .from("leads")
+            .select("id, org_id, messenger_psid")
+            .eq("messenger_psid", psid)
+            .limit(2);
+
+          if (!psidLead || psidLead.length === 0) {
+            // PSID not linked to any lead — check if this page belongs to a known org
+            // and try to resolve by page_id → org → create/link PSID on the fly
+            const { data: messengerChannels } = await supabase
+              .from("org_channels")
+              .select("org_id, metadata")
+              .eq("channel", "messenger")
+              .eq("is_default", true)
+              .eq("status", "active");
+
+            const matchingOrg = (messengerChannels ?? []).find(
+              (ch: any) => ch.metadata?.page_id === pageId,
+            );
+
+            if (!matchingOrg) {
+              // Try platform page ID env var
+              const platformPageId = Deno.env.get("FACEBOOK_PAGE_ID");
+              if (pageId && pageId !== platformPageId) {
+                console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=messenger psid=${psid} page=${pageId}`);
+                await supabase.from("audit_events").insert({
+                  org_id: null, actor_type: "system", actor_id: null,
+                  object_type: "inbound_message", object_id: crypto.randomUUID(),
+                  action: "inbound_route_no_lead", reason: "psid_not_linked_unknown_page",
+                  before_state: null,
+                  after_state: { psid, page_id: pageId, channel: "messenger", provider: "facebook" },
+                }).catch(() => {});
+                continue;
+              }
+            }
+
+            console.warn(`[webhook_inbound] event=inbound_route_no_lead channel=messenger psid=${psid} page=${pageId}`);
+            await supabase.from("audit_events").insert({
+              org_id: null, actor_type: "system", actor_id: null,
+              object_type: "inbound_message", object_id: crypto.randomUUID(),
+              action: "inbound_route_no_lead", reason: "psid_not_linked_to_lead",
+              before_state: null,
+              after_state: { psid, page_id: pageId, channel: "messenger", provider: "facebook" },
+            }).catch(() => {});
+            continue;
+          }
+
+          if (psidLead.length > 1) {
+            const candidateOrgIds = psidLead.map((l: any) => l.org_id);
+            console.warn(`[webhook_inbound] event=inbound_route_ambiguous channel=messenger psid=${psid} count=${psidLead.length}`);
+            await supabase.from("audit_events").insert({
+              org_id: null, actor_type: "system", actor_id: null,
+              object_type: "inbound_message", object_id: crypto.randomUUID(),
+              action: "inbound_route_ambiguous", reason: "psid_linked_to_multiple_leads",
+              before_state: null,
+              after_state: { psid, page_id: pageId, channel: "messenger", candidate_org_ids: candidateOrgIds },
+            }).catch(() => {});
+            continue;
+          }
+
+          const fbLeadId = psidLead[0].id;
+          const fbLeadOrgId = psidLead[0].org_id;
+
+          // Insert interaction
+          await supabase.from("interactions").insert({
+            lead_id: fbLeadId,
+            org_id: fbLeadOrgId,
+            type: "messenger",
+            direction: "inbound",
+            content: msgText,
+            metadata: { provider: "facebook", psid, page_id: pageId, message_id: msgId },
+          }).select();
+
+          // Log to delivery_attempts (inbound received)
+          await supabase.from("delivery_attempts").insert({
+            org_id: fbLeadOrgId,
+            lead_id: fbLeadId,
+            channel: "messenger",
+            provider: "facebook",
+            provider_message_id: msgId ?? null,
+            status: "received",
+            sent_at: new Date().toISOString(),
+            metadata: { psid, page_id: pageId, direction: "inbound" },
+          }).catch(() => {});
+
+          // Route to reply_router
+          await replyRouter({
+            supabase,
+            org_id: fbLeadOrgId,
+            lead_id: fbLeadId,
+            inbound_text: msgText,
+            channel_source: "messenger" as any,
+          });
+
+          console.log(`[webhook_inbound] Messenger inbound: lead=${fbLeadId} org=${fbLeadOrgId} psid=${psid}`);
+        }
+      }
+
       return new Response("OK", { status: 200 });
 
     } else {
