@@ -262,31 +262,15 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Creating order...'; }
 
     try {
-      // Ensure fresh token — refreshSession() is a no-op if token is still valid
-      const { data: refreshed, error: refreshErr } = await _sb.auth.refreshSession();
-      const session = refreshed?.session;
-      if (refreshErr || !session) throw new Error('Session expired — please refresh the page and try again');
+      const { data: result, error: fnErr } = await _sb.functions.invoke('create-credit-topup-order', {
+        body: { token_key: _currentTokenKey, quantity: qty },
+      });
 
-      const resp = await fetch(
-        SUPABASE_URL + '/functions/v1/create-credit-topup-order',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + session.access_token,
-            'apikey': SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ token_key: _currentTokenKey, quantity: qty }),
-        }
-      );
-
-      const result = await resp.json().catch(() => ({}));
-      if (!resp.ok || !result.intent_id) {
-        const errMsg = result.error
+      if (fnErr) throw new Error(fnErr.message || String(fnErr));
+      if (!result || !result.intent_id) {
+        const errMsg = result?.error
           ? (typeof result.error === 'string' ? result.error : result.error.message || JSON.stringify(result.error))
-          : result.message
-          ? result.message
-          : `HTTP ${resp.status}: ${JSON.stringify(result)}`;
+          : result?.message || 'Failed to create order';
         throw new Error(errMsg);
       }
 
