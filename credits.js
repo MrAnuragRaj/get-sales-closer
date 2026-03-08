@@ -262,8 +262,10 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Creating order...'; }
 
     try {
-      const { data: { session } } = await _sb.auth.getSession();
-      if (!session) throw new Error('No session');
+      // Ensure fresh token — refreshSession() is a no-op if token is still valid
+      const { data: refreshed, error: refreshErr } = await _sb.auth.refreshSession();
+      const session = refreshed?.session;
+      if (refreshErr || !session) throw new Error('Session expired — please refresh the page and try again');
 
       const resp = await fetch(
         SUPABASE_URL + '/functions/v1/create-credit-topup-order',
