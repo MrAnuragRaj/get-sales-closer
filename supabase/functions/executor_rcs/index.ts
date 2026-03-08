@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -162,7 +162,7 @@ async function writeRcsFallbackAuditEvent(supabase: any, args: {
   orgId: string; taskId: string;
   orgAgentId: string | null; usedAgentId: string; fallbackPolicy: string;
 }) {
-  await supabase.from("audit_events").insert({
+  const { error: auditErr } = await supabase.from("audit_events").insert({
     org_id: args.orgId,
     actor_type: "system",
     actor_id: null,
@@ -172,7 +172,8 @@ async function writeRcsFallbackAuditEvent(supabase: any, args: {
     reason: args.fallbackPolicy,
     before_state: { org_agent_id: args.orgAgentId, channel: "rcs" },
     after_state: { used_agent_id: args.usedAgentId, fallback_policy: args.fallbackPolicy, shared: true },
-  }).catch((e: any) => console.error("[executor_rcs] audit_event insert failed:", e));
+  });
+  if (auditErr) console.error("[executor_rcs] audit_event insert failed:", auditErr);
 }
 
 serve(async (req) => {
@@ -184,7 +185,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  const supabase = getServiceSupabaseClient();
 
   // 0) Fetch task + lead
   const { data: task, error } = await supabase
@@ -426,7 +427,7 @@ serve(async (req) => {
       p_org_id: task.org_id, p_token_key: "rcs_msg", p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:missing_sa_json`,
       p_note: "RBM send config missing — refund",
-    }).catch(() => {});
+    });
     await supabase.from("execution_tasks").update({
       status: "failed",
       last_error: "GOOGLE_RBM_SERVICE_ACCOUNT_JSON not configured",
@@ -450,7 +451,7 @@ serve(async (req) => {
       p_org_id: task.org_id, p_token_key: "rcs_msg", p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:auth_failed`,
       p_note: "RBM OAuth2 auth failed — refund",
-    }).catch(() => {});
+    });
     await supabase.from("execution_tasks").update({
       status: "failed",
       last_error: `RBM_AUTH_FAILED: ${String(authErr)}`,
@@ -488,7 +489,7 @@ serve(async (req) => {
       p_org_id: task.org_id, p_token_key: "rcs_msg", p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:network`,
       p_note: "RBM network error — refund",
-    }).catch(() => {});
+    });
 
     const attempt = task.attempt ?? 1;
     const maxAttempts = task.max_attempts ?? 3;
@@ -533,7 +534,7 @@ serve(async (req) => {
           p_org_id: task.org_id, p_token_key: "rcs_msg", p_quantity: 1,
           p_idempotency_key: `refund:${task_id}:rcs_not_capable`,
           p_note: "RBM device not capable — refunding rcs_msg; falling back to SMS",
-        }).catch(() => {});
+        });
 
         await supabase.from("execution_tasks").update({
           channel: "sms",
@@ -566,7 +567,7 @@ serve(async (req) => {
       p_org_id: task.org_id, p_token_key: "rcs_msg", p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:rbm_error`,
       p_note: "RBM API error — refund",
-    }).catch(() => {});
+    });
 
     const attempt = task.attempt ?? 1;
     const maxAttempts = task.max_attempts ?? 3;

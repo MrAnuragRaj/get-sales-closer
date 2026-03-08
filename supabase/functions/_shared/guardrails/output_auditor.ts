@@ -56,15 +56,14 @@ function unique<T>(arr: T[]): T[] {
  */
 function hasHardClaims(sentence: string): boolean {
   const s = sentence || "";
-  const hasNumberLike =
-    /\b\d{1,}\b/.test(s) ||                // any number
-    /\$\s?\d+/.test(s) ||                  // $100
-    /\b\d+%\b/.test(s) ||                  // 20%
-    /\b\d{1,2}:\d{2}\b/.test(s) ||         // 10:30
-    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(s) || // month words
-    /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(s); // 12/31/2026
-
-  return hasNumberLike;
+  // Only flag claims that could be verifiably wrong: money, %, specific calendar dates.
+  // Generic durations ("30 minutes", "24 hours") are NOT hard claims.
+  return (
+    /\$\s?\d+/.test(s) ||                                          // $100, $5,000
+    /\b\d+\s*%/.test(s) ||                                        // 20%, 15 %
+    /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(s) ||          // 12/31/2026
+    /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s+\d{1,2}[,\s]+\d{4}\b/i.test(s) // March 15, 2026
+  );
 }
 
 /**

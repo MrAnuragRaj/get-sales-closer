@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -129,7 +129,7 @@ async function writeMessengerFallbackAuditEvent(supabase: any, args: {
   orgId: string; taskId: string;
   orgPageId: string | null; usedPageId: string | null; fallbackPolicy: string;
 }) {
-  await supabase.from("audit_events").insert({
+  const { error: auditErr } = await supabase.from("audit_events").insert({
     org_id: args.orgId,
     actor_type: "system",
     actor_id: null,
@@ -139,7 +139,8 @@ async function writeMessengerFallbackAuditEvent(supabase: any, args: {
     reason: args.fallbackPolicy,
     before_state: { org_page_id: args.orgPageId, channel: "messenger" },
     after_state: { used_page_id: args.usedPageId, fallback_policy: args.fallbackPolicy, shared: true },
-  }).catch((e: any) => console.error("[executor_messenger] audit_event insert failed:", e));
+  });
+  if (auditErr) console.error("[executor_messenger] audit_event insert failed:", auditErr);
 }
 
 serve(async (req) => {
@@ -151,7 +152,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  const supabase = getServiceSupabaseClient();
 
   // 0) Fetch task + lead (need messenger_psid for outbound)
   const { data: task, error } = await supabase
@@ -443,7 +444,7 @@ serve(async (req) => {
       p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:network`,
       p_note: "Messenger network error — refund",
-    }).catch(() => {});
+    });
 
     const attempt = task.attempt ?? 1;
     const maxAttempts = task.max_attempts ?? 3;
@@ -490,7 +491,7 @@ serve(async (req) => {
       p_quantity: 1,
       p_idempotency_key: `refund:${task_id}:graph_error`,
       p_note: `Messenger Graph API error ${errorCode} — refund`,
-    }).catch(() => {});
+    });
 
     // For 24h window expiry: check routing policy for SMS fallback
     const is24hExpiry = errorCode === "200" && String(fbError?.error_subcode) === "2018109";
@@ -515,7 +516,7 @@ serve(async (req) => {
           reason: "messenger_24h_window_expired",
           before_state: { channel: "messenger", psid, page_id: PAGE_ID },
           after_state: { fallback_channel: "sms", fallback_policy: "allow_shared" },
-        }).catch(() => {});
+        });
 
         await supabase.from("execution_tasks").update({
           channel: "sms",

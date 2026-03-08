@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { getVoiceContext } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -78,7 +78,7 @@ async function writeVoiceFallbackAuditEvent(supabase: any, args: {
   orgId: string; taskId: string;
   orgSender: string | null; usedSender: string; fallbackPolicy: string;
 }) {
-  await supabase.from("audit_events").insert({
+  const { error: auditErr } = await supabase.from("audit_events").insert({
     org_id: args.orgId,
     actor_type: "system",
     actor_id: null,
@@ -88,7 +88,8 @@ async function writeVoiceFallbackAuditEvent(supabase: any, args: {
     reason: args.fallbackPolicy,
     before_state: { org_sender: args.orgSender, channel: "voice" },
     after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
-  }).catch((e: any) => console.error("[executor_voice] audit_event insert failed:", e));
+  });
+  if (auditErr) console.error("[executor_voice] audit_event insert failed:", auditErr);
 }
 
 async function isBillingLocked(
@@ -136,7 +137,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  const supabase = getServiceSupabaseClient();
 
   // 0) Fetch task + lead
   const { data: task, error } = await supabase
@@ -378,7 +379,7 @@ serve(async (req) => {
     });
 
     if (voiceDeliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "CONFIG_MISSING", error_message: "Missing VAPI_PRIVATE_KEY, assistantId, or PHONE_NUMBER_ID" }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "CONFIG_MISSING", error_message: "Missing VAPI_PRIVATE_KEY, assistantId, or PHONE_NUMBER_ID" }).eq("id", voiceDeliveryAttemptId);
     }
 
     await failTask(supabase, task_id, {
@@ -433,7 +434,7 @@ serve(async (req) => {
       p_metadata: { phase: "init_refund", channel: "voice", reason: "network_error", task_id },
     });
     if (voiceDeliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", voiceDeliveryAttemptId);
     }
     await failTask(supabase, task_id, {
       last_error: `VAPI_NETWORK_ERROR: ${String(networkErr)}`,
@@ -468,7 +469,7 @@ serve(async (req) => {
     });
 
     if (voiceDeliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: `VAPI_${response.status}`, error_message: errorText.slice(0, 500) }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: `VAPI_${response.status}`, error_message: errorText.slice(0, 500) }).eq("id", voiceDeliveryAttemptId);
     }
 
     await failTask(supabase, task_id, {
@@ -488,7 +489,7 @@ serve(async (req) => {
       status: "sent",
       provider_message_id: callId,
       sent_at: new Date().toISOString(),
-    }).eq("id", voiceDeliveryAttemptId).catch(() => {});
+    }).eq("id", voiceDeliveryAttemptId);
   }
 
   if (!callId) {

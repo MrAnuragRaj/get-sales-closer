@@ -1,7 +1,7 @@
 // supabase/functions/execution-dispatcher/index.ts
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
-import { enforceOrgCancellationForDispatcher } from "../_shared/security.ts";
+import { enforceOrgCancellationForDispatcher, enforcePlatformKillSwitchForDispatcher } from "../_shared/security.ts";
 
 const DEFAULT_LIMIT = 25;
 const DEFAULT_LEASE_SECONDS = 90;
@@ -300,6 +300,42 @@ async function applyPolicyToTask(args: {
     .select("id,status,channel,attempt,scheduled_for")
     .maybeSingle();
 
+  // DLQ: when task is dead-lettered, snapshot the original task and write audit.
+  // The original execution_tasks row is PRESERVED (status='dead_lettered') — full forensic record.
+  // The snapshot in execution_dead_letters is the operational view for admin review/retry/cancel.
+  if (nextStatus === "dead_lettered" && !updErr && updData) {
+    const { error: dlqErr } = await supabase.from("execution_dead_letters").insert({
+      task_id: taskId,
+      org_id: task.org_id ?? null,
+      lead_id: task.lead_id ?? null,
+      plan_id: task.plan_id ?? null,
+      channel: task.channel ?? null,
+      attempt: nextAttempt,
+      max_attempts: task.max_attempts ?? null,
+      last_error: lastError ? lastError.slice(0, 2000) : null,
+      metadata: mergedMeta ?? null,
+      actor_user_id: task.actor_user_id ?? null,
+      provider: task.provider ?? null,
+      provider_id: task.provider_id ?? null,
+      dead_lettered_reason: policy?.reason ?? "MAX_ATTEMPTS_EXCEEDED",
+      worker_id: workerId,
+    });
+    if (dlqErr) console.error(`[dispatcher] CRITICAL: DLQ snapshot failed for task_id=${taskId}: ${dlqErr.message}`);
+
+    const { error: dlqAuditErr } = await supabase.from("audit_events").insert({
+      org_id: task.org_id ?? null,
+      actor_type: "system",
+      actor_id: null,
+      object_type: "execution_task",
+      object_id: taskId,
+      action: "execution_dead_lettered",
+      reason: policy?.reason ?? "MAX_ATTEMPTS_EXCEEDED",
+      before_state: { status: "running", attempt: task.attempt, channel: task.channel },
+      after_state: { status: "dead_lettered", last_error: lastError || null },
+    });
+    if (dlqAuditErr) console.error(`[dispatcher] audit_events DLQ insert failed for task_id=${taskId}: ${dlqAuditErr.message}`);
+  }
+
   return {
     ok: !updErr,
     applied: nextStatus,
@@ -400,6 +436,18 @@ serve(async (req) => {
         executor_status: "failed",
         policy_applied: "failed_permanent",
         error: updErr?.message ?? null,
+      });
+      continue;
+    }
+
+    // ── Platform kill switch (Layer 0: before everything) ────────────────────
+    const platformCheck = await enforcePlatformKillSwitchForDispatcher(supabase, taskId, channel);
+    if (platformCheck.action !== "allow") {
+      results.push({
+        task_id: taskId,
+        channel,
+        executor_status: "blocked",
+        reason: platformCheck.reason,
       });
       continue;
     }

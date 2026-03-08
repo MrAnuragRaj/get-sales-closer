@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
-import { enforceKillSwitchForCampaign, enforceOrgCancellationForCampaign } from "../_shared/security.ts";
+import { enforceKillSwitchForCampaign, enforceOrgCancellationForCampaign, enforcePlatformKillSwitchForCampaign } from "../_shared/security.ts";
 
 serve(async (req) => {
   const supabase = getSupabaseClient(req);
@@ -23,8 +23,18 @@ serve(async (req) => {
   let totalScheduled = 0;
   let campaignsBlockedByKillSwitch = 0;
   let campaignsPausedByKillSwitchCheckFailure = 0;
+  let campaignsBlockedByPlatformFlag = 0;
 
   for (const camp of campaigns) {
+    // 2.00) Platform kill switch — global or channel-specific (checked before everything)
+    const platformGate = await enforcePlatformKillSwitchForCampaign(supabase, camp.channel);
+    if (!platformGate.allow) {
+      await supabase.from("campaigns").update({ status: "paused" }).eq("id", camp.id);
+      campaignsBlockedByPlatformFlag += 1;
+      console.log(`🚫 [campaign_ticker] ${platformGate.reason}. Pausing campaign ${camp.id} (org ${camp.org_id}).`);
+      continue;
+    }
+
     // 2.0) Cancellation gate — checked before kill-switch (org terminated = no execution ever)
     const cancGate = await enforceOrgCancellationForCampaign(supabase, camp.org_id);
     if (!cancGate.allow) {
@@ -174,6 +184,7 @@ serve(async (req) => {
 
   return new Response(JSON.stringify({
     scheduled: totalScheduled,
+    campaigns_blocked_by_platform_flag: campaignsBlockedByPlatformFlag,
     campaigns_blocked_by_killswitch: campaignsBlockedByKillSwitch,
     campaigns_paused_by_killswitch_check_failure: campaignsPausedByKillSwitchCheckFailure,
   }), { status: 200 });

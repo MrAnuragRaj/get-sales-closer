@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -31,7 +31,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  const supabase = getServiceSupabaseClient();
 
   // 0) Fetch task + lead
   const { data: task, error } = await supabase
@@ -197,7 +197,8 @@ serve(async (req) => {
     subjectFromBrain ??
     "Quick question";
 
-  const bodyText = brainResult.content;
+  // Strip any AI-generated "Subject: ..." line the model may have prepended to the body
+  const bodyText = brainResult.content.replace(/^Subject:[^\n]*\n*/i, "").trim();
 
   const bodyHtml = `
     <div style="font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.45;">
@@ -255,7 +256,8 @@ serve(async (req) => {
 
   // Send via Resend
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  const FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "support@getsalescloser.com";
+  // Executor email always uses support@ per project convention (not billing@)
+  const FROM_EMAIL = "support@getsalescloser.com";
 
   if (!RESEND_API_KEY) {
     await supabase
@@ -314,7 +316,7 @@ serve(async (req) => {
     });
   } catch (networkErr) {
     if (deliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId);
     }
     await supabase
       .from("execution_tasks")
@@ -332,7 +334,7 @@ serve(async (req) => {
   if (!res.ok) {
     const errorText = await res.text();
     if (deliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "RESEND_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "RESEND_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId);
     }
     await supabase
       .from("execution_tasks")
@@ -357,7 +359,7 @@ serve(async (req) => {
       status: "sent",
       provider_message_id: providerId,
       sent_at: new Date().toISOString(),
-    }).eq("id", deliveryAttemptId).catch(() => {});
+    }).eq("id", deliveryAttemptId);
   }
 
   // Log interaction

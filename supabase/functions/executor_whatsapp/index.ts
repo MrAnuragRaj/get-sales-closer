@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -76,7 +76,7 @@ async function writeWaFallbackAuditEvent(supabase: any, args: {
   orgId: string; taskId: string;
   orgSender: string | null; usedSender: string; fallbackPolicy: string;
 }) {
-  await supabase.from("audit_events").insert({
+  const { error: auditErr } = await supabase.from("audit_events").insert({
     org_id: args.orgId,
     actor_type: "system",
     actor_id: null,
@@ -86,7 +86,8 @@ async function writeWaFallbackAuditEvent(supabase: any, args: {
     reason: args.fallbackPolicy,
     before_state: { org_sender: args.orgSender, channel: "whatsapp" },
     after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
-  }).catch((e: any) => console.error("[executor_whatsapp] audit_event insert failed:", e));
+  });
+  if (auditErr) console.error("[executor_whatsapp] audit_event insert failed:", auditErr);
 }
 
 serve(async (req) => {
@@ -98,7 +99,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  const supabase = getServiceSupabaseClient();
 
   // 0) Fetch task + lead
   const { data: task, error } = await supabase
@@ -383,7 +384,7 @@ serve(async (req) => {
       p_amount: 1,
       p_idempotency_key: `refund:${task_id}`,
       p_reason: "executor_whatsapp_network_error",
-    }).catch(() => {});
+    });
 
     await supabase.from("execution_tasks").update({
       status: "failed",
@@ -418,7 +419,7 @@ serve(async (req) => {
       p_amount: 1,
       p_idempotency_key: `refund:${task_id}`,
       p_reason: "executor_whatsapp_provider_error",
-    }).catch(() => {});
+    });
 
     await supabase.from("execution_tasks").update({
       status: "failed",

@@ -165,6 +165,55 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 const MAX_PAYLOAD_BYTES = 131072; // 128 KB
 
+// ── Provider Webhook Event Store helpers ────────────────────────────────────
+// Persist raw event before processing; returns id + already_processed flag.
+// On duplicate (23505): look up existing row and return its processed state.
+// Fail-open: if insert fails for any other reason, returns null (processing continues).
+async function persistWebhookEvent(
+  supabase: any,
+  provider: string,
+  provider_event_id: string,
+  event_type: string,
+  raw_payload: any,
+): Promise<{ id: string; already_processed: boolean } | null> {
+  const { data, error } = await supabase
+    .from("provider_webhook_events")
+    .insert({ provider, provider_event_id, event_type, raw_payload })
+    .select("id, processed")
+    .single();
+  if (error) {
+    if (error.code === "23505") {
+      // Duplicate event — return existing row's processed state for idempotency gate
+      const { data: existing } = await supabase
+        .from("provider_webhook_events")
+        .select("id, processed")
+        .eq("provider", provider)
+        .eq("provider_event_id", provider_event_id)
+        .maybeSingle();
+      return existing ? { id: existing.id, already_processed: existing.processed } : null;
+    }
+    console.error(`[webhook_inbound] persistWebhookEvent failed: provider=${provider} event_id=${provider_event_id} err=${error.message}`);
+    return null;
+  }
+  return { id: data.id, already_processed: false };
+}
+
+async function markWebhookProcessed(supabase: any, eventId: string): Promise<void> {
+  const { error } = await supabase
+    .from("provider_webhook_events")
+    .update({ processed: true, processed_at: new Date().toISOString() })
+    .eq("id", eventId);
+  if (error) console.error(`[webhook_inbound] markWebhookProcessed failed: ${error.message}`);
+}
+
+async function markWebhookFailed(supabase: any, eventId: string, errMsg: string): Promise<void> {
+  const { error } = await supabase
+    .from("provider_webhook_events")
+    .update({ processing_error: errMsg.slice(0, 2000) })
+    .eq("id", eventId);
+  if (error) console.error(`[webhook_inbound] markWebhookFailed failed: ${error.message}`);
+}
+
 serve(async (req) => {
   const supabase = getServiceSupabaseClient();
   const url = new URL(req.url);
@@ -179,13 +228,25 @@ serve(async (req) => {
   }
 
   try {
-    if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-
     const source = url.searchParams.get("source");
     const isTwilio = source === "twilio";
     const isVapi = source === "vapi";
     const isRbm = source === "google_rbm";
     const isMessenger = source === "facebook_messenger";
+
+    // Facebook Messenger webhook verification: GET hub.challenge before POST check
+    if (req.method === "GET" && isMessenger) {
+      const mode = url.searchParams.get("hub.mode");
+      const token = url.searchParams.get("hub.verify_token");
+      const challenge = url.searchParams.get("hub.challenge");
+      const expectedToken = (Deno.env.get("FACEBOOK_VERIFY_TOKEN") ?? "").trim();
+      if (mode === "subscribe" && token === expectedToken && challenge) {
+        return new Response(challenge, { status: 200 });
+      }
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
     // Vapi requires shared secret token (deploy webhook with --no-verify-jwt)
     if (isVapi) {
@@ -206,6 +267,7 @@ serve(async (req) => {
     let hintedActor: string | null = null;
 
     let providerNumberId: string | null = null;
+    let messageSid: string | null = null; // hoisted for SMS/WA bottom section + event store
 
     // -----------------------------
     // TWILIO (SMS)
@@ -224,6 +286,8 @@ serve(async (req) => {
 
       const params: Record<string, string> = {};
       formData.forEach((value, key) => (params[key] = value.toString()));
+      messageSid = params.MessageSid ?? params.SmsSid ?? null;
+
 
       // Twilio expects the *exact* request URL (no body) used to compute signature.
       // In Supabase Edge, req.url may be internal http; use a proxy-aware public URL.
@@ -287,6 +351,11 @@ serve(async (req) => {
         const sid = params.MessageSid ?? params.SmsSid ?? null;
         const status = params.MessageStatus; // sent|delivered|read|failed|undelivered
 
+        // Log event (best-effort — status callbacks are idempotent so no processing gate)
+        if (sid) {
+          await persistWebhookEvent(supabase, "twilio", `${sid}:status:${status}`, "whatsapp_status", { sid, status, error_code: params.ErrorCode ?? null }).catch(() => {});
+        }
+
         if (sid) {
           const deliveryStatus = status === "delivered"
             ? "delivered"
@@ -304,11 +373,11 @@ serve(async (req) => {
             patch.error_message = params.ErrorCode ?? null;
           }
 
-          await supabase
+          const { error: daStatusErr } = await supabase
             .from("delivery_attempts")
             .update(patch)
-            .eq("provider_message_id", sid)
-            .catch(() => {});
+            .eq("provider_message_id", sid);
+          if (daStatusErr) console.error(`[webhook_inbound] delivery_attempts status update failed: ${daStatusErr.message}`);
         }
 
         return new Response("OK", { status: 200 });
@@ -375,6 +444,15 @@ serve(async (req) => {
           return new Response("OK", { status: 200 });
         }
 
+        // Persist event before processing; gate on already_processed to prevent double token settlement
+        let pweEocId: string | null = null;
+        const pweEoc = await persistWebhookEvent(supabase, "vapi", `${callId}:end_of_call`, "vapi_end_of_call", { call_id: callId });
+        if (pweEoc?.already_processed) {
+          console.warn(`[webhook_inbound] vapi_end_of_call duplicate ignored: callId=${callId}`);
+          return new Response("OK", { status: 200 });
+        }
+        pweEocId = pweEoc?.id ?? null;
+
         const durationSecondsRaw = pick<any>(
           json,
           ["message.call.durationSeconds", "message.call.duration", "call.durationSeconds", "call.duration"],
@@ -409,6 +487,7 @@ serve(async (req) => {
 
         if (settleErr) {
           console.error("voice_settlement_rpc_failed", { call_id: callId, error: settleErr.message });
+          if (pweEocId) await markWebhookFailed(supabase, pweEocId, `settle_voice_call_tokens_v2 failed: ${settleErr.message}`);
           return new Response("OK", { status: 200 }); // ack to prevent retry storm
         }
 
@@ -444,13 +523,25 @@ serve(async (req) => {
             .catch(() => {});
         }
 
+        if (pweEocId) await markWebhookProcessed(supabase, pweEocId);
         return new Response("OK", { status: 200 });
       }
 
       // B) Final transcript event
+      let pweTranscriptId: string | null = null;
       if (vapiEventType === "transcript" && pick<string>(json, ["message.transcriptType"], "") === "final") {
         inboundText = pick<string>(json, ["message.transcript"], "");
         rawFromPhone = pick<string>(json, ["message.customer.number"], "");
+
+        // Persist transcript event; use callId:transcript suffix to distinguish from end-of-call
+        const transcriptCallId = pick<string | null>(json, ["message.call.id", "call.id", "message.callId"], null);
+        const pweTranscriptEventId = `${transcriptCallId ?? hintedTaskId ?? crypto.randomUUID()}:transcript`;
+        const pweTr = await persistWebhookEvent(supabase, "vapi", pweTranscriptEventId, "vapi_transcript", { call_id: transcriptCallId, task_id: hintedTaskId });
+        if (pweTr?.already_processed) {
+          console.warn(`[webhook_inbound] vapi_transcript duplicate ignored: callId=${transcriptCallId}`);
+          return new Response("OK", { status: 200 });
+        }
+        pweTranscriptId = pweTr?.id ?? null;
       } else {
         return new Response("Ignored Event", { status: 200 });
       }
@@ -554,6 +645,7 @@ serve(async (req) => {
         }
       }
 
+      if (pweTranscriptId) await markWebhookProcessed(supabase, pweTranscriptId);
       return new Response("OK", { status: 200 });
     } else if (isRbm) {
       // ─────────────────────────────────────────────────────────────
@@ -594,6 +686,8 @@ serve(async (req) => {
         const eventType: string = agentEvent.eventType ?? "";
         // RBM eventTypes: DELIVERED, READ
         if (rbmMessageId && (eventType === "DELIVERED" || eventType === "READ")) {
+          // Log event best-effort — delivery receipts are idempotent (updates same row)
+          await persistWebhookEvent(supabase, "google_rbm", `${rbmMessageId}:receipt:${eventType}`, "rbm_delivery_receipt", { request_id: rbmMessageId, event_type: eventType }).catch(() => {});
           const patch: Record<string, any> = {
             status: eventType === "READ" ? "read" : "delivered",
           };
@@ -617,6 +711,17 @@ serve(async (req) => {
       const rbmFromPhone = (userEvent.phoneNumber ?? "") as string;
       const rbmText = (userEvent.text ?? userEvent.suggestionResponse?.text ?? "") as string;
       const rbmMessageId = (userEvent.messageId ?? null) as string | null;
+
+      // Persist inbound event; gate on already_processed to prevent duplicate routing
+      let pweRbmId: string | null = null;
+      if (rbmMessageId) {
+        const pweRbm = await persistWebhookEvent(supabase, "google_rbm", rbmMessageId, "rbm_inbound", { from_phone: rbmFromPhone, text: rbmText.slice(0, 500) });
+        if (pweRbm?.already_processed) {
+          console.warn(`[webhook_inbound] rbm_inbound duplicate ignored: messageId=${rbmMessageId}`);
+          return new Response("OK", { status: 200 });
+        }
+        pweRbmId = pweRbm?.id ?? null;
+      }
 
       if (!rbmFromPhone || !rbmText) return new Response("OK", { status: 200 });
 
@@ -686,6 +791,7 @@ serve(async (req) => {
       });
 
       console.log(`[webhook_inbound] RBM inbound: lead=${rbmLeadId} org=${rbmLeadOrgId} phone=${rbmFromE164}`);
+      if (pweRbmId) await markWebhookProcessed(supabase, pweRbmId);
       return new Response("OK", { status: 200 });
 
     } else if (isMessenger) {
@@ -791,6 +897,17 @@ serve(async (req) => {
           const msgText = event?.message?.text as string | undefined;
           const msgId = event?.message?.mid as string | undefined;
           if (!msgText) continue; // echoes, stickers, attachments — skip for now
+
+          // Persist per-message event; gate on already_processed to prevent duplicate routing
+          let pweMsgId: string | null = null;
+          if (msgId) {
+            const pweMsg = await persistWebhookEvent(supabase, "facebook", msgId, "messenger_inbound", { psid, page_id: pageId, text: msgText.slice(0, 500) });
+            if (pweMsg?.already_processed) {
+              console.warn(`[webhook_inbound] messenger_inbound duplicate ignored: msgId=${msgId}`);
+              continue;
+            }
+            pweMsgId = pweMsg?.id ?? null;
+          }
 
           // Resolve lead by messenger_psid
           const { data: psidLead } = await supabase
@@ -938,6 +1055,7 @@ serve(async (req) => {
           });
 
           console.log(`[webhook_inbound] Messenger inbound: lead=${fbLeadId} org=${fbLeadOrgId} psid=${psid}`);
+          if (pweMsgId) await markWebhookProcessed(supabase, pweMsgId);
         }
       }
 
@@ -951,6 +1069,18 @@ serve(async (req) => {
     // SMS / WHATSAPP INBOUND PATH
     // -----------------------------
     if (!inboundText || !rawFromPhone) return new Response("No content", { status: 200 });
+
+    // Persist inbound event; gate on already_processed to prevent duplicate AI routing
+    const smsEventType = channel === "whatsapp" ? "whatsapp_inbound" : "sms_inbound";
+    let pweSmsId: string | null = null;
+    if (messageSid) {
+      const pweSms = await persistWebhookEvent(supabase, "twilio", messageSid, smsEventType, { from: rawFromPhone, to: rawToPhone, channel });
+      if (pweSms?.already_processed) {
+        console.warn(`[webhook_inbound] ${smsEventType} duplicate ignored: sid=${messageSid}`);
+        return new Response("OK", { status: 200 });
+      }
+      pweSmsId = pweSms?.id ?? null;
+    }
 
     const toE164 = rawToPhone ? normalizeE164Loose(rawToPhone, "US") : null;
     const resolved = await resolveInboundOrg(supabase, {
@@ -1063,8 +1193,8 @@ serve(async (req) => {
 
     // WhatsApp inbound: log to delivery_attempts as received
     if (channel === "whatsapp") {
-      // MessageSid comes in the Twilio form body (params), not URL query string
-      const msgSid = params.MessageSid ?? params.SmsSid ?? null;
+      // messageSid was hoisted from the Twilio branch (params.MessageSid ?? params.SmsSid)
+      const msgSid = messageSid;
       await supabase.from("delivery_attempts").insert({
         org_id: leadOrgId,
         lead_id: leadId,
@@ -1148,6 +1278,7 @@ serve(async (req) => {
       }, { onConflict: "from_identifier,to_identifier,channel" }).catch(() => {});
     }
 
+    if (pweSmsId) await markWebhookProcessed(supabase, pweSmsId);
     return new Response("OK", { status: 200 });
   } catch (error) {
     console.error("webhook_inbound_error", error);

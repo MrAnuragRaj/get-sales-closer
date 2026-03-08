@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { getSupabaseClient } from "../_shared/db.ts";
+import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
@@ -77,7 +77,7 @@ async function writeFallbackAuditEvent(supabase: any, args: {
   orgId: string; taskId: string; channel: string;
   orgSender: string | null; usedSender: string; fallbackPolicy: string;
 }) {
-  await supabase.from("audit_events").insert({
+  const { error: auditErr } = await supabase.from("audit_events").insert({
     org_id: args.orgId,
     actor_type: "system",
     actor_id: null,
@@ -87,7 +87,8 @@ async function writeFallbackAuditEvent(supabase: any, args: {
     reason: args.fallbackPolicy,
     before_state: { org_sender: args.orgSender, channel: args.channel },
     after_state: { used_sender: args.usedSender, fallback_policy: args.fallbackPolicy, shared: true },
-  }).catch((e: any) => console.error("[executor_sms] audit_event insert failed:", e));
+  });
+  if (auditErr) console.error("[executor_sms] audit_event insert failed:", auditErr.message);
 }
 
 serve(async (req) => {
@@ -99,7 +100,28 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "task_id required" }), { status: 400 });
   }
 
-  const supabase = getSupabaseClient(req);
+  // Top-level safety net: capture any unhandled throw, write to last_error, return 500
+  // so we NEVER get a silent "Internal Server Error" with last_error=null.
+  let supabase: any;
+  try {
+    supabase = getServiceSupabaseClient();
+    return await runExecutor(supabase, task_id, worker_id);
+  } catch (topErr) {
+    const errMsg = `UNHANDLED_EXECUTOR_CRASH: ${String(topErr)}`;
+    console.error(`[executor_sms] ${errMsg}`);
+    if (supabase) {
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: errMsg.slice(0, 2000),
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id);
+    }
+    return new Response(errMsg, { status: 500 });
+  }
+});
+
+async function runExecutor(supabase: any, task_id: string, worker_id: string | undefined): Promise<Response> {
 
   // 0) Fetch task + lead
   const { data: task, error } = await supabase
@@ -110,6 +132,17 @@ serve(async (req) => {
 
   if (error || !task) {
     return new Response(JSON.stringify({ error: "Task not found" }), { status: 404 });
+  }
+
+  // 0.5) Lead phone required — fail early to prevent unhandled crash at Twilio step
+  if (!task.leads?.phone) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "MISSING_LEAD_PHONE: leads join returned null or phone is empty",
+      locked_by: null,
+      locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Missing lead phone number", { status: 400 });
   }
 
   // 1) Accept only pending/running
@@ -262,6 +295,7 @@ serve(async (req) => {
 
   // 6.5) Log delivery attempt (pre-send) — idempotency guard via UNIQUE(task_id, attempt_number)
   const attemptNumber = task.attempt ?? 1;
+
   const { data: deliveryAttempt, error: daInsertErr } = await supabase
     .from("delivery_attempts")
     .insert({
@@ -286,17 +320,42 @@ serve(async (req) => {
   const deliveryAttemptId = deliveryAttempt?.id;
 
   // 7) Twilio send
-  const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-  const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-  const authHeader = `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`;
-  const params = new URLSearchParams();
-  params.append("To", task.leads.phone);
-  params.append("From", TWILIO_FROM);
-  params.append("Body", messageBody);
+  const toPhone = task.leads?.phone ?? null;
+  if (!toPhone) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "MISSING_LEAD_PHONE_AT_SEND",
+      locked_by: null,
+      locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Missing lead phone at send step", { status: 400 });
+  }
 
-  let twilioResp: Response;
+  const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
+  const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
+
+  if (!TWILIO_SID || !TWILIO_TOKEN) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "TWILIO_CREDENTIALS_MISSING",
+      locked_by: null,
+      locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Twilio credentials missing", { status: 500 });
+  }
+
+  const authHeader = `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`;
+  const twilioParams = new URLSearchParams();
+  twilioParams.append("To", toPhone);
+  twilioParams.append("From", TWILIO_FROM);
+  twilioParams.append("Body", messageBody);
+
+  console.log(`[executor_sms] Calling Twilio: to=${toPhone} from=${TWILIO_FROM} task=${task_id}`);
+
+  let twilioRespStatus = 0;
+  let twilioJson: any;
   try {
-    twilioResp = await fetch(
+    const twilioResp = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
       {
         method: "POST",
@@ -304,12 +363,41 @@ serve(async (req) => {
           "Authorization": authHeader,
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: params,
+        body: twilioParams,
       }
     );
+    twilioRespStatus = twilioResp.status;
+    const rawBody = await twilioResp.text();
+    console.log(`[executor_sms] Twilio response: status=${twilioRespStatus} body=${rawBody.slice(0, 300)}`);
+
+    if (!twilioResp.ok) {
+      if (deliveryAttemptId) {
+        await supabase.from("delivery_attempts").update({ status: "failed", error_code: "TWILIO_FAILED", error_message: rawBody.slice(0, 500) }).eq("id", deliveryAttemptId);
+      }
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: `TWILIO_FAILED(${twilioRespStatus}): ${rawBody.slice(0, 800)}`,
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id);
+      return new Response("Twilio failed", { status: 500 });
+    }
+
+    try {
+      twilioJson = JSON.parse(rawBody);
+    } catch (parseErr) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "JSON_PARSE_ERROR", error_message: rawBody.slice(0, 500) }).eq("id", deliveryAttemptId ?? "");
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: `TWILIO_JSON_PARSE_ERROR(${twilioRespStatus}): ${rawBody.slice(0, 500)}`,
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id);
+      return new Response("Twilio response parse failed", { status: 500 });
+    }
   } catch (networkErr) {
     if (deliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId).catch(() => {});
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId);
     }
     await supabase.from("execution_tasks").update({
       status: "failed",
@@ -320,30 +408,13 @@ serve(async (req) => {
     return new Response("Network error reaching Twilio", { status: 500 });
   }
 
-  if (!twilioResp.ok) {
-    const errorText = await twilioResp.text();
-    if (deliveryAttemptId) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "TWILIO_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId).catch(() => {});
-    }
-    await supabase.from("execution_tasks").update({
-      status: "failed",
-      last_error: `TWILIO_FAILED: ${errorText}`,
-      locked_by: null,
-      locked_until: null,
-    }).eq("id", task_id);
-
-    return new Response("Twilio failed", { status: 500 });
-  }
-
-  const twilioJson = await twilioResp.json();
-
   // Update delivery_attempt to "sent"
   if (deliveryAttemptId) {
     await supabase.from("delivery_attempts").update({
       status: "sent",
       provider_message_id: twilioJson.sid,
       sent_at: new Date().toISOString(),
-    }).eq("id", deliveryAttemptId).catch(() => {});
+    }).eq("id", deliveryAttemptId);
   }
 
   // 8) Finalize
@@ -357,4 +428,4 @@ serve(async (req) => {
   }).eq("id", task_id);
 
   return new Response(JSON.stringify({ success: true, sid: twilioJson.sid }), { status: 200 });
-});
+}

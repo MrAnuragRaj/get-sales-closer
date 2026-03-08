@@ -521,6 +521,16 @@
                     <div id="dash-delivery-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
+                <!-- Channel Health -->
+                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <i class="fa fa-heart-pulse text-emerald-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Channel Health</h2>
+                        <span class="text-xs text-slate-500 ml-auto">1-hour window · updated every 5 min</span>
+                    </div>
+                    <div id="dash-channel-health-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+                </div>
+
                 <!-- Channel Infrastructure -->
                 <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-5">
@@ -706,6 +716,7 @@
                     loadGrowthIntelligence();
                     loadDashWaSettings(currentOrgId, sbClient);
                     loadDashDeliveryStatus(currentOrgId, sbClient);
+                    loadChannelHealth(currentOrgId, sbClient);
                     loadDashInfraStatus(currentOrgId, sbClient);
                     loadPersonaSettings();
                     initDeploySection(currentOrgId);
@@ -1752,15 +1763,6 @@
                 if (!counts[r.channel]) counts[r.channel] = { sent:0, delivered:0, read:0, failed:0 };
                 if (ST.includes(r.status)) counts[r.channel][r.status]++;
             });
-            function badge(key) {
-                const c = counts[key] || {}; const tot = ST.reduce((s,k)=>s+(c[k]||0),0);
-                if (!tot) return '<span class="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">No Data</span>';
-                const rate = (c.failed||0)/tot;
-                if (rate > 0.2) return '<span class="text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">Degraded</span>';
-                if (rate > 0.05) return '<span class="text-[10px] font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">Elevated</span>';
-                if (rate === 0) return '<span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Excellent</span>';
-                return '<span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">Normal</span>';
-            }
             const active = CHANS.filter(c => ST.reduce((s,k)=>s+(counts[c.key][k]||0),0) > 0);
             const display = active.length ? active : CHANS;
             const failures = data.filter(r => r.status === 'failed').slice(0, 5);
@@ -1769,7 +1771,6 @@
                     <th class="pb-2 text-left">Channel</th>
                     <th class="pb-2 text-center">Sent</th><th class="pb-2 text-center">Delivered</th>
                     <th class="pb-2 text-center">Read</th><th class="pb-2 text-center">Failed</th>
-                    <th class="pb-2 text-right">Health</th>
                 </tr></thead>
                 <tbody class="divide-y divide-slate-800">
                 ${display.map(ch => { const c = counts[ch.key]; const tot = ST.reduce((s,k)=>s+(c[k]||0),0);
@@ -1782,7 +1783,6 @@
                         <td class="py-2 text-center font-mono ${c.delivered?'text-green-400':'text-slate-700'}">${c.delivered||'—'}</td>
                         <td class="py-2 text-center font-mono ${c.read?'text-indigo-400':'text-slate-700'}">${c.read||'—'}</td>
                         <td class="py-2 text-center font-mono ${c.failed?'text-red-400 font-bold':'text-slate-700'}">${c.failed||'—'}</td>
-                        <td class="py-2 text-right">${badge(ch.key)}</td>
                     </tr>`;}).join('')}
                 </tbody></table></div>
                 ${failures.length ? `<div><p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Recent Failures</p>
@@ -1862,6 +1862,78 @@
             if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
             if (!data || data.length === 0) { el.innerHTML = '<p class="text-slate-600 text-sm italic text-center py-4">No delivery attempts in the last 7 days.</p>'; return; }
             el.innerHTML = _buildDeliveryHTML(data);
+        }
+
+        // ── Channel Health (from channel_health_current — canonical badge source) ─
+        async function loadChannelHealth(orgId, sb) {
+            const el = document.getElementById('dash-channel-health-body');
+            if (!el || !orgId) return;
+            const { data, error } = await sb
+                .from('channel_health_current')
+                .select('channel, health_status, fail_rate, sent, delivered, read_count, failed, total, computed_at')
+                .eq('org_id', orgId);
+            if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
+
+            const CHANS = [
+                { key:'sms',       label:'SMS',       icon:'fa fa-message' },
+                { key:'email',     label:'Email',     icon:'fa fa-envelope' },
+                { key:'whatsapp',  label:'WhatsApp',  icon:'fab fa-whatsapp' },
+                { key:'rcs',       label:'RCS',       icon:'fa fa-signal' },
+                { key:'messenger', label:'Messenger', icon:'fab fa-facebook-messenger' },
+                { key:'voice',     label:'Voice',     icon:'fa fa-phone' },
+            ];
+            const healthMap = {};
+            (data ?? []).forEach(r => { healthMap[r.channel] = r; });
+
+            const statusConfig = {
+                excellent: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', dot: 'bg-emerald-400', label: 'Excellent' },
+                normal:    { color: 'text-blue-400',    bg: 'bg-blue-500/10',    dot: 'bg-blue-400',    label: 'Normal'    },
+                elevated:  { color: 'text-amber-400',   bg: 'bg-amber-500/10',   dot: 'bg-amber-400',   label: 'Elevated'  },
+                degraded:  { color: 'text-red-400',     bg: 'bg-red-500/10',     dot: 'bg-red-400 animate-pulse', label: 'Degraded' },
+                unknown:   { color: 'text-slate-500',   bg: 'bg-slate-800',      dot: 'bg-slate-600',   label: 'No Data'   },
+            };
+
+            const rows = CHANS.map(ch => {
+                const h = healthMap[ch.key];
+                const cfg = statusConfig[h?.health_status ?? 'unknown'];
+                const failRate = h ? `${h.fail_rate}%` : '—';
+                const sentStr = h ? (h.total || '0') : '—';
+                const failStr = h ? (h.failed || '0') : '—';
+                const ago = h ? (() => { const s = Math.round((Date.now() - new Date(h.computed_at).getTime()) / 60000); return s < 2 ? 'just now' : `${s}m ago`; })() : '';
+                return `<tr class="${!h ? 'opacity-40' : ''}">
+                    <td class="py-2.5"><div class="flex items-center gap-2">
+                        <i class="${ch.icon} text-slate-400 w-3.5 text-center text-[11px]"></i>
+                        <span class="font-bold text-slate-300 text-[11px]">${ch.label}</span>
+                    </div></td>
+                    <td class="py-2.5 text-center">
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.color} ${cfg.bg}">
+                            <span class="h-1.5 w-1.5 rounded-full ${cfg.dot}"></span>${cfg.label}
+                        </span>
+                    </td>
+                    <td class="py-2.5 text-center font-mono text-[11px] text-slate-400">${failRate}</td>
+                    <td class="py-2.5 text-center font-mono text-[11px] text-slate-500">${sentStr}</td>
+                    <td class="py-2.5 text-right font-mono text-[11px] ${h?.failed ? 'text-red-400' : 'text-slate-700'}">${failStr}</td>
+                </tr>`;
+            }).join('');
+
+            const lastComputed = Object.values(healthMap)[0]?.computed_at
+                ? `<p class="text-[10px] text-slate-600 text-right mt-3">Last computed: ${new Date(Object.values(healthMap)[0].computed_at).toLocaleTimeString()}</p>`
+                : '';
+
+            el.innerHTML = data && data.length === 0
+                ? '<p class="text-slate-600 text-sm italic text-center py-4">No delivery data in the last hour. Health will populate once messages are sent.</p>'
+                : `<div class="overflow-x-auto">
+                    <table class="w-full text-xs text-slate-400">
+                        <thead class="text-[10px] uppercase font-bold text-slate-500"><tr>
+                            <th class="pb-2 text-left">Channel</th>
+                            <th class="pb-2 text-center">Health</th>
+                            <th class="pb-2 text-center">Fail Rate</th>
+                            <th class="pb-2 text-center">Sent (1h)</th>
+                            <th class="pb-2 text-right">Failed (1h)</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-slate-800">${rows}</tbody>
+                    </table>
+                </div>${lastComputed}`;
         }
 
         // ── Deploy AI Site Liaison ──────────────────────────────────────────────

@@ -314,6 +314,150 @@
             </div>
         </div>
 
+        <!-- P12: DEAD-LETTER QUEUE -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-rose-500 animate-pulse"></div>
+                    <h2 class="text-xl font-bold text-white">Dead-Letter Queue</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input type="checkbox" id="dlq-show-resolved" onchange="loadDlq()" class="accent-slate-500">
+                        Show resolved
+                    </label>
+                    <button onclick="loadDlq()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                        <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Tasks that exhausted all retry attempts. Original <code class="text-slate-300">execution_tasks</code> rows are preserved with <code class="text-slate-300">status='dead_lettered'</code> — full forensic history intact. This view is a snapshot for operator action.</p>
+            <div id="dlq-list">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- DLQ Inspect Modal -->
+        <div id="dlq-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-white">DLQ Entry — Inspect</h3>
+                    <button onclick="document.getElementById('dlq-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <pre id="dlq-modal-body" class="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-950 rounded-lg p-4 overflow-x-auto"></pre>
+            </div>
+        </div>
+
+        <!-- P13: PROVIDER WEBHOOK EVENT STORE -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-cyan-400 animate-pulse"></div>
+                    <h2 class="text-xl font-bold text-white">Webhook Event Store</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="pwe-provider" onchange="loadWebhookEvents()" class="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1">
+                        <option value="">All Providers</option>
+                        <option value="twilio">Twilio (SMS/WA)</option>
+                        <option value="vapi">VAPI (Voice)</option>
+                        <option value="google_rbm">Google RBM</option>
+                        <option value="facebook">Facebook Messenger</option>
+                    </select>
+                    <select id="pwe-status" onchange="loadWebhookEvents()" class="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1">
+                        <option value="">All Status</option>
+                        <option value="unprocessed">Unprocessed</option>
+                        <option value="processed">Processed</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                    <select id="pwe-window" onchange="loadWebhookEvents()" class="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1">
+                        <option value="1">Last 1h</option>
+                        <option value="6" selected>Last 6h</option>
+                        <option value="24">Last 24h</option>
+                        <option value="168">Last 7d</option>
+                    </select>
+                    <button onclick="loadWebhookEvents()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                        <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Raw provider events persisted before processing. Duplicate events are deduplicated by <code class="text-slate-300">(provider, provider_event_id)</code> UNIQUE constraint — already-processed events are gated and return 200 immediately.</p>
+            <div id="pwe-summary" class="grid grid-cols-4 gap-3 mb-5"></div>
+            <div id="pwe-list">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Webhook Event Inspect Modal -->
+        <div id="pwe-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-white">Webhook Event — Inspect</h3>
+                    <button onclick="document.getElementById('pwe-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <pre id="pwe-modal-body" class="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-950 rounded-lg p-4 overflow-x-auto"></pre>
+            </div>
+        </div>
+
+        <!-- P14: CHANNEL HEALTH MONITOR -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-emerald-400"></div>
+                    <h2 class="text-xl font-bold text-white">Channel Health Monitor</h2>
+                </div>
+                <button onclick="loadChannelHealthMonitor()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">1-hour rolling window aggregated from <code class="text-slate-300">delivery_attempts</code>. Recomputed every 5 minutes by pg_cron. Thresholds: <span class="text-emerald-400">Excellent</span> &lt;1% · <span class="text-blue-400">Normal</span> &lt;3% · <span class="text-amber-400">Elevated</span> &lt;7% · <span class="text-red-400">Degraded</span> ≥7%. <code class="text-slate-300">org_id IS NULL</code> rows = platform aggregate.</p>
+            <div id="ch-platform" class="mb-6">
+                <p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-3">Platform-Level (All Orgs)</p>
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+            <div id="ch-degraded">
+                <p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-3">Degraded / Elevated Orgs</p>
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- P11: GLOBAL RATE LIMITER MONITOR -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-amber-400"></div>
+                    <h2 class="text-xl font-bold text-white">Rate Limiter Monitor</h2>
+                </div>
+                <button onclick="loadRateLimitMonitor()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Current 1-minute window send counts per channel. Limits: SMS 30/org · 1000/platform | Voice 5/org · 50/platform | Email/WA/RCS/Messenger 30/org · 500/platform. Rate-limited tasks are rescheduled 60s out — never token-consumed.</p>
+            <div id="rate-limit-monitor">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- P10: PLATFORM KILL SWITCH -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-red-500 animate-pulse"></div>
+                    <h2 class="text-xl font-bold text-white">Platform Kill Switch</h2>
+                </div>
+                <button onclick="loadPlatformFlags()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Global and per-channel sending controls. Enabling any flag immediately blocks execution for ALL organizations on that channel. A reason is required before enabling. Disabling takes effect within the next execution cycle.</p>
+            <div id="platform-flags-list">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
         <!-- P9: RATE LIMIT & SECURITY OVERVIEW -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 mb-10">
             <div class="flex items-center justify-between mb-6">
@@ -468,6 +612,11 @@
                 loadProvisioningQueue();
                 loadChannelSenders();
                 loadFallbackEvents();
+                loadDlq();
+                loadWebhookEvents();
+                loadChannelHealthMonitor();
+                loadRateLimitMonitor();
+                loadPlatformFlags();
             } catch (err) {
                 setStatus('Error: ' + err.message + '. Redirecting…');
                 console.error('Admin init error:', err);
@@ -1340,6 +1489,568 @@
             t.textContent = msg;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 4000);
+        }
+
+        // ── P14: CHANNEL HEALTH MONITOR ──────────────────────────────────────────
+        const CH_STATUS = {
+            excellent: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', label: 'Excellent' },
+            normal:    { color: 'text-blue-400',    bg: 'bg-blue-500/10',    label: 'Normal'    },
+            elevated:  { color: 'text-amber-400',   bg: 'bg-amber-500/10',   label: 'Elevated'  },
+            degraded:  { color: 'text-red-400',     bg: 'bg-red-500/10',     label: 'Degraded'  },
+            unknown:   { color: 'text-slate-500',   bg: 'bg-slate-800',      label: 'No Data'   },
+        };
+        function _chBadge(status) {
+            const c = CH_STATUS[status] ?? CH_STATUS.unknown;
+            return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${c.color} ${c.bg}">${c.label}</span>`;
+        }
+
+        async function loadChannelHealthMonitor() {
+            const platEl = document.getElementById('ch-platform');
+            const degradedEl = document.getElementById('ch-degraded');
+
+            // Platform rows (org_id IS NULL)
+            const { data: platData, error: platErr } = await window.supabase
+                .from('channel_health_current')
+                .select('channel, health_status, fail_rate, sent, delivered, failed, total, computed_at')
+                .is('org_id', null)
+                .order('channel');
+
+            if (platErr) { platEl.innerHTML = `<p class="text-red-400 text-sm">${platErr.message}</p>`; }
+            else if (!platData || platData.length === 0) {
+                platEl.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-2">No data yet — runs every 5 minutes once traffic flows.</p>';
+            } else {
+                const computedTs = new Date(platData[0].computed_at).toLocaleString();
+                platEl.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-400">
+                        <thead class="text-[10px] uppercase font-bold text-slate-500">
+                            <tr><th class="pb-2">Channel</th><th class="pb-2 text-center">Status</th><th class="pb-2 text-center">Fail Rate</th><th class="pb-2 text-center">Sent (1h)</th><th class="pb-2 text-center">Delivered</th><th class="pb-2 text-center">Failed</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            ${platData.map(r => `<tr>
+                                <td class="py-2 font-bold text-slate-300 uppercase text-[11px]">${r.channel}</td>
+                                <td class="py-2 text-center">${_chBadge(r.health_status)}</td>
+                                <td class="py-2 text-center font-mono ${parseFloat(r.fail_rate)>=7?'text-red-400 font-bold':parseFloat(r.fail_rate)>=3?'text-amber-400':'text-slate-400'}">${r.fail_rate}%</td>
+                                <td class="py-2 text-center font-mono text-slate-400">${r.sent ?? '—'}</td>
+                                <td class="py-2 text-center font-mono text-green-400">${r.delivered ?? '—'}</td>
+                                <td class="py-2 text-center font-mono ${r.failed?'text-red-400 font-bold':'text-slate-700'}">${r.failed || '—'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[10px] text-slate-600 text-right mt-2">Last computed: ${computedTs}</p>`;
+            }
+
+            // Degraded / elevated orgs
+            const { data: orgData, error: orgErr } = await window.supabase
+                .from('channel_health_current')
+                .select('org_id, channel, health_status, fail_rate, sent, failed, computed_at')
+                .not('org_id', 'is', null)
+                .in('health_status', ['degraded', 'elevated'])
+                .order('fail_rate', { ascending: false })
+                .limit(50);
+
+            if (orgErr) { degradedEl.innerHTML = `<p class="text-red-400 text-sm">${orgErr.message}</p>`; }
+            else if (!orgData || orgData.length === 0) {
+                degradedEl.innerHTML = '<p class="text-green-400 text-sm text-center py-2"><i class="fa fa-check-circle mr-1"></i>All orgs healthy — no degraded or elevated channels.</p>';
+            } else {
+                degradedEl.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-400">
+                        <thead class="text-[10px] uppercase font-bold text-slate-500">
+                            <tr><th class="pb-2">Org ID</th><th class="pb-2">Channel</th><th class="pb-2 text-center">Status</th><th class="pb-2 text-center">Fail Rate</th><th class="pb-2 text-center">Sent (1h)</th><th class="pb-2 text-center">Failed</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            ${orgData.map(r => `<tr>
+                                <td class="py-2 font-mono text-[10px] text-slate-500">${r.org_id.slice(0,8)}…</td>
+                                <td class="py-2 font-bold text-slate-300 uppercase text-[11px]">${r.channel}</td>
+                                <td class="py-2 text-center">${_chBadge(r.health_status)}</td>
+                                <td class="py-2 text-center font-mono ${parseFloat(r.fail_rate)>=7?'text-red-400 font-bold':'text-amber-400'}">${r.fail_rate}%</td>
+                                <td class="py-2 text-center font-mono text-slate-400">${r.sent ?? '—'}</td>
+                                <td class="py-2 text-center font-mono text-red-400 font-bold">${r.failed || '—'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            }
+        }
+
+        // ── P13: WEBHOOK EVENT STORE ─────────────────────────────────────────────
+        async function loadWebhookEvents() {
+            const el = document.getElementById('pwe-list');
+            const summaryEl = document.getElementById('pwe-summary');
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+
+            const provider = document.getElementById('pwe-provider')?.value ?? '';
+            const statusFilter = document.getElementById('pwe-status')?.value ?? '';
+            const windowHours = parseInt(document.getElementById('pwe-window')?.value ?? '6', 10);
+            const since = new Date(Date.now() - windowHours * 3600_000).toISOString();
+
+            let query = window.supabase
+                .from('provider_webhook_events')
+                .select('id, provider, provider_event_id, event_type, processed, processing_error, received_at, processed_at')
+                .gte('received_at', since)
+                .order('received_at', { ascending: false })
+                .limit(100);
+
+            if (provider) query = query.eq('provider', provider);
+            if (statusFilter === 'processed') query = query.eq('processed', true).is('processing_error', null);
+            else if (statusFilter === 'unprocessed') query = query.eq('processed', false).is('processing_error', null);
+            else if (statusFilter === 'failed') query = query.not('processing_error', 'is', null);
+
+            const { data, error } = await query;
+            if (error) { el.innerHTML = `<p class="text-red-400 text-sm text-center py-4">Error: ${error.message}</p>`; return; }
+
+            const rows = data ?? [];
+            // Summary counts
+            const total = rows.length;
+            const processed = rows.filter(r => r.processed && !r.processing_error).length;
+            const failed = rows.filter(r => r.processing_error).length;
+            const pending = rows.filter(r => !r.processed && !r.processing_error).length;
+            const providerCounts = rows.reduce((acc, r) => { acc[r.provider] = (acc[r.provider] ?? 0) + 1; return acc; }, {});
+
+            summaryEl.innerHTML = `
+                <div class="bg-slate-800 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-white">${total}</div><div class="text-xs text-slate-400 mt-1">Total Events</div></div>
+                <div class="bg-slate-800 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-green-400">${processed}</div><div class="text-xs text-slate-400 mt-1">Processed</div></div>
+                <div class="bg-slate-800 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-amber-400">${pending}</div><div class="text-xs text-slate-400 mt-1">Pending</div></div>
+                <div class="bg-slate-800 rounded-lg p-3 text-center"><div class="text-2xl font-bold text-red-400">${failed}</div><div class="text-xs text-slate-400 mt-1">Failed</div></div>
+            `;
+
+            if (rows.length === 0) { el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">No events in this window.</p>'; return; }
+
+            const providerBadge = { twilio: 'bg-blue-500/20 text-blue-300', vapi: 'bg-purple-500/20 text-purple-300', google_rbm: 'bg-green-500/20 text-green-300', facebook: 'bg-cyan-500/20 text-cyan-300' };
+
+            el.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-3 rounded-tl-lg">Time</th>
+                            <th class="p-3">Provider</th>
+                            <th class="p-3">Event Type</th>
+                            <th class="p-3">Event ID</th>
+                            <th class="p-3 text-center">Status</th>
+                            <th class="p-3 rounded-tr-lg text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        ${rows.map(r => {
+                            const badge = providerBadge[r.provider] ?? 'bg-slate-700 text-slate-300';
+                            const statusBadge = r.processing_error
+                                ? '<span class="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-300 font-bold">FAILED</span>'
+                                : r.processed
+                                ? '<span class="px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-300">processed</span>'
+                                : '<span class="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-300">pending</span>';
+                            const ts = new Date(r.received_at).toLocaleString();
+                            const shortId = r.provider_event_id.length > 28 ? r.provider_event_id.slice(0, 25) + '…' : r.provider_event_id;
+                            const escaped = JSON.stringify(r).replace(/"/g, '&quot;');
+                            return `<tr class="hover:bg-slate-800/40 transition">
+                                <td class="p-3 text-slate-500 whitespace-nowrap">${ts}</td>
+                                <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-bold ${badge}">${r.provider}</span></td>
+                                <td class="p-3 font-mono text-slate-300">${r.event_type}</td>
+                                <td class="p-3 font-mono text-slate-500" title="${r.provider_event_id}">${shortId}</td>
+                                <td class="p-3 text-center">${statusBadge}</td>
+                                <td class="p-3 text-center">
+                                    <button onclick="pweInspect(${escaped})" class="px-2 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600 text-slate-300">Inspect</button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            ${rows.length === 100 ? '<p class="text-xs text-slate-500 text-center mt-3">Showing most recent 100 events. Narrow filters to see more.</p>' : ''}`;
+        }
+
+        function pweInspect(entry) {
+            document.getElementById('pwe-modal-body').textContent = JSON.stringify(entry, null, 2);
+            document.getElementById('pwe-modal').classList.remove('hidden');
+        }
+
+        // ── P12: DEAD-LETTER QUEUE ────────────────────────────────────────────────
+        async function loadDlq() {
+            const el = document.getElementById('dlq-list');
+            if (!el) return;
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+
+            const showResolved = document.getElementById('dlq-show-resolved')?.checked;
+
+            let query = supabase
+                .from('execution_dead_letters')
+                .select('id, task_id, org_id, channel, attempt, max_attempts, last_error, dead_lettered_reason, dead_lettered_at, resolution, resolved_at, resolved_by, retry_task_id, metadata')
+                .order('dead_lettered_at', { ascending: false })
+                .limit(100);
+
+            if (!showResolved) query = query.is('resolution', null);
+
+            const { data, error } = await query;
+
+            if (error) {
+                el.innerHTML = `<p class="text-red-400 text-xs p-4">Error: ${error.message}</p>`;
+                return;
+            }
+
+            const rows = data ?? [];
+            if (rows.length === 0) {
+                el.innerHTML = `<p class="text-slate-600 text-sm italic text-center py-8">${showResolved ? 'No dead-letter entries found.' : 'No pending dead-letter entries. All clear.'}</p>`;
+                return;
+            }
+
+            // Fetch org names for display
+            const orgIds = [...new Set(rows.map(r => r.org_id).filter(Boolean))];
+            const orgMap = {};
+            if (orgIds.length) {
+                const { data: orgs } = await supabase.from('organizations').select('id, name').in('id', orgIds);
+                (orgs ?? []).forEach(o => { orgMap[o.id] = o.name; });
+            }
+
+            const CHAN_COLORS = { sms:'text-blue-400', email:'text-yellow-400', voice:'text-purple-400', whatsapp:'text-green-400', rcs:'text-cyan-400', messenger:'text-indigo-400' };
+
+            el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-left text-sm text-slate-400">
+                <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                    <tr>
+                        <th class="p-4 rounded-tl-lg">Dead-lettered</th>
+                        <th class="p-4">Org</th>
+                        <th class="p-4">Channel</th>
+                        <th class="p-4">Attempts</th>
+                        <th class="p-4">Reason / Error</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 rounded-tr-lg text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    ${rows.map(r => {
+                        const orgName = orgMap[r.org_id] || (r.org_id?.slice(0,8)+'…') || '—';
+                        const chanColor = CHAN_COLORS[r.channel] || 'text-slate-400';
+                        const resolutionBadge = r.resolution === null
+                            ? '<span class="px-2 py-0.5 rounded-full text-xs bg-rose-500/15 text-rose-400 font-bold">Pending</span>'
+                            : r.resolution === 'retried'
+                            ? '<span class="px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-400 font-bold">Retried</span>'
+                            : '<span class="px-2 py-0.5 rounded-full text-xs bg-slate-700 text-slate-400 font-bold">Cancelled</span>';
+                        const actionBtns = r.resolution === null
+                            ? `<div class="flex justify-end gap-2">
+                                <button onclick="dlqInspect(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="px-2 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600 text-slate-300">Inspect</button>
+                                <button onclick="dlqRetry('${r.id}','${r.org_id}',this)" class="px-2 py-1 text-xs rounded bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 font-bold">Retry</button>
+                                <button onclick="dlqCancel('${r.id}','${r.org_id}',this)" class="px-2 py-1 text-xs rounded bg-slate-700 hover:bg-red-500/20 text-slate-400 hover:text-red-400">Cancel</button>
+                               </div>`
+                            : `<div class="flex justify-end gap-2">
+                                <button onclick="dlqInspect(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="px-2 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600 text-slate-300">Inspect</button>
+                               </div>`;
+                        return `<tr>
+                            <td class="p-4 text-xs text-slate-500 whitespace-nowrap">${new Date(r.dead_lettered_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+                            <td class="p-4 text-xs">${orgName}</td>
+                            <td class="p-4"><span class="font-bold uppercase text-xs ${chanColor}">${r.channel || '—'}</span></td>
+                            <td class="p-4 text-xs text-center">${r.attempt ?? '—'}/${r.max_attempts ?? '—'}</td>
+                            <td class="p-4 text-xs max-w-[220px]"><div class="text-amber-400 font-mono truncate">${r.dead_lettered_reason || '—'}</div><div class="text-slate-600 truncate mt-0.5">${r.last_error?.slice(0,80) || ''}</div></td>
+                            <td class="p-4">${resolutionBadge}</td>
+                            <td class="p-4">${actionBtns}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table></div>`;
+        }
+
+        function dlqInspect(entry) {
+            document.getElementById('dlq-modal-body').textContent = JSON.stringify(entry, null, 2);
+            document.getElementById('dlq-modal').classList.remove('hidden');
+        }
+
+        async function dlqRetry(dlId, orgId, btn) {
+            if (!confirm('Create a new pending execution task from this DLQ entry?\nThe original dead-lettered task is preserved.')) return;
+            btn.disabled = true; btn.textContent = '…';
+
+            // Fetch full DLQ entry for task reconstruction
+            const { data: dl, error: dlErr } = await supabase
+                .from('execution_dead_letters').select('*').eq('id', dlId).maybeSingle();
+            if (dlErr || !dl) { alert('Failed to load DLQ entry: ' + (dlErr?.message || 'not found')); btn.disabled = false; btn.textContent = 'Retry'; return; }
+
+            // Create fresh execution_tasks entry (attempt=0, status=pending)
+            const { data: newTask, error: taskErr } = await supabase
+                .from('execution_tasks').insert({
+                    plan_id: dl.plan_id,
+                    org_id: dl.org_id,
+                    lead_id: dl.lead_id,
+                    channel: dl.channel,
+                    status: 'pending',
+                    attempt: 0,
+                    max_attempts: dl.max_attempts ?? 3,
+                    scheduled_for: new Date().toISOString(),
+                    actor_user_id: dl.actor_user_id,
+                    metadata: { ...(dl.metadata || {}), dlq_retry: true, original_task_id: dl.task_id, dlq_entry_id: dl.id },
+                }).select('id').maybeSingle();
+
+            if (taskErr || !newTask) { alert('Failed to create retry task: ' + (taskErr?.message || 'unknown')); btn.disabled = false; btn.textContent = 'Retry'; return; }
+
+            // Mark DLQ entry as retried
+            await supabase.from('execution_dead_letters').update({
+                resolution: 'retried', resolved_at: new Date().toISOString(),
+                resolved_by: 'admin', retry_task_id: newTask.id, updated_at: new Date().toISOString(),
+            }).eq('id', dlId);
+
+            // Audit
+            await supabase.from('audit_events').insert({
+                org_id: orgId, actor_type: 'admin', actor_id: null,
+                object_type: 'execution_dead_letter', object_id: dlId,
+                action: 'execution_dead_letter_retry_requested', reason: 'admin_retry',
+                after_state: { retry_task_id: newTask.id },
+            }).catch(() => {});
+
+            showToast(`✅ New task created (${newTask.id.slice(0,8)}…). Original task preserved.`);
+            await loadDlq();
+        }
+
+        async function dlqCancel(dlId, orgId, btn) {
+            if (!confirm('Cancel this DLQ entry? No retry will be attempted. Original task is preserved.')) return;
+            btn.disabled = true; btn.textContent = '…';
+
+            await supabase.from('execution_dead_letters').update({
+                resolution: 'cancelled', resolved_at: new Date().toISOString(),
+                resolved_by: 'admin', updated_at: new Date().toISOString(),
+            }).eq('id', dlId);
+
+            await supabase.from('audit_events').insert({
+                org_id: orgId, actor_type: 'admin', actor_id: null,
+                object_type: 'execution_dead_letter', object_id: dlId,
+                action: 'execution_dead_letter_cancelled', reason: 'admin_cancelled',
+            }).catch(() => {});
+
+            showToast('DLQ entry cancelled. No retry will be dispatched.');
+            await loadDlq();
+        }
+
+        // ── P11: RATE LIMITER MONITOR ─────────────────────────────────────────────
+        async function loadRateLimitMonitor() {
+            const el = document.getElementById('rate-limit-monitor');
+            if (!el) return;
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+
+            const windowStart = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
+            const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+            const [bucketsRes, blocksRes] = await Promise.all([
+                // Current window buckets
+                supabase.from('rate_limit_buckets')
+                    .select('scope, scope_id, channel, count, limit_value, window_start')
+                    .gte('window_start', windowStart)
+                    .order('channel'),
+                // Rate limit blocks last 7 days
+                supabase.from('audit_events')
+                    .select('action, org_id, reason, created_at')
+                    .in('action', ['rate_limit_blocked_org', 'rate_limit_blocked_platform'])
+                    .gte('created_at', since7d)
+                    .order('created_at', { ascending: false })
+                    .limit(50),
+            ]);
+
+            const buckets = bucketsRes.data ?? [];
+            const blocks = blocksRes.data ?? [];
+
+            // Summarise current window counts by channel
+            const CHANNELS = ['sms', 'email', 'voice', 'whatsapp', 'rcs', 'messenger'];
+            const ORG_LIMITS = { sms: 30, email: 30, voice: 5, whatsapp: 30, rcs: 30, messenger: 30 };
+            const PLAT_LIMITS = { sms: 1000, email: 500, voice: 50, whatsapp: 500, rcs: 500, messenger: 500 };
+
+            // platform rows
+            const platMap = {};
+            const orgMap = {};
+            for (const b of buckets) {
+                if (b.scope === 'platform') platMap[b.channel] = b.count;
+                else if (b.scope === 'org') {
+                    if (!orgMap[b.channel]) orgMap[b.channel] = [];
+                    orgMap[b.channel].push({ org_id: b.scope_id, count: b.count, limit: b.limit_value });
+                }
+            }
+
+            function pct(count, limit) {
+                const p = Math.round((count / limit) * 100);
+                const color = p >= 90 ? 'bg-red-500' : p >= 60 ? 'bg-amber-400' : 'bg-green-500';
+                return `<div class="flex items-center gap-2"><div class="flex-1 bg-slate-800 rounded-full h-1.5"><div class="${color} h-1.5 rounded-full" style="width:${Math.min(p,100)}%"></div></div><span class="text-xs font-mono text-slate-400 w-12 text-right">${count}/${limit}</span></div>`;
+            }
+
+            const channelRows = CHANNELS.map(ch => {
+                const platCount = platMap[ch] ?? 0;
+                const platLimit = PLAT_LIMITS[ch];
+                const topOrgs = (orgMap[ch] ?? []).sort((a,b) => b.count - a.count).slice(0, 3);
+                const topOrgText = topOrgs.length ? topOrgs.map(o => `<span class="font-mono text-[10px] text-slate-500">${o.org_id.slice(0,8)}… ×${o.count}</span>`).join(' ') : '<span class="text-slate-700 text-xs">—</span>';
+                return `<tr>
+                    <td class="p-4 font-bold text-slate-200 uppercase text-xs">${ch}</td>
+                    <td class="p-4 text-xs text-slate-400">${pct(platCount, platLimit)}</td>
+                    <td class="p-4">${topOrgText}</td>
+                </tr>`;
+            }).join('');
+
+            // Recent blocks
+            const blockRows = blocks.length === 0
+                ? '<tr><td colspan="4" class="p-6 text-center text-slate-600 italic">No rate limit blocks in last 7 days.</td></tr>'
+                : blocks.map(b => {
+                    const scope = b.action === 'rate_limit_blocked_org' ? 'ORG' : 'PLATFORM';
+                    const scopeColor = scope === 'ORG' ? 'text-amber-400' : 'text-red-400';
+                    return `<tr>
+                        <td class="p-3 text-xs text-slate-500 whitespace-nowrap">${new Date(b.created_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+                        <td class="p-3 font-mono text-xs text-slate-400">${b.org_id?.slice(0,8) ?? '—'}…</td>
+                        <td class="p-3"><span class="text-xs font-bold ${scopeColor}">${scope}</span></td>
+                        <td class="p-3 text-xs text-slate-500 max-w-[300px] truncate">${b.reason ?? '—'}</td>
+                    </tr>`;
+                }).join('');
+
+            el.innerHTML = `
+            <div class="grid grid-cols-1 gap-6">
+                <div>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Current Window — Platform Send Counts</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-400">
+                            <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                                <tr>
+                                    <th class="p-4 rounded-tl-lg">Channel</th>
+                                    <th class="p-4">Platform Usage</th>
+                                    <th class="p-4 rounded-tr-lg">Top Orgs This Window</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">${channelRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Blocks (last 7 days)</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-400">
+                            <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                                <tr>
+                                    <th class="p-3 rounded-tl-lg">Time</th>
+                                    <th class="p-3">Org</th>
+                                    <th class="p-3">Scope</th>
+                                    <th class="p-3 rounded-tr-lg">Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">${blockRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ── P10: PLATFORM KILL SWITCH ─────────────────────────────────────────────
+        const FLAG_META = {
+            global_execution_pause:  { label: 'Global Execution Pause', icon: 'fa-circle-stop',    color: 'text-red-400',    desc: 'Blocks ALL channels for ALL organizations.' },
+            sms_sending_disabled:    { label: 'SMS Disabled',           icon: 'fa-message',         color: 'text-blue-400',   desc: 'Blocks SMS sending platform-wide.' },
+            voice_sending_disabled:  { label: 'Voice Disabled',         icon: 'fa-phone',           color: 'text-purple-400', desc: 'Blocks all VAPI voice calls platform-wide.' },
+            whatsapp_sending_disabled:{ label: 'WhatsApp Disabled',     icon: 'fab fa-whatsapp',    color: 'text-green-400',  desc: 'Blocks WhatsApp sending platform-wide.' },
+            rcs_sending_disabled:    { label: 'RCS Disabled',           icon: 'fa-signal',          color: 'text-cyan-400',   desc: 'Blocks RCS (Google) sending platform-wide.' },
+            messenger_sending_disabled:{ label: 'Messenger Disabled',   icon: 'fab fa-facebook-messenger', color: 'text-indigo-400', desc: 'Blocks Facebook Messenger sending platform-wide.' },
+            email_sending_disabled:  { label: 'Email Disabled',         icon: 'fa-envelope',        color: 'text-yellow-400', desc: 'Blocks email sending platform-wide.' },
+        };
+
+        async function loadPlatformFlags() {
+            const el = document.getElementById('platform-flags-list');
+            if (!el) return;
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+
+            const { data, error } = await supabase
+                .from('platform_control_flags')
+                .select('flag, enabled, reason, enabled_by, enabled_at, disabled_at, updated_at')
+                .order('flag');
+
+            if (error) {
+                el.innerHTML = `<p class="text-red-400 text-xs p-4">Error: ${error.message}</p>`;
+                return;
+            }
+
+            const rows = (data ?? []);
+            el.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-400">
+                    <thead class="bg-slate-800 text-slate-200 uppercase font-bold text-xs">
+                        <tr>
+                            <th class="p-4 rounded-tl-lg">Flag</th>
+                            <th class="p-4">Description</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Reason / Set By</th>
+                            <th class="p-4">Last Changed</th>
+                            <th class="p-4 rounded-tr-lg text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        ${rows.map(r => {
+                            const meta = FLAG_META[r.flag] || { label: r.flag, icon: 'fa-flag', color: 'text-slate-400', desc: '' };
+                            const isEnabled = r.enabled === true;
+                            const statusBadge = isEnabled
+                                ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-400"><i class="fa-solid fa-circle text-[6px]"></i> ACTIVE</span>`
+                                : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-400"><i class="fa-solid fa-circle text-[6px]"></i> OFF</span>`;
+                            const lastChanged = r.updated_at ? new Date(r.updated_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+                            const reasonText = r.reason ? `<span class="text-slate-300">${r.reason}</span><br><span class="text-slate-600 text-[10px]">${r.enabled_by || '—'}</span>` : '<span class="text-slate-600 italic">—</span>';
+                            const actionBtn = isEnabled
+                                ? `<button onclick="togglePlatformFlag('${r.flag}', false, this)" class="px-3 py-1 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-bold transition">Disable</button>`
+                                : `<button onclick="togglePlatformFlag('${r.flag}', true, this)" class="px-3 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-bold transition">Enable</button>`;
+                            return `<tr class="${isEnabled ? 'bg-red-900/10' : ''}">
+                                <td class="p-4"><span class="${meta.color} font-bold"><i class="fa-solid ${meta.icon} mr-2"></i>${meta.label}</span></td>
+                                <td class="p-4 text-xs text-slate-500 max-w-[220px]">${meta.desc}</td>
+                                <td class="p-4">${statusBadge}</td>
+                                <td class="p-4 text-xs">${reasonText}</td>
+                                <td class="p-4 text-xs text-slate-500 whitespace-nowrap">${lastChanged}</td>
+                                <td class="p-4 text-right">${actionBtn}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        async function togglePlatformFlag(flag, enable, btn) {
+            // Require reason when enabling
+            let reason = null;
+            if (enable) {
+                reason = prompt(`ENABLE "${flag}" — this will block sending for ALL organizations.\n\nEnter a reason (required):`);
+                if (!reason || !reason.trim()) {
+                    alert('A reason is required to enable a platform kill switch flag.');
+                    return;
+                }
+                reason = reason.trim();
+                if (!confirm(`Confirm ENABLE "${flag}"?\nReason: ${reason}\n\nThis will immediately block execution.`)) return;
+            } else {
+                if (!confirm(`Confirm DISABLE "${flag}"?\n\nThis will allow sending to resume.`)) return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '…';
+
+            const updatePayload = {
+                enabled: enable,
+                updated_at: new Date().toISOString(),
+            };
+            if (enable) {
+                updatePayload.reason = reason;
+                updatePayload.enabled_by = 'admin';
+                updatePayload.enabled_at = new Date().toISOString();
+            } else {
+                updatePayload.reason = null;
+                updatePayload.disabled_at = new Date().toISOString();
+            }
+
+            const { error } = await supabase
+                .from('platform_control_flags')
+                .update(updatePayload)
+                .eq('flag', flag);
+
+            if (error) {
+                alert('Update failed: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = enable ? 'Enable' : 'Disable';
+                return;
+            }
+
+            // Audit event
+            await supabase.from('audit_events').insert({
+                actor_type: 'admin',
+                actor_id: null,
+                object_type: 'platform_control_flag',
+                object_id: flag,
+                action: enable ? 'platform_flag_enabled' : 'platform_flag_disabled',
+                reason: reason ?? 'admin_disabled',
+                before_state: { enabled: !enable },
+                after_state: { enabled: enable, reason: reason ?? null },
+            }).catch(() => {});
+
+            showToast(enable ? `🚫 "${flag}" enabled — sending blocked.` : `✅ "${flag}" disabled — sending resumed.`);
+            await loadPlatformFlags();
         }
 
         async function toggleKillSwitch(orgId, btn) {

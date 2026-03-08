@@ -14,7 +14,7 @@ const CORS: HeadersInit = {
 const PHONE_RE = /(\+\d{1,3}[\s.\-]?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4,}|\+\d{7,15}/;
 // Email: standard email address
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
-// Name trigger phrases — capture raw words after them, then filter below
+// Name trigger phrases — "I'm X", "my name is X", etc.
 const NAME_TRIGGER_RE = /(?:i(?:'m| am)|my name(?:'s)? is|this is|call me|you can call me)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,2})/i;
 
 // Words that should NEVER be treated as part of a person's name
@@ -23,20 +23,49 @@ const NAME_STOP = new Set([
   "to","for","a","an","from","with","my","your","their","our","its","this",
   "that","these","those","here","there","hi","hey","hello","thanks","thank",
   "sure","great","good","nice","please","yes","yeah","yep","nope","not","just",
+  "fine","cool","got","noted","done","ready","right","wrong","true","false",
 ]);
 
-function extractName(text: string): string | null {
+/**
+ * Extract a person's name from a user message.
+ * Two strategies in priority order:
+ *  1. Trigger phrase ("I'm X", "my name is X") — works anywhere in the message
+ *  2. Context-aware bare name — only when the previous AI turn was asking for a name.
+ *     Bare name = 1–3 words, letters only, none are stopwords.
+ */
+function extractName(
+  text: string,
+  history: Array<{ role: string; content: string }>,
+): string | null {
+  // Strategy 1: explicit trigger phrase
   const match = NAME_TRIGGER_RE.exec(text);
-  if (!match) return null;
-  const rawWords = match[1].split(/\s+/);
-  const filtered = rawWords.filter(w => w.length >= 2 && !NAME_STOP.has(w.toLowerCase()));
-  if (filtered.length === 0) return null;
-  // Only keep a second word if it was capitalised in the original text (a proper last name).
-  // Lowercase second words (e.g. "noted", "interested", "wanted") are never part of a name.
-  const keep = (filtered.length >= 2 && /^[A-Z]/.test(filtered[1]))
-    ? filtered.slice(0, 2)
-    : [filtered[0]];
-  return keep.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  if (match) {
+    const rawWords = match[1].split(/\s+/);
+    const filtered = rawWords.filter(w => w.length >= 2 && !NAME_STOP.has(w.toLowerCase()));
+    if (filtered.length === 0) return null;
+    const keep = (filtered.length >= 2 && /^[A-Z]/.test(filtered[1]))
+      ? filtered.slice(0, 2)
+      : [filtered[0]];
+    return keep.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+
+  // Strategy 2: bare name response — only when the AI just asked for a name
+  const lastAI = [...history].reverse().find(m => m.role === "assistant");
+  const aiAskedForName = lastAI &&
+    /\b(name|call you|what(?:'s| is) your|may i (have|get)|introduce yourself)\b/i.test(lastAI.content) &&
+    /\?/.test(lastAI.content);
+
+  if (aiAskedForName) {
+    const words = text.trim().split(/\s+/);
+    if (words.length >= 1 && words.length <= 3 && !/\d/.test(text)) {
+      const valid = words.filter(w => w.length >= 2 && /^[A-Za-z]+$/.test(w) && !NAME_STOP.has(w.toLowerCase()));
+      if (valid.length > 0 && valid.length === words.length) {
+        return valid.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      }
+    }
+  }
+
+  return null;
 }
 
 // ── Country dial code lookup ───────────────────────────────────────────────────
@@ -178,7 +207,7 @@ serve(async (req) => {
     `You are the AI chat assistant on the company website. Be helpful and engaging.`,
     contactGoal,
     `Do NOT ask for all contact details in one message. Build rapport first, then collect each item naturally one at a time.`,
-    `PHONE NUMBER: When a visitor shares a phone number that does NOT start with + (country code), always ask: "Which country are you based in? I want to make sure our team reaches you on the right number." Use their answer to confirm the correct country code.`,
+    `PHONE NUMBER: If the visitor shares a number that already starts with + (e.g. +916391055535, +14155551234), accept it as-is — DO NOT ask for country. Only ask "Which country are you based in?" when the number has NO country code at all (no leading +, just local digits like 6391055535 or 5551234). Never ask for country if a + prefix is already present.`,
     confirmMsg,
   ].filter(Boolean).join("\n\n");
 
@@ -249,7 +278,17 @@ serve(async (req) => {
 
     } else {
       // New lead — extract name per-message (prevents cross-message contamination)
-      const capturedName = userMessages.reduce<string | null>((found, msg) => found ?? extractName(msg), null) ?? "Site Visitor";
+      // Build per-message history context for context-aware bare-name extraction.
+      // For each user message at index i, the "history so far" is trimmedHistory up to that point.
+      let capturedName: string | null = null;
+      for (let i = 0; i < userMessages.length; i++) {
+        const msgHistory = i === 0 ? [] : trimmedHistory.slice(0, i * 2); // approx: 2 turns per exchange
+        capturedName = extractName(userMessages[i], msgHistory);
+        if (capturedName) break;
+      }
+      // Final fallback: try with full trimmedHistory context (catches last message)
+      if (!capturedName) capturedName = extractName(message, trimmedHistory);
+      capturedName = capturedName ?? "Site Visitor";
       const emailMatch    = EMAIL_RE.exec(allUserText);
       const capturedEmail = emailMatch?.[0]?.toLowerCase() || null;
 

@@ -348,6 +348,14 @@ export async function generateMessage(
     { role: "system", content: `CONTEXT: Lead: ${params.lead.name}. Intent: ${params.intent}` },
   ];
 
+  // Email-specific: prevent AI from embedding "Subject:" in the body
+  if (params.channel === "email") {
+    messages.push({
+      role: "system",
+      content: "EMAIL FORMAT: Output ONLY the email body text. Do NOT include a 'Subject:' line — the subject is handled separately by the system. Start directly with the greeting (e.g. 'Hi [name],'). Keep it concise and focused on the objective.",
+    });
+  }
+
   if (params.user_query) messages.push({ role: "user", content: params.user_query });
   else messages.push({ role: "user", content: "Generate initial outreach." });
 
