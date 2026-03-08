@@ -653,21 +653,22 @@
             ];
             const activeMap = {};
             (channels ?? []).forEach(c => { if (c.is_default) activeMap[c.channel] = c; });
-            const anyShared = CHANS.some(c => !activeMap[c.key]?.provider_id);
+            const anyShared = CHANS.some(c => { const a = activeMap[c.key]; return !(a?.from_e164 || a?.vapi_phone_number_id); });
             const rows = CHANS.map(ch => {
                 const active = activeMap[ch.key];
-                const isDedicated = !!active?.provider_id;
+                const senderId = active?.from_e164 || active?.vapi_phone_number_id || null;
+                const isDedicated = !!senderId;
                 const badge = isDedicated
                     ? '<span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Dedicated</span>'
                     : '<span class="text-[10px] font-bold text-slate-400 bg-slate-700/60 px-2 py-0.5 rounded-full">Shared</span>';
-                const senderId = isDedicated ? active.provider_id : (active ? 'Platform shared' : '—');
+                const senderDisplay = isDedicated ? senderId : (active ? 'Platform shared' : '—');
                 return `<tr class="${!active ? 'opacity-40' : ''}">
                     <td class="py-2"><div class="flex items-center gap-2">
                         <i class="${ch.icon} text-slate-400 w-3.5 text-center text-[11px]"></i>
                         <span class="font-bold text-slate-300 text-[11px]">${ch.label}</span>
                     </div></td>
                     <td class="py-2 text-center">${badge}</td>
-                    <td class="py-2 text-right font-mono text-[10px] text-slate-500 max-w-[140px] truncate" title="${senderId}">${senderId}</td>
+                    <td class="py-2 text-right font-mono text-[10px] text-slate-500 max-w-[140px] truncate" title="${senderDisplay}">${senderDisplay}</td>
                 </tr>`;
             }).join('');
             const cta = anyShared
@@ -692,7 +693,7 @@
             const el = document.getElementById('ag-infra-body');
             if (!el || !orgId) return;
             const { data, error } = await sb.from('org_channels')
-                .select('channel, status, is_default, provider_id, provider, metadata')
+                .select('channel, status, is_default, from_e164, vapi_phone_number_id, provider, metadata')
                 .eq('org_id', orgId).eq('status', 'active');
             if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
             el.innerHTML = _buildInfraHTML(data);

@@ -85,17 +85,15 @@
     if (document.getElementById('credit-low-banner')) return;
     const banner = document.createElement('div');
     banner.id = 'credit-low-banner';
-    banner.className = 'hidden';
+    banner.className = 'hidden fixed top-0 left-0 right-0 z-[90]';
     banner.innerHTML = `
-      <div class="bg-red-900/40 border-b border-red-700/50 px-6 py-2 flex items-center gap-3 text-sm">
+      <div class="bg-red-900/90 border-b border-red-700/50 px-6 py-2 flex items-center gap-3 text-sm shadow-lg">
         <i class="fa fa-triangle-exclamation text-red-400"></i>
         <span id="credit-low-banner-text" class="text-red-300 font-medium flex-1"></span>
         <button onclick="window.Credits.showTopupModal(window.Credits._lowKey)" class="bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1 rounded-lg text-xs transition">Buy Now</button>
         <button onclick="document.getElementById('credit-low-banner').classList.add('hidden')" class="text-red-400 hover:text-white text-lg leading-none">&times;</button>
       </div>`;
-    // Insert after auth-loader div or at start of body
-    const ref = document.getElementById('page-content') || document.body.firstChild;
-    document.body.insertBefore(banner, ref?.nextSibling ?? null);
+    document.body.appendChild(banner);
   }
 
   // ----- State -----
@@ -281,7 +279,12 @@
       );
 
       const result = await resp.json();
-      if (!resp.ok || !result.intent_id) throw new Error(result.error || 'Failed to create order');
+      if (!resp.ok || !result.intent_id) {
+        const errMsg = result.error
+          ? (typeof result.error === 'string' ? result.error : result.error.message || JSON.stringify(result.error))
+          : 'Failed to create order';
+        throw new Error(errMsg);
+      }
 
       window.location.href = 'payment.html?intent_id=' + result.intent_id;
     } catch (err) {
