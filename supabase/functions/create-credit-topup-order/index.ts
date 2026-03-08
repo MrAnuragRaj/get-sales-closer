@@ -115,7 +115,7 @@ serve(async (req) => {
     // Compute total
     const total_amount = computeLineAmount(token_key, qty)
     const description = `${qty.toLocaleString()} ${cfg.label}`
-    const ref = `TOP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+    const ref = `GSC-${Date.now()}`
 
     // 1. Create order
     const { data: order, error: orderErr } = await sb
@@ -157,8 +157,8 @@ serve(async (req) => {
       .insert({
         org_id,
         created_by: user.id,
-        source: "credit_topup",
-        billing_cycle: "one_time",
+        source: "billing",
+        billing_cycle: "monthly",
         status: "created",
         intent_source: "credit_topup",
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -167,12 +167,11 @@ serve(async (req) => {
         addons: {},
         channels: {},
         pricing_snapshot: {
+          version: "1",
           final_invoice_amount: total_amount,
+          breakdown: { token_key, quantity: qty, description },
           order_id: order.id,
           order_line_id: line.id,
-          token_key,
-          quantity: qty,
-          description,
         },
       })
       .select("id")
