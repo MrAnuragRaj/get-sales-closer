@@ -144,7 +144,10 @@
                     try { const b = await fnErr.context?.json?.(); if (b?.error) msg = b.error; else if (b?.message) msg = b.message; } catch (_) {}
                     throw new Error(msg);
                 }
-                if (!result?.intent_id) throw new Error(result?.error || 'Failed to create order');
+                if (!result?.intent_id) {
+                    const e = result?.error;
+                    throw new Error(e ? (typeof e === 'string' ? e : e.message || JSON.stringify(e)) : 'Failed to create order');
+                }
 
                 window.location.href = 'payment.html?intent_id=' + result.intent_id;
             } catch (err) {

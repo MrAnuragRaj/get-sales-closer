@@ -71,7 +71,7 @@ serve(async (req) => {
       )
     }
 
-    const ref = `NUM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+    const ref = `GSC-${Date.now()}`
 
     // 1. Create order
     const { data: order, error: orderErr } = await sb.from("orders").insert({
@@ -139,22 +139,30 @@ serve(async (req) => {
     const { data: intent, error: intentErr } = await sb.from("billing_intents").insert({
       org_id,
       created_by: user.id,
-      source: "number_purchase",
-      billing_cycle: "one_time",
+      source: "billing",
+      billing_cycle: "monthly",
       status: "created",
       intent_source: "number_purchase",
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       reference_id: ref,
+      services: {},
+      addons: {},
+      channels: {},
       pricing_snapshot: {
+        version: "1",
         final_invoice_amount: TOTAL_AMOUNT,
+        currency: "USD",
+        breakdown: {
+          number_fee: NUMBER_FEE,
+          setup_fee: SETUP_FEE,
+          voice_credit_qty: VOICE_CREDIT_QTY,
+          voice_credit_amt: VOICE_CREDIT_AMT,
+          sms_credit_qty: SMS_CREDIT_QTY,
+          sms_credit_amt: SMS_CREDIT_AMT,
+          channel,
+          area_code: area_code || null,
+        },
         order_id: order.id,
-        number_fee: NUMBER_FEE,
-        setup_fee: SETUP_FEE,
-        voice_credit_qty: VOICE_CREDIT_QTY,
-        voice_credit_amt: VOICE_CREDIT_AMT,
-        sms_credit_qty: SMS_CREDIT_QTY,
-        sms_credit_amt: SMS_CREDIT_AMT,
-        channel,
-        area_code: area_code || null,
         description: "Dedicated Phone Number + Credits Bundle",
       },
     }).select("id").single()
@@ -179,7 +187,8 @@ serve(async (req) => {
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
     )
   } catch (err) {
-    console.error("[create-number-purchase-order]", err)
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
+    const errMsg = (err instanceof Error) ? err.message : (typeof err === "object" && err !== null ? (err as any).message || JSON.stringify(err) : String(err))
+    console.error("[create-number-purchase-order]", errMsg, err)
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: CORS })
   }
 })
