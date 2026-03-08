@@ -129,8 +129,10 @@
           <i class="fa-solid fa-check text-emerald-400 text-3xl"></i>
         </div>
         <h2 id="done-title" class="text-xl font-bold text-white mb-2">Subscription Cancelled</h2>
-        <p id="done-msg" class="text-slate-400 text-sm mb-6"></p>
-        <a href="dashboard.html" class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition text-sm">
+        <p id="done-msg" class="text-slate-400 text-sm mb-2"></p>
+        <p id="done-email-note" class="text-slate-500 text-xs mb-6"></p>
+        <p id="done-countdown" class="hidden text-slate-500 text-xs mb-4"></p>
+        <a id="done-dashboard-btn" href="dashboard.html" class="hidden inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition text-sm">
           Go to Dashboard
         </a>
       </div>
@@ -308,15 +310,38 @@
         const result = await resp.json();
         if (!resp.ok) throw new Error(result.error || 'Cancellation failed');
 
-        const effectiveAt = result.effective_at ? new Date(result.effective_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-        document.getElementById('done-title').textContent =
-          result.cancellation_mode === 'end_of_term' ? 'Cancellation Scheduled' : 'Subscription Cancelled';
-        document.getElementById('done-msg').textContent =
-          result.cancellation_mode === 'end_of_term'
-            ? `Your subscription will end on ${effectiveAt}. You have full access until then.`
-            : `Your access has ended. ${result.net_refund_amount > 0 ? 'Refund of $' + Number(result.net_refund_amount).toFixed(2) + ' has been initiated.' : 'No refund applicable.'}`;
+        const effectiveAt = result.effective_at ? new Date(result.effective_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        const isImmediate = result.cancellation_mode !== 'end_of_term';
+
+        document.getElementById('done-title').textContent = isImmediate ? 'Subscription Cancelled' : 'Cancellation Scheduled';
+        document.getElementById('done-msg').textContent = isImmediate
+          ? (result.net_refund_amount > 0
+              ? 'Your access has ended. A refund of $' + Number(result.net_refund_amount).toFixed(2) + ' has been initiated and will appear within 5–7 business days.'
+              : 'Your access has ended. No refund is applicable.')
+          : 'Your subscription will end on ' + effectiveAt + '. You have full access until then.';
+        document.getElementById('done-email-note').textContent = 'A confirmation email has been sent to you.';
 
         setStep(3);
+
+        if (isImmediate) {
+          // Auto-redirect to index.html after 8 seconds
+          var secs = 8;
+          var countEl = document.getElementById('done-countdown');
+          countEl.classList.remove('hidden');
+          countEl.textContent = 'Redirecting to home page in ' + secs + ' seconds…';
+          var timer = setInterval(function() {
+            secs--;
+            if (secs <= 0) {
+              clearInterval(timer);
+              window.location.href = 'index.html';
+            } else {
+              countEl.textContent = 'Redirecting to home page in ' + secs + ' seconds…';
+            }
+          }, 1000);
+        } else {
+          // End of term — show dashboard button
+          document.getElementById('done-dashboard-btn').classList.remove('hidden');
+        }
       } catch (err) {
         showError('Error: ' + err.message);
         btn.disabled = false;
