@@ -266,7 +266,16 @@
         body: { token_key: _currentTokenKey, quantity: qty },
       });
 
-      if (fnErr) throw new Error(fnErr.message || String(fnErr));
+      if (fnErr) {
+        let errMsg = fnErr.message || String(fnErr);
+        try {
+          const errBody = await fnErr.context?.json?.();
+          if (errBody?.error) errMsg = typeof errBody.error === 'string' ? errBody.error : JSON.stringify(errBody.error);
+          else if (errBody?.message) errMsg = errBody.message;
+          else if (errBody) errMsg = JSON.stringify(errBody);
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
       if (!result || !result.intent_id) {
         const errMsg = result?.error
           ? (typeof result.error === 'string' ? result.error : result.error.message || JSON.stringify(result.error))
