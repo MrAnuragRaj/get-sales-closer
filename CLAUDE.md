@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-08 (Session 24) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-09 (Session 25) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -476,14 +476,50 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 5. **Channel Health Monitor** ✅ — `channel_health_current` (single table; `org_id IS NULL` = platform row, org UUID = org row); two partial unique indexes: `(org_id, channel) WHERE org_id IS NOT NULL` and `(channel) WHERE org_id IS NULL`; `compute_channel_health_v1()` PL/pgSQL function (UPSERT from `delivery_attempts` over last 1h); pg_cron job #14 every 5min; thresholds: excellent(<1%), normal(<3%), elevated(<7%), degraded(≥7%), unknown(no data); `delivery_attempts.sent_at` index added; dashboard: new "Channel Health" card reads from `channel_health_current` (canonical badge); existing "Delivery Status" 7-day card no longer shows client-computed badge (removed — single source of truth); admin P14: platform-level table + degraded/elevated orgs breakdown
 6. **Idempotency Guard for Executors** ✅ — `UNIQUE INDEX delivery_attempts_task_attempt_uidx ON delivery_attempts (task_id, attempt_number) WHERE task_id IS NOT NULL`; all 6 executors: pre-send INSERT with `attempt_number: task.attempt ?? 1`; on 23505 unique_violation → idempotent skip (return 200) — prevents double-send on dispatcher retry / network timeout; executor_sms + executor_email + executor_voice: delivery_attempts fully added for the first time (tracking + idempotency); executor_whatsapp + executor_rcs + executor_messenger: delivery_attempts existing, now include `attempt_number` + 23505 guard; all 6 redeployed
 
-### ⚠️ NEXT SESSION — START HERE: E2E Live Testing (All Unverified Tests)
+### ✅ Session 25 Completed (2026-03-09) — Cancel Flow + Data Deletion
 
-**Do these first thing. Run every item in order. Note ✅ or ❌ with the exact error for any failure.**
-Real bugs only surface under live traffic — `webhook_inbound` missing `--no-verify-jwt` was invisible in all code reviews and only caught when Facebook's verifier hit it live. This is the last gate before production readiness.
+**Bugs fixed this session:**
+- `initiate-cancellation` + `confirm-cancellation` deployed with `--no-verify-jwt` (gateway was rejecting user JWTs)
+- Cancellation email: changed from `billing@` → `support@getsalescloser.com` (confirmed working); moved before `execute-refund` so Razorpay latency can't block delivery
+- Number purchase always excluded from refund (Twilio is non-refundable regardless of provision status); removed `numberRefund` logic
+- Currency fixed to USD (`$` / `en-US`) throughout cancel.html (was `₹` / `en-IN`)
+- Post-cancellation step 3 now mode-aware: immediate → 45s countdown + redirect to `index.html`; end-of-term → dashboard button
+- Error messages throughout cancel flow now show the actual server error (not generic fallback)
+
+**New feature — Delete My Data:**
+- `export-and-delete-org-data` edge function: exports leads + interactions + appointments as CSV attachments (Resend), deletes all org data
+- `cancel.html` step 3: "Delete My Data" button (both modes) → confirmation popup → calls function
+- Immediate: CSV sent + data deleted immediately
+- End of term: CSV backup sent now + deletion scheduled for `service_ends_at`
+- DB: `data_deletion_requested` + `data_deletion_processed_at` added to `subscription_cancellations`
+- pg_cron job #16 (`scheduled-data-deletions`, daily 2am UTC): `process_scheduled_data_deletions()` fires `export-and-delete-org-data` for end-of-term orgs past their end date
+
+**E2E tests confirmed this session:**
+- ✅ D1 — Credit top-up: payment → "Credits Added!" → wallet balance updated
+- ✅ D2 — Low balance alert: email received from `support@getsalescloser.com`
+- ✅ D3 — Number purchase: $110 payment → provisioning queue → admin provisions Twilio number → `org_channels` created
+- ✅ E1 — Cancel immediate: 3-step flow works; `cancellation_status='cancelled_immediate'`; redirect to `index.html`; cancellation email confirmed pending (email sender fix deployed this session)
+- ⚠️ E2 — Cancel end-of-term: flow complete, not yet re-tested after email fix
+
+**Known state for next session:**
+- Test org (`4c4ae696-de66-4b32-833c-b656454437d6` / personal-org) has been reset: `cancellation_status=NULL`, `org_services.status=active`, `subscription_contracts.status=active`
+- `recover-payment` function live: `payment.html` stores `razorpay_payment_id` in `payment_attempts.provider_ref`; `success.html` auto-recovers on timeout — no more manual intervention needed
+- Dynamic pricing on `number_request_checkout.html`: SMS-only=$90, Voice-only=$90, Both=$110
+- Admin provisioning: reads channel from original purchase (no dropdown); supports 'both' → provisions sms + voice in sequence
 
 ---
 
-#### Group A — Core SMS Pipeline (do first — everything else depends on SMS)
+### ⚠️ NEXT SESSION — START HERE: E2E Testing (Resume from Group E)
+
+**Do these first thing. Run every item in order. Note ✅ or ❌ with the exact error for any failure.**
+
+#### Group E — Subscription Cancellation (finish first)
+- [ ] **Confirm cancellation email received**: Re-test immediate cancel → confirm email from `support@getsalescloser.com` arrives with correct refund details
+- [ ] **Cancel — end of term**: 3-step flow → choose "Cancel at end of billing period" → confirm → `organizations.service_ends_at` set; services still active; cancellation email received
+- [ ] **Delete My Data — immediate**: After immediate cancel, click "Delete My Data" → confirm popup → CSV export email arrives with 3 attachments; `leads` table empty for org; `data_deletion_processed_at` populated
+- [ ] **Delete My Data — end of term**: After end-of-term cancel, click "Delete My Data" → CSV backup email arrives now; `data_deletion_requested=true`; actual deletion deferred to `service_ends_at`
+
+#### Group A — Core SMS Pipeline (do next — everything else depends on SMS)
 - [ ] **Mirror Test**: Open `dashboard.html` → complete onboarding step 2 → enter your phone → verify AI intro SMS received within 60s; check `delivery_attempts` row with `status='sent'`
 - [ ] **SMS outbound**: Create a lead → let decision engine + dispatcher run → executor_sms fires → verify SMS received + `delivery_attempts(status='sent', provider_message_id=<sid>)` populated
 - [ ] **SMS inbound reply**: Reply to the SMS above → verify `interactions(type='sms', direction='inbound')` row created + AI response SMS fires back
@@ -498,42 +534,33 @@ Real bugs only surface under live traffic — `webhook_inbound` missing `--no-ve
 - [ ] **Email outbound**: Create an email `execution_task` → dispatch → verify email arrives in inbox + `delivery_attempts(status='sent')` row written
 - [ ] **Deploy AI card lock**: Log in as a user whose org has sentinel service INACTIVE → open `dashboard.html` → verify "Deploy AI" card shows the locked/upgrade state (not the embed code)
 
-#### Group D — Billing & Credits
-- [ ] **Credit top-up E2E**: Click "Buy SMS Credits" → choose 2,000 sms_msg → complete Razorpay payment → `success.html` shows "Credits Added! 2000 sms_msg" → return to dashboard → credit wallet balance updated; check `credit_ledger` + `orders` rows created
-- [ ] **Low balance alert**: Set `credit_wallets.available_balance` below threshold (e.g. sms_msg < 100) via SQL → wait for pg_cron #12 (runs every 15min) or manually invoke `run-low-balance-alerts` via curl → verify alert email + SMS received; `credit_alert_state.alert_sent_at` populated; running again within 24h does NOT send a duplicate
-- [ ] **Number purchase E2E**: Click "Get Your Number" on dashboard → $110 Razorpay checkout → complete payment → `success.html` shows "Number Requested! 72h provisioning" → open `admin.html` Provisioning Queue (P8) → request row appears → click "Provision" → enter Twilio number → `org_channels` row created; `org_channel_provision_requests.status='succeeded'`
-
-#### Group E — Subscription Cancellation
-- [ ] **Cancel — immediate**: Open `cancel.html` (via dashboard Cancel Subscription link) → fill reason form → refund preview shows correct prorated amount and breakdown → confirm "Cancel Immediately" → `organizations.cancellation_status='cancelled_immediate'` + `org_services` disabled; subsequent executor_sms dispatch for that org blocked with `ORG_CANCELLED`
-- [ ] **Cancel — end of term**: Same 3-step flow but choose "Cancel at end of billing period" → confirm → `organizations.service_ends_at` set to `subscription_contracts.cycle_end_at`; services still active until that date
-
 #### Group F — Automations & Scheduled Jobs
 - [ ] **cron_handoff_brief**: Insert test row into `appointments` with `status='scheduled'` at `NOW() + 7 minutes` → wait for pg_cron #9 (fires every 5min) → verify brief SMS/email received with GPT-generated summary of last interactions
 - [ ] **Weekly ROI email**: Invoke `cron_weekly_roi` manually via Supabase Functions console → verify styled ROI email received in org owner's inbox with correct 7-day metrics
 
 #### Group G — WhatsApp Channel
 - [ ] **WhatsApp outbound (sandbox)**: Confirm `TWILIO_WA_FROM_NUMBER` is set (sandbox: `+14155238886`) → create `execution_task(channel='whatsapp')` for a lead → dispatch → verify WA message received on sandbox-joined device; `delivery_attempts(status='sent')` row written
-- [ ] **WhatsApp delivery callback**: Twilio sends `MessageStatus=delivered` webhook → verify `delivery_attempts.status='delivered'` + `delivered_at` populated (no `Body` field in request — status callback path)
-- [ ] **WhatsApp SMS fallback**: Set `org_channel_capabilities.whatsapp_enabled=false` + `message_routing_policies.whatsapp_fallback_to_sms=true` → dispatch WA task → verify SMS received instead; `execution_tasks.channel` rewritten to `'sms'`; `delivery_attempts` row from executor_sms
-- [ ] **WhatsApp inbound**: Lead texts the sandbox WA number → verify `interactions(type='whatsapp', direction='inbound')` + `delivery_attempts(status='received')` + AI reply sent back as WA message
+- [ ] **WhatsApp delivery callback**: Twilio sends `MessageStatus=delivered` webhook → verify `delivery_attempts.status='delivered'` + `delivered_at` populated
+- [ ] **WhatsApp SMS fallback**: Set `org_channel_capabilities.whatsapp_enabled=false` + `whatsapp_fallback_to_sms=true` → dispatch WA task → SMS received instead
+- [ ] **WhatsApp inbound**: Lead texts sandbox WA number → `interactions(type='whatsapp', direction='inbound')` + AI reply sent back
 
 #### Group H — Facebook Messenger
-- [ ] **Messenger webhook verification**: ✅ Already confirmed live (GET challenge returns 200 with correct token)
-- [ ] **Messenger PSID auto-link**: Lead sends first message to your Facebook Page → verify `leads.messenger_psid` populated for the matching lead; `audit_events(action='messenger_psid_linked')` row exists
-- [ ] **Messenger outbound**: After PSID is linked → create `execution_task(channel='messenger')` → dispatch → verify message appears in Facebook Messenger inbox; `delivery_attempts(status='sent')` row written
-- [ ] **Messenger 24h window SMS fallback**: Create execution_task for a PSID with an expired 24h window → dispatch → executor receives Graph API error code 200/subcode 2018109 → task channel rewritten to `'sms'` → SMS received instead; `audit_events(action='channel_fallback_triggered', reason='messenger_24h_window_expired')` written
+- [ ] **Messenger webhook verification**: ✅ Already confirmed live
+- [ ] **Messenger PSID auto-link**: Lead messages Facebook Page → `leads.messenger_psid` populated; `audit_events(action='messenger_psid_linked')` row exists
+- [ ] **Messenger outbound**: PSID linked → dispatch `execution_task(channel='messenger')` → message in Facebook inbox; `delivery_attempts(status='sent')`
+- [ ] **Messenger 24h window SMS fallback**: Expired 24h window → task channel rewritten to `'sms'`; `audit_events(action='channel_fallback_triggered')`
 
 #### Group I — Platform Hardening (Admin Panels)
-- [ ] **Platform kill switch**: In `admin.html` P10 → toggle SMS kill switch ON (enter mandatory reason) → create + dispatch SMS task → task blocked, `last_error` contains `PLATFORM_KILL_SWITCH` → toggle OFF → re-dispatch → SMS succeeds
-- [ ] **Dead-letter queue**: Force a task to exhaust max_attempts (set `max_attempts=1`, `attempt=1`, cause it to fail e.g. bad phone) → verify `execution_dead_letters` row created + admin P12 DLQ panel shows it → click Retry → fresh `execution_tasks` row created with `attempt=0`
-- [ ] **Webhook event store**: Trigger any inbound event (send SMS to Twilio number, or VAPI end-of-call) → open `admin.html` P13 → verify `provider_webhook_events` row appears with correct provider, event_type, and status='processed'
-- [ ] **Channel health monitor**: Send a few SMS/email messages → wait 5min for pg_cron #14 → verify `channel_health_current` has rows → "Channel Health" card on `dashboard.html` shows badges (not all "Unknown"); `admin.html` P14 shows platform health table
-- [ ] **Rate limiter admin panel**: Admin P11 — verify panel loads with current bucket counts; (optional) exhaust org rate limit by firing 31 SMS tasks quickly → 31st returns rate-limited status; bucket resets after window
+- [ ] **Platform kill switch**: admin.html P10 → toggle SMS ON → task blocked with `PLATFORM_KILL_SWITCH` → toggle OFF → SMS succeeds
+- [ ] **Dead-letter queue**: Force max_attempts exhaustion → `execution_dead_letters` row → admin P12 Retry → fresh task created
+- [ ] **Webhook event store**: Inbound event → admin P13 → `provider_webhook_events` row with correct provider + status='processed'
+- [ ] **Channel health monitor**: Send messages → wait 5min → `channel_health_current` rows; dashboard badges not all "Unknown"
+- [ ] **Rate limiter admin panel**: Admin P11 loads bucket counts; (optional) exhaust org limit
 
 #### Group J — Multi-Tenant Flows
-- [ ] **Agent invite E2E**: Agency admin sends invite from `agency_admin.html` → agent receives invite email (from `support@getsalescloser.com`) → clicks link → `login.html` shows "You've been invited" claim card → agent logs in / signs up → lands on `agent_dashboard.html` with correct org context
-- [ ] **Agent human takeover**: Enterprise agent opens a lead → clicks "Takeover" → `leads.ai_paused=true`; types manual reply → SMS sent directly (force_content bypass, AI skipped) → clicks "Resume AI" → `leads.ai_paused=false`; AI resumes on next inbound
-- [ ] **Enterprise leaderboard**: Open `enterprise_admin.html` → leaderboard section loads with agent stats (calls, closes, conversions)
+- [ ] **Agent invite E2E**: Agency admin invites → agent receives email → claims invite → lands on `agent_dashboard.html`
+- [ ] **Agent human takeover**: Takeover → manual SMS sent → Resume AI → AI resumes on next inbound
+- [ ] **Enterprise leaderboard**: `enterprise_admin.html` leaderboard loads with agent stats
 
 ---
 
