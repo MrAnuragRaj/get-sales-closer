@@ -69,6 +69,7 @@
     var params = new URLSearchParams(window.location.search);
     var status = params.get('status');
     var refId = params.get('ref') || 'Unknown';
+    var intentIdFromUrl = params.get('intent_id') || null; // passed by payment.html after Razorpay success
 
     function escapeHtml(str) {
         return String(str)
@@ -156,14 +157,20 @@
     function poll() {
       polls++;
 
-      // ⚡ TIMEOUT HANDLER (30 Seconds)
+      // ⚡ TIMEOUT HANDLER (30 Seconds) — attempt recovery before giving up
       if (polls > MAX_POLLS) {
-        ui.spinner.classList.add("hidden");
-        ui.title.innerText = "Activation Pending";
-        ui.message.innerText = "Your payment is received, but the system is taking longer than usual to sync. Please check your dashboard in a few minutes.";
-        ui.debug.innerText = "TIMEOUT";
-        // UPDATED REDIRECT HERE:
-        ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+        if (intentIdFromUrl) {
+          ui.title.innerText = "Syncing...";
+          ui.message.innerText = "Payment confirmed — attempting auto-recovery...";
+          ui.debug.innerText = "RECOVERING";
+          attemptRecovery(intentIdFromUrl);
+        } else {
+          ui.spinner.classList.add("hidden");
+          ui.title.innerText = "Activation Pending";
+          ui.message.innerText = "Your payment is received, but the system is taking longer than usual to sync. Please check your dashboard in a few minutes.";
+          ui.debug.innerText = "TIMEOUT";
+          ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+        }
         return;
       }
 
@@ -221,6 +228,52 @@
             console.error("Unexpected error:", err);
             setTimeout(poll, POLL_INTERVAL_MS);
         });
+    }
+
+    function attemptRecovery(billingIntentId) {
+      supabase.auth.getSession().then(function(response) {
+        var session = response.data && response.data.session;
+        var token = session ? session.access_token : '';
+
+        fetch(SUPABASE_URL + '/functions/v1/recover-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+            'apikey': SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ billing_intent_id: billingIntentId })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+          ui.spinner.classList.add('hidden');
+          if (result.status === 'paid' || result.status === 'recovered') {
+            ui.debug.innerText = 'RECOVERED';
+            // Re-poll once to get intent_source for correct success message
+            polls = 0;
+            MAX_POLLS = 4;
+            poll();
+          } else if (result.status === 'no_payment_found') {
+            ui.title.innerText = 'Activation Pending';
+            ui.message.innerText = 'Your payment is received. If this persists after 5 minutes, contact support with your reference: ' + refId;
+            ui.debug.innerText = 'NO_PAYMENT_RECORD';
+            ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+          } else {
+            ui.title.innerText = 'Activation Pending';
+            ui.message.innerText = 'Payment confirmed. Your account will activate shortly. Ref: ' + refId;
+            ui.debug.innerText = result.status || 'PENDING';
+            ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+          }
+        })
+        .catch(function(err) {
+          console.error('[recovery] failed:', err);
+          ui.spinner.classList.add('hidden');
+          ui.title.innerText = 'Activation Pending';
+          ui.message.innerText = 'Payment confirmed. Your account will activate shortly. Ref: ' + refId;
+          ui.debug.innerText = 'RECOVERY_ERROR';
+          ui.debug.innerHTML += '<br><br><a href="dashboard.html" class="underline text-blue-400">Go to Dashboard</a>';
+        });
+      });
     }
   </script>
 </body>

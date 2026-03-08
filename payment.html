@@ -281,8 +281,13 @@
                         "name": "GetSalesCloser",
                         "description": `Inv: ${intent.reference_id}`,
                         "handler": async function (response){
-                            // Success! Redirect to success page
-                            window.location.href = `success.html?ref=${intent.reference_id}`;
+                            // Store Razorpay payment_id — enables webhook recovery if webhook fails
+                            try {
+                                await supabaseClient.from('payment_attempts')
+                                    .update({ provider_ref: response.razorpay_payment_id, status: 'captured' })
+                                    .eq('id', attempt.id);
+                            } catch (e) { console.warn('[payment] Failed to store payment_id (non-fatal):', e); }
+                            window.location.href = `success.html?ref=${intent.reference_id}&intent_id=${intent.id}`;
                         },
                         "notes": {
                             "intent_id": intent.id,
