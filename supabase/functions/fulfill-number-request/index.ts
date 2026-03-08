@@ -61,8 +61,9 @@ serve(async (req) => {
     const order_id = snap?.order_id as string
     const intent_amount = Number(snap?.final_invoice_amount ?? 0)
     const org_id = intent.org_id as string
-    const channel = (snap?.channel as string) ?? "sms"
-    const area_code = (snap?.area_code as string) ?? null
+    const breakdown = (snap?.breakdown ?? {}) as Record<string, unknown>
+    const channel = (breakdown?.channel as string) ?? (snap?.channel as string) ?? "sms"
+    const area_code = (breakdown?.area_code as string) ?? (snap?.area_code as string) ?? null
 
     if (!order_id) throw new Error("pricing_snapshot.order_id missing: " + billing_intent_id)
 
@@ -166,16 +167,19 @@ serve(async (req) => {
     const requester_email = reqUser?.email ?? "unknown"
 
     // ── 8. Create provisioning request (status = payment_received) ───────────────
+    // org_channel_provision_requests.channel only allows 'sms' | 'voice'
+    // 'both' means the number supports both — provision as 'sms' (standard DID), full preference in detail
+    const prov_channel = channel === "both" ? "sms" : (channel === "voice" ? "voice" : "sms")
     const prov_idem_key = `prov-req:${billing_intent_id}`
     const { data: provReq, error: provErr } = await sb.from("org_channel_provision_requests").insert({
       org_id,
       created_by: intent.created_by,
-      channel,
+      channel: prov_channel,
       mode: "purchase",
       provider: "twilio",
       country: "US",
       area_code: area_code || null,
-      status: "payment_received",
+      status: "pending",
       idempotency_key: prov_idem_key,
       detail: {
         billing_intent_id,
@@ -198,7 +202,12 @@ serve(async (req) => {
     await sb.from("orders").update({ status: "payment_received" }).eq("id", order_id)
 
     // ── 10. Mark billing_intent paid (success.html polling) ──────────────────────
-    await sb.from("billing_intents").update({ status: "paid" }).eq("id", billing_intent_id)
+    // The webhook chain (process_payment_webhook_v2 → finalize_intent_payment) marks status='paid'
+    // BEFORE this function runs. The prevent_direct_payment_updates trigger blocks direct updates.
+    // Log current status for observability; no-op if already paid.
+    if (intent.status !== "paid") {
+      console.warn(`[fulfill-number-request] billing_intent ${billing_intent_id} status is '${intent.status}' — webhook chain should have marked it paid`)
+    }
 
     // ── 11. Email admin ───────────────────────────────────────────────────────────
     try {
@@ -256,7 +265,8 @@ serve(async (req) => {
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
     )
   } catch (err) {
-    console.error("[fulfill-number-request]", err)
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
+    const errMsg = (err instanceof Error) ? err.message : (typeof err === "object" && err !== null ? (err as any).message || JSON.stringify(err) : String(err))
+    console.error("[fulfill-number-request]", errMsg, err)
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: CORS })
   }
 })

@@ -6,14 +6,14 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
-// Fixed pricing for personalized number purchase (bundle)
+// Pricing components
 const NUMBER_FEE       = 40.00   // Twilio number monthly lease (first month)
 const SETUP_FEE        = 30.00   // One-time provisioning setup
 const VOICE_CREDIT_AMT = 20.00   // 100 voice minutes @ $0.20/min
 const VOICE_CREDIT_QTY = 100
 const SMS_CREDIT_AMT   = 20.00   // 2000 SMS messages @ $0.01/msg
 const SMS_CREDIT_QTY   = 2000
-const TOTAL_AMOUNT     = 110.00
+// Total is dynamic: $90 for sms-only or voice-only; $110 for both
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -73,13 +73,18 @@ serve(async (req) => {
 
     const ref = `GSC-${Date.now()}`
 
+    // Dynamic pricing: include voice credits only for voice/both, SMS credits only for sms/both
+    const includeVoice = channel === "voice" || channel === "both"
+    const includeSms   = channel === "sms"   || channel === "both"
+    const totalAmount  = NUMBER_FEE + SETUP_FEE + (includeVoice ? VOICE_CREDIT_AMT : 0) + (includeSms ? SMS_CREDIT_AMT : 0)
+
     // 1. Create order
     const { data: order, error: orderErr } = await sb.from("orders").insert({
       org_id,
       order_type: "number_purchase",
       status: "payment_pending",
-      subtotal_amount: TOTAL_AMOUNT,
-      total_amount: TOTAL_AMOUNT,
+      subtotal_amount: totalAmount,
+      total_amount: totalAmount,
       customer_visible_reference: ref,
       created_by_user_id: user.id,
       metadata: { channel, area_code: area_code || null },
@@ -111,29 +116,33 @@ serve(async (req) => {
     })
     if (line2Err) throw line2Err
 
-    const { error: line3Err } = await sb.from("order_lines").insert({
-      order_id: order.id,
-      line_type: "credit_voice",
-      description: "Bundled Voice Minutes (100 min)",
-      quantity: VOICE_CREDIT_QTY,
-      unit_amount: 0.20,
-      line_amount: VOICE_CREDIT_AMT,
-      token_key: "voice_min",
-      token_quantity: VOICE_CREDIT_QTY,
-    })
-    if (line3Err) throw line3Err
+    if (includeVoice) {
+      const { error: line3Err } = await sb.from("order_lines").insert({
+        order_id: order.id,
+        line_type: "credit_voice",
+        description: "Bundled Voice Minutes (100 min)",
+        quantity: VOICE_CREDIT_QTY,
+        unit_amount: 0.20,
+        line_amount: VOICE_CREDIT_AMT,
+        token_key: "voice_min",
+        token_quantity: VOICE_CREDIT_QTY,
+      })
+      if (line3Err) throw line3Err
+    }
 
-    const { error: line4Err } = await sb.from("order_lines").insert({
-      order_id: order.id,
-      line_type: "credit_sms",
-      description: "Bundled SMS Credits (2000 messages)",
-      quantity: SMS_CREDIT_QTY,
-      unit_amount: 0.01,
-      line_amount: SMS_CREDIT_AMT,
-      token_key: "sms_msg",
-      token_quantity: SMS_CREDIT_QTY,
-    })
-    if (line4Err) throw line4Err
+    if (includeSms) {
+      const { error: line4Err } = await sb.from("order_lines").insert({
+        order_id: order.id,
+        line_type: "credit_sms",
+        description: "Bundled SMS Credits (2000 messages)",
+        quantity: SMS_CREDIT_QTY,
+        unit_amount: 0.01,
+        line_amount: SMS_CREDIT_AMT,
+        token_key: "sms_msg",
+        token_quantity: SMS_CREDIT_QTY,
+      })
+      if (line4Err) throw line4Err
+    }
 
     // 3. Create billing_intent
     const { data: intent, error: intentErr } = await sb.from("billing_intents").insert({
@@ -150,15 +159,15 @@ serve(async (req) => {
       channels: {},
       pricing_snapshot: {
         version: "1",
-        final_invoice_amount: TOTAL_AMOUNT,
+        final_invoice_amount: totalAmount,
         currency: "USD",
         breakdown: {
           number_fee: NUMBER_FEE,
           setup_fee: SETUP_FEE,
-          voice_credit_qty: VOICE_CREDIT_QTY,
-          voice_credit_amt: VOICE_CREDIT_AMT,
-          sms_credit_qty: SMS_CREDIT_QTY,
-          sms_credit_amt: SMS_CREDIT_AMT,
+          voice_credit_qty: includeVoice ? VOICE_CREDIT_QTY : 0,
+          voice_credit_amt: includeVoice ? VOICE_CREDIT_AMT : 0,
+          sms_credit_qty: includeSms ? SMS_CREDIT_QTY : 0,
+          sms_credit_amt: includeSms ? SMS_CREDIT_AMT : 0,
           channel,
           area_code: area_code || null,
         },
@@ -179,11 +188,11 @@ serve(async (req) => {
       object_type: "order",
       object_id: order.id,
       action: "number_purchase_order_created",
-      after_state: { order_id: order.id, total: TOTAL_AMOUNT, channel, area_code: area_code || null, billing_intent_id: intent.id, voice_min: VOICE_CREDIT_QTY, sms_msg: SMS_CREDIT_QTY },
+      after_state: { order_id: order.id, total: totalAmount, channel, area_code: area_code || null, billing_intent_id: intent.id, voice_min: includeVoice ? VOICE_CREDIT_QTY : 0, sms_msg: includeSms ? SMS_CREDIT_QTY : 0 },
     })
 
     return new Response(
-      JSON.stringify({ intent_id: intent.id, reference: ref, amount: TOTAL_AMOUNT }),
+      JSON.stringify({ intent_id: intent.id, reference: ref, amount: totalAmount }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
     )
   } catch (err) {

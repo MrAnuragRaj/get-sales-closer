@@ -31,21 +31,21 @@
             <div class="space-y-3">
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-check-circle text-emerald-400 text-sm w-5"></i>
-                    <span class="text-sm text-slate-300">Dedicated US phone number (SMS + Voice capable)</span>
+                    <span class="text-sm text-slate-300">Dedicated US phone number</span>
                 </div>
-                <div class="flex items-center gap-3">
+                <div id="feature-sms-inbound" class="flex items-center gap-3">
                     <i class="fa-solid fa-check-circle text-emerald-400 text-sm w-5"></i>
                     <span class="text-sm text-slate-300">Inbound SMS routed to your AI automatically</span>
                 </div>
-                <div class="flex items-center gap-3">
+                <div id="feature-sms-outbound" class="flex items-center gap-3">
                     <i class="fa-solid fa-check-circle text-emerald-400 text-sm w-5"></i>
                     <span class="text-sm text-slate-300">All outbound SMS sent from your number (not shared)</span>
                 </div>
-                <div class="flex items-center gap-3">
+                <div id="feature-voice" class="flex items-center gap-3">
                     <i class="fa-solid fa-check-circle text-emerald-400 text-sm w-5"></i>
                     <span class="text-sm text-slate-300">100 bundled voice minutes included</span>
                 </div>
-                <div class="flex items-center gap-3">
+                <div id="feature-sms-credits" class="flex items-center gap-3">
                     <i class="fa-solid fa-check-circle text-emerald-400 text-sm w-5"></i>
                     <span class="text-sm text-slate-300">2,000 bundled SMS credits included</span>
                 </div>
@@ -64,17 +64,17 @@
                     <span class="text-slate-400">Setup & configuration fee</span>
                     <span class="text-white font-medium">$30.00</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div id="line-voice" class="flex justify-between text-sm">
                     <span class="text-slate-400">100 voice minutes (@ $0.20/min)</span>
                     <span class="text-white font-medium">$20.00</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div id="line-sms" class="flex justify-between text-sm">
                     <span class="text-slate-400">2,000 SMS credits (@ $0.01/msg)</span>
                     <span class="text-white font-medium">$20.00</span>
                 </div>
                 <div class="flex justify-between text-sm font-bold border-t border-white/10 pt-2 mt-2">
                     <span class="text-white">Total today</span>
-                    <span class="text-indigo-400 text-lg">$110.00</span>
+                    <span id="total-display" class="text-indigo-400 text-lg">$110.00</span>
                 </div>
                 <p class="text-slate-500 text-xs">Monthly number cost ($40/mo) billed automatically after the first month.</p>
             </div>
@@ -93,10 +93,10 @@
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Channel</label>
-                    <select id="channel" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <select id="channel" onchange="updatePricing()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
                         <option value="sms">SMS only</option>
                         <option value="voice">Voice only</option>
-                        <option value="both">SMS + Voice</option>
+                        <option value="both" selected>SMS + Voice</option>
                     </select>
                 </div>
             </div>
@@ -106,7 +106,7 @@
         <button id="buy-btn" onclick="startCheckout()"
             class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/20 transition text-base flex items-center justify-center gap-2">
             <i class="fa-solid fa-lock text-sm"></i>
-            Pay $110 — Get My Number
+            <span id="btn-label">Pay $110 — Get My Number</span>
         </button>
         <p class="text-center text-xs text-slate-500 mt-3">Secure payment via Razorpay. Provisioned within 72 hours.</p>
 
@@ -123,8 +123,26 @@
         requireAuth({
             onAuthenticated: async (profile, user, sb) => {
                 _sb = sb;
+                updatePricing();
             }
         });
+
+        function updatePricing() {
+            const channel = document.getElementById('channel').value;
+            const includeVoice = channel === 'voice' || channel === 'both';
+            const includeSms   = channel === 'sms'   || channel === 'both';
+            const total = 40 + 30 + (includeVoice ? 20 : 0) + (includeSms ? 20 : 0);
+
+            document.getElementById('line-voice').style.display = includeVoice ? '' : 'none';
+            document.getElementById('line-sms').style.display   = includeSms   ? '' : 'none';
+            document.getElementById('feature-voice').style.display        = includeVoice ? '' : 'none';
+            document.getElementById('feature-sms-credits').style.display  = includeSms   ? '' : 'none';
+            document.getElementById('feature-sms-inbound').style.display  = includeSms   ? '' : 'none';
+            document.getElementById('feature-sms-outbound').style.display = includeSms   ? '' : 'none';
+
+            document.getElementById('total-display').textContent = '$' + total.toFixed(2);
+            document.getElementById('btn-label').textContent = 'Pay $' + total + ' — Get My Number';
+        }
 
         async function startCheckout() {
             const btn = document.getElementById('buy-btn');

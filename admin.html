@@ -265,11 +265,9 @@
                         <p class="text-[11px] text-slate-500 mt-1">Purchase the number in Twilio first, then enter it here.</p>
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Channel</label>
-                        <select id="provision-channel" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none">
-                            <option value="sms">SMS</option>
-                            <option value="voice">Voice</option>
-                        </select>
+                        <label class="block text-xs text-slate-400 mb-1">Channel (from customer order)</label>
+                        <div id="provision-channel-display" class="w-full bg-slate-700/40 border border-slate-600 text-slate-300 rounded-lg px-3 py-2 text-sm font-medium">—</div>
+                        <p id="provision-channel-note" class="hidden text-[11px] text-amber-400 mt-1">SMS + Voice: two org_channels rows will be created.</p>
                     </div>
                 </div>
                 <p id="provision-error" class="hidden text-xs text-red-400 mt-2"></p>
@@ -966,6 +964,7 @@
         // ── NUMBER PROVISIONING QUEUE ─────────────────────────────────────────────
         let _provisionTargetOrgId = null;
         let _provisionRequestId = null;
+        let _provisionOriginalChannel = null; // 'sms' | 'voice' | 'both'
 
         async function loadProvisioningQueue() {
             const el = document.getElementById('provisioning-queue');
@@ -1000,6 +999,8 @@
                 const areaCode = req.area_code || req.detail?.area_code || 'Any';
                 const requester = req.detail?.requester_email || '—';
                 const amountPaid = req.detail?.amount_paid ? `$${Number(req.detail.amount_paid).toFixed(2)}` : '—';
+                const originalChannel = req.detail?.channel || req.channel; // customer's original selection
+                const channelLabel = originalChannel === 'both' ? 'SMS + Voice' : originalChannel?.toUpperCase() || '—';
                 const statusBadge = paid
                     ? '<span class="bg-yellow-500/10 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Payment Received</span>'
                     : '<span class="bg-slate-600/40 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Pending</span>';
@@ -1010,10 +1011,10 @@
                             <span class="font-bold text-sm text-white">${orgName}</span>
                             ${statusBadge}
                         </div>
-                        <p class="text-xs text-slate-400">Channel: <strong>${req.channel}</strong> · Area: ${areaCode} · Paid: ${amountPaid} · By: ${requester}</p>
+                        <p class="text-xs text-slate-400">Channel: <strong>${channelLabel}</strong> · Area: ${areaCode} · Paid: ${amountPaid} · By: ${requester}</p>
                         <p class="text-[11px] text-slate-500 mt-0.5">${date}</p>
                     </div>
-                    <button onclick="openProvisionModal('${req.org_id}', '${req.id}', '${req.channel}', '${orgName}')"
+                    <button onclick="openProvisionModal('${req.org_id}', '${req.id}', '${originalChannel}', '${orgName}')"
                         class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
                         Provision
                     </button>
@@ -1024,8 +1025,12 @@
         function openProvisionModal(orgId, reqId, channel, orgName) {
             _provisionTargetOrgId = orgId;
             _provisionRequestId = reqId;
-            document.getElementById('provision-modal-org').textContent = orgName + ' — ' + channel.toUpperCase();
-            document.getElementById('provision-channel').value = channel === 'both' ? 'sms' : channel;
+            _provisionOriginalChannel = channel || 'sms';
+            const channelLabel = channel === 'both' ? 'SMS + Voice' : (channel || '').toUpperCase();
+            document.getElementById('provision-modal-org').textContent = orgName;
+            document.getElementById('provision-channel-display').textContent = channelLabel;
+            const note = document.getElementById('provision-channel-note');
+            if (channel === 'both') note.classList.remove('hidden'); else note.classList.add('hidden');
             document.getElementById('provision-phone').value = '';
             document.getElementById('provision-error').classList.add('hidden');
             document.getElementById('provision-modal').classList.remove('hidden');
@@ -1035,11 +1040,11 @@
             document.getElementById('provision-modal').classList.add('hidden');
             _provisionTargetOrgId = null;
             _provisionRequestId = null;
+            _provisionOriginalChannel = null;
         }
 
         async function confirmProvision() {
             const phone = document.getElementById('provision-phone').value.trim();
-            const channel = document.getElementById('provision-channel').value;
             const errEl = document.getElementById('provision-error');
             const btn = document.getElementById('provision-confirm-btn');
 
@@ -1054,25 +1059,29 @@
             btn.disabled = true;
             btn.textContent = 'Provisioning...';
 
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const resp = await fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/org_channels_purchase', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + session.access_token,
-                    },
-                    body: JSON.stringify({
-                        org_id: _provisionTargetOrgId,
-                        channel,
-                        phone_number: phone,
-                        set_default: true,
-                        idempotency_key: 'admin-provision:' + _provisionRequestId,
-                    }),
-                });
+            // Determine which channels to provision
+            const channelsToProv = _provisionOriginalChannel === 'both' ? ['sms', 'voice'] : [_provisionOriginalChannel || 'sms'];
 
-                const result = await resp.json();
-                if (!resp.ok || !result.ok) throw new Error((result.error?.message) || 'Provisioning failed');
+            try {
+                for (const ch of channelsToProv) {
+                    const resp = await fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/org_channels_purchase', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + _adminToken,
+                        },
+                        body: JSON.stringify({
+                            org_id: _provisionTargetOrgId,
+                            channel: ch,
+                            phone_number: phone,
+                            set_default: true,
+                            idempotency_key: 'admin-provision:' + _provisionRequestId + ':' + ch,
+                        }),
+                    });
+
+                    const result = await resp.json();
+                    if (!resp.ok || !result.ok) throw new Error(`[${ch.toUpperCase()}] ` + (result.error?.message || 'Provisioning failed'));
+                }
 
                 // Mark the provision request as succeeded
                 await supabase.from('org_channel_provision_requests')
@@ -1080,7 +1089,7 @@
                     .eq('id', _provisionRequestId);
 
                 closeProvisionModal();
-                alert('Number provisioned successfully: ' + phone);
+                alert('Number provisioned successfully: ' + phone + (channelsToProv.length > 1 ? ' (SMS + Voice)' : ''));
                 loadProvisioningQueue();
             } catch (err) {
                 errEl.textContent = 'Error: ' + err.message;

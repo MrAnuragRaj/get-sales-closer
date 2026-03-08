@@ -96,10 +96,15 @@ serve(async (req) => {
     const idempotency_key = providedKey || `purchase:${org_id}:${channel}:${normalized}`;
     if (idempotency_key.length > 200) return failure(400, "IDEMPOTENCY_KEY_TOO_LONG", "idempotency_key too long");
 
-    // AuthZ: org admin/owner required (RLS safe)
-    const { data: isAdmin, error: adminErr } = await supabase.rpc("is_org_admin_or_owner", { p_org_id: org_id });
+    // AuthZ: org admin/owner OR platform admin required
+    const { data: isOrgAdmin, error: adminErr } = await supabase.rpc("is_org_admin_or_owner", { p_org_id: org_id });
     if (adminErr) return failure(500, "ORG_ADMIN_CHECK_FAILED", "AuthZ check failed", adminErr.message);
-    if (!isAdmin) return failure(403, "NOT_ORG_ADMIN", "Admin access required");
+    let allowed = !!isOrgAdmin;
+    if (!allowed) {
+      const { data: profile } = await svc.from("profiles").select("is_admin").eq("id", user_id).maybeSingle();
+      allowed = profile?.is_admin === true;
+    }
+    if (!allowed) return failure(403, "NOT_ORG_ADMIN", "Admin access required");
 
     // Rate limit (single atomic RPC)
     try {
