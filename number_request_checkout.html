@@ -118,15 +118,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
     <script>
-        const SUPABASE_URL = 'https://klbwigcvrdfeeeeotehu.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
-        let _sb, _session;
+        let _sb;
 
         requireAuth({
             onAuthenticated: async (profile, user, sb) => {
                 _sb = sb;
-                const { data: { session } } = await sb.auth.getSession();
-                _session = session;
             }
         });
 
@@ -139,18 +135,16 @@
                 const area_code = document.getElementById('area-code').value.trim() || null;
                 const channel = document.getElementById('channel').value;
 
-                const resp = await fetch(SUPABASE_URL + '/functions/v1/create-number-purchase-order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + _session.access_token,
-                        'apikey': SUPABASE_ANON_KEY,
-                    },
-                    body: JSON.stringify({ area_code, channel }),
+                const { data: result, error: fnErr } = await _sb.functions.invoke('create-number-purchase-order', {
+                    body: { area_code, channel },
                 });
 
-                const result = await resp.json();
-                if (!resp.ok || !result.intent_id) throw new Error(result.error || 'Failed to create order');
+                if (fnErr) {
+                    let msg = fnErr.message || String(fnErr);
+                    try { const b = await fnErr.context?.json?.(); if (b?.error) msg = b.error; else if (b?.message) msg = b.message; } catch (_) {}
+                    throw new Error(msg);
+                }
+                if (!result?.intent_id) throw new Error(result?.error || 'Failed to create order');
 
                 window.location.href = 'payment.html?intent_id=' + result.intent_id;
             } catch (err) {
