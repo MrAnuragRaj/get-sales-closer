@@ -238,7 +238,7 @@ serve(async (req) => {
 </div>`
         }
 
-        await fetch("https://api.resend.com/emails", {
+        const emailResp = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -248,6 +248,12 @@ serve(async (req) => {
             html: htmlBody,
           }),
         })
+        if (!emailResp.ok) {
+          const errBody = await emailResp.text()
+          console.error("[confirm-cancellation] Resend error:", emailResp.status, errBody)
+        } else {
+          console.log("[confirm-cancellation] cancellation email sent to:", user.email)
+        }
       } catch (emailErr) {
         console.warn("[confirm-cancellation] email send failed (non-fatal):", emailErr)
       }
