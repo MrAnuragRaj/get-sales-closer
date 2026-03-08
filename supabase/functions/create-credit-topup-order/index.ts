@@ -157,10 +157,10 @@ serve(async (req) => {
       .insert({
         org_id,
         created_by: user.id,
-        source: "credit_topup",
         billing_cycle: "one_time",
         status: "created",
         intent_source: "credit_topup",
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         reference_id: ref,
         pricing_snapshot: {
           final_invoice_amount: total_amount,
@@ -199,7 +199,10 @@ serve(async (req) => {
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
     )
   } catch (err) {
-    console.error("[create-credit-topup-order]", err)
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
+    const errMsg = (err instanceof Error)
+      ? err.message
+      : (typeof err === "object" && err !== null ? (err as any).message || JSON.stringify(err) : String(err))
+    console.error("[create-credit-topup-order]", errMsg, err)
+    return new Response(JSON.stringify({ error: errMsg }), { status: 500, headers: CORS })
   }
 })
