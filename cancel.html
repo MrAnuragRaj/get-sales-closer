@@ -154,6 +154,7 @@
         _sb = sb;
         const { data: { session } } = await sb.auth.getSession();
         _session = session;
+        document.getElementById('page-content').classList.remove('hidden');
       }
     });
 
