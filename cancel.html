@@ -221,7 +221,7 @@
     }
 
     function formatCurrency(v) {
-      return '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function renderQuote(q) {
@@ -314,7 +314,7 @@
         document.getElementById('done-msg').textContent =
           result.cancellation_mode === 'end_of_term'
             ? `Your subscription will end on ${effectiveAt}. You have full access until then.`
-            : `Your access has ended. ${result.net_refund_amount > 0 ? 'Refund of ₹' + Number(result.net_refund_amount).toFixed(2) + ' has been initiated.' : 'No refund applicable.'}`;
+            : `Your access has ended. ${result.net_refund_amount > 0 ? 'Refund of $' + Number(result.net_refund_amount).toFixed(2) + ' has been initiated.' : 'No refund applicable.'}`;
 
         setStep(3);
       } catch (err) {

@@ -101,7 +101,6 @@ serve(async (req) => {
     const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24))
 
     let grossRefund = 0
-    let numberRefund = 0
     let excludedCreditsAmount = 0
     let excludedNumberAmount = 0
 
@@ -109,7 +108,7 @@ serve(async (req) => {
       grossRefund = Number(contract.gross_amount) * (daysRemaining / daysInCycle)
       grossRefund = Math.max(0, Math.round(grossRefund * 100) / 100)
 
-      // Check for number purchases — refund only if fulfillment failed/pending
+      // Number purchases are always excluded (Twilio charges are non-refundable)
       const { data: numberPurchases } = await sb
         .from("billing_intents")
         .select("id, pricing_snapshot")
@@ -120,21 +119,9 @@ serve(async (req) => {
       for (const np of numberPurchases ?? []) {
         const numAmount = Number(np.pricing_snapshot?.final_invoice_amount ?? 0)
         if (numAmount <= 0) continue
-
-        const { data: provReqs } = await sb
-          .from("org_channel_provision_requests")
-          .select("status")
-          .eq("org_id", org_id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-
-        const provStatus = provReqs?.[0]?.status ?? null
-        if (provStatus === "succeeded") {
-          excludedNumberAmount += numAmount
-        } else {
-          // Fulfillment not completed — include in refund
-          numberRefund += numAmount
-        }
+        // Number purchases are always excluded — Twilio charges are non-refundable
+        // regardless of provision status (pending or succeeded)
+        excludedNumberAmount += numAmount
       }
 
       // Top-up credits (always excluded from refund)
@@ -150,14 +137,13 @@ serve(async (req) => {
       }
     }
 
-    const netRefund = Math.round((grossRefund + numberRefund) * 100) / 100
+    const netRefund = Math.round(grossRefund * 100) / 100
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
     const refundBreakdown = {
       subscription_proration: grossRefund,
-      number_refund_failed_fulfillment: numberRefund,
       excluded_top_up_credits: excludedCreditsAmount,
-      excluded_number_fees_fulfilled: excludedNumberAmount,
+      excluded_number_fees: excludedNumberAmount,
       contract_gross_amount: contract.gross_amount,
       days_remaining: daysRemaining,
       days_in_cycle: daysInCycle,
