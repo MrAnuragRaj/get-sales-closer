@@ -278,11 +278,13 @@
         }
       );
 
-      const result = await resp.json();
+      const result = await resp.json().catch(() => ({}));
       if (!resp.ok || !result.intent_id) {
         const errMsg = result.error
           ? (typeof result.error === 'string' ? result.error : result.error.message || JSON.stringify(result.error))
-          : 'Failed to create order';
+          : result.message
+          ? result.message
+          : `HTTP ${resp.status}: ${JSON.stringify(result)}`;
         throw new Error(errMsg);
       }
 
