@@ -135,6 +135,32 @@
         <a id="done-dashboard-btn" href="dashboard.html" class="hidden inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3 rounded-xl transition text-sm">
           Go to Dashboard
         </a>
+        <button id="done-delete-btn" onclick="openDeleteModal()" class="hidden mt-4 w-full border border-red-800 hover:border-red-600 text-red-500 hover:text-red-400 font-medium py-3 rounded-xl transition text-sm">
+          <i class="fa-solid fa-trash-can mr-2"></i>Delete My Data
+        </button>
+      </div>
+
+      <!-- Delete Data Modal -->
+      <div id="delete-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div class="bg-slate-900 border border-red-900/50 rounded-2xl p-8 max-w-md w-full">
+          <div class="w-14 h-14 bg-red-900/30 border border-red-700/40 rounded-full flex items-center justify-center mx-auto mb-5">
+            <i class="fa-solid fa-triangle-exclamation text-red-400 text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white text-center mb-2">Are you absolutely sure?</h3>
+          <p id="delete-modal-msg" class="text-slate-400 text-sm text-center mb-6 leading-relaxed"></p>
+          <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 mb-6 text-xs text-slate-400 leading-relaxed">
+            <i class="fa-solid fa-circle-info text-blue-400 mr-2"></i>
+            As a gesture of goodwill, we will email you a <strong class="text-white">complete CSV export</strong> of all your leads, conversations, and appointments before deletion — completely free.
+          </div>
+          <div class="flex gap-3">
+            <button onclick="closeDeleteModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition text-sm">
+              Keep My Data
+            </button>
+            <button id="delete-confirm-btn" onclick="confirmDataDeletion()" class="flex-1 bg-red-700 hover:bg-red-600 text-white font-semibold py-3 rounded-xl transition text-sm">
+              Yes, Delete Everything
+            </button>
+          </div>
+        </div>
       </div>
 
       <p id="error-msg" class="hidden text-center text-red-400 text-sm mt-4"></p>
@@ -324,7 +350,8 @@
         setStep(3);
 
         if (isImmediate) {
-          // Auto-redirect to index.html after 8 seconds
+          // Show delete data button + auto-redirect
+          document.getElementById('done-delete-btn').classList.remove('hidden');
           var secs = 8;
           var countEl = document.getElementById('done-countdown');
           countEl.classList.remove('hidden');
@@ -339,13 +366,62 @@
             }
           }, 1000);
         } else {
-          // End of term — show dashboard button
+          // End of term — show dashboard button + delete data button
           document.getElementById('done-dashboard-btn').classList.remove('hidden');
+          document.getElementById('done-delete-btn').classList.remove('hidden');
         }
       } catch (err) {
         showError('Error: ' + err.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-xmark text-sm"></i> <span id="confirm-btn-label">Confirm Cancellation</span>';
+      }
+    }
+    function openDeleteModal() {
+      var msg = _cancMode === 'immediate'
+        ? 'This will permanently delete all your leads, conversations, appointments, and settings. This action cannot be undone.'
+        : 'Your data will be permanently deleted on your subscription end date. Once confirmed, this cannot be reversed.';
+      document.getElementById('delete-modal-msg').textContent = msg;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden');
+    }
+
+    async function confirmDataDeletion() {
+      var btn = document.getElementById('delete-confirm-btn');
+      btn.disabled = true;
+      btn.textContent = 'Processing…';
+
+      try {
+        var resp = await fetch(SUPABASE_URL + '/functions/v1/export-and-delete-org-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + _session.access_token,
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({}),
+        });
+        var result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Data deletion failed');
+
+        closeDeleteModal();
+        document.getElementById('done-delete-btn').classList.add('hidden');
+
+        var noteEl = document.getElementById('done-email-note');
+        if (_cancMode === 'immediate') {
+          noteEl.textContent = 'Your data has been deleted. A CSV export has been sent to your email.';
+        } else {
+          noteEl.textContent = 'Data deletion scheduled for your subscription end date. A CSV backup has been sent to your email.';
+        }
+        noteEl.classList.remove('text-slate-500');
+        noteEl.classList.add('text-emerald-400');
+      } catch (err) {
+        closeDeleteModal();
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Yes, Delete Everything';
       }
     }
   </script>

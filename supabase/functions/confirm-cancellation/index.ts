@@ -174,7 +174,65 @@ serve(async (req) => {
       }).eq("id", org_id)
     }
 
-    // ── 8. Audit ──────────────────────────────────────────────────────────────
+    // ── 8. Send cancellation confirmation email ───────────────────────────────
+    // Sent BEFORE execute-refund so a slow Razorpay call can't prevent delivery
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? ""
+    if (RESEND_API_KEY && user.email) {
+      try {
+        const { data: profile } = await sb.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+        const { data: org } = await sb.from("organizations").select("name").eq("id", org_id).maybeSingle()
+        const userName = profile?.full_name || "there"
+        const orgName = org?.name || "your organization"
+        const endDate = new Date(contract.cycle_end_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
+        const refundAmt = Number(quote.net_refund_amount)
+
+        const subject = cancellation_mode === "immediate"
+          ? "Your GetSalesCloser subscription has been cancelled"
+          : "Your GetSalesCloser cancellation is scheduled"
+
+        const htmlBody = cancellation_mode === "immediate"
+          ? `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#020617;color:#e2e8f0;">
+  <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 8px;">Subscription Cancelled</h1>
+  <p style="color:#94a3b8;font-size:14px;margin:0 0 24px;">Hi ${userName}, your GetSalesCloser subscription for <strong style="color:#ffffff;">${orgName}</strong> has been cancelled effective immediately.</p>
+  ${refundAmt > 0
+    ? `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
+    <p style="margin:0 0 6px;font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Refund</p>
+    <p style="margin:0;font-size:24px;font-weight:700;color:#34d399;">$${refundAmt.toFixed(2)}</p>
+    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Will appear on your original payment method within 5–7 business days.</p>
+  </div>`
+    : `<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
+    <p style="margin:0;font-size:13px;color:#94a3b8;">No refund is applicable for this cancellation.</p>
+  </div>`}
+  <p style="font-size:13px;color:#64748b;margin:0;">Questions? Email us at <a href="mailto:support@getsalescloser.com" style="color:#60a5fa;">support@getsalescloser.com</a></p>
+</div>`
+          : `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#020617;color:#e2e8f0;">
+  <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 8px;">Cancellation Scheduled</h1>
+  <p style="color:#94a3b8;font-size:14px;margin:0 0 24px;">Hi ${userName}, your cancellation request for <strong style="color:#ffffff;">${orgName}</strong> has been received.</p>
+  <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
+    <p style="margin:0 0 6px;font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Access Ends</p>
+    <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${endDate}</p>
+    <p style="margin:8px 0 0;font-size:12px;color:#64748b;">You have full access to all services until this date. No refund for end-of-term cancellations.</p>
+  </div>
+  <p style="font-size:13px;color:#64748b;margin:0;">Questions? Email us at <a href="mailto:support@getsalescloser.com" style="color:#60a5fa;">support@getsalescloser.com</a></p>
+</div>`
+
+        const emailResp = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ from: "support@getsalescloser.com", to: user.email, subject, html: htmlBody }),
+        })
+        if (!emailResp.ok) {
+          const errBody = await emailResp.text()
+          console.error("[confirm-cancellation] Resend error:", emailResp.status, errBody)
+        } else {
+          console.log("[confirm-cancellation] cancellation email sent to:", user.email)
+        }
+      } catch (emailErr) {
+        console.warn("[confirm-cancellation] email send failed (non-fatal):", emailErr)
+      }
+    }
+
+    // ── 9. Audit ──────────────────────────────────────────────────────────────
     await sb.from("audit_events").insert({
       org_id,
       actor_type: "user",
@@ -191,73 +249,6 @@ serve(async (req) => {
         contract_id: contract.id,
       },
     })
-
-    // ── 9. Send cancellation email ────────────────────────────────────────────
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? ""
-    if (RESEND_API_KEY && user.email) {
-      try {
-        const { data: profile } = await sb.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
-        const { data: org } = await sb.from("organizations").select("name").eq("id", org_id).maybeSingle()
-        const userName = profile?.full_name || "there"
-        const orgName = org?.name || "your organization"
-        const endDate = new Date(contract.cycle_end_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
-        const refundAmt = Number(quote.net_refund_amount)
-
-        let subject: string
-        let htmlBody: string
-
-        if (cancellation_mode === "immediate") {
-          subject = "Your GetSalesCloser subscription has been cancelled"
-          htmlBody = `
-<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#020617;color:#e2e8f0;">
-  <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 8px;">Subscription Cancelled</h1>
-  <p style="color:#94a3b8;font-size:14px;margin:0 0 24px;">Hi ${userName}, your GetSalesCloser subscription for <strong style="color:#ffffff;">${orgName}</strong> has been cancelled effective immediately.</p>
-  ${refundAmt > 0 ? `
-  <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
-    <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Refund Details</p>
-    <p style="margin:0;font-size:24px;font-weight:700;color:#34d399;">$${refundAmt.toFixed(2)}</p>
-    <p style="margin:4px 0 0;font-size:12px;color:#64748b;">Will be credited to your original payment method within 5–7 business days.</p>
-  </div>` : `
-  <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
-    <p style="margin:0;font-size:13px;color:#94a3b8;">No refund is applicable for this cancellation.</p>
-  </div>`}
-  <p style="font-size:13px;color:#64748b;margin:0;">If you have any questions, reply to this email or contact us at <a href="mailto:support@getsalescloser.com" style="color:#60a5fa;">support@getsalescloser.com</a>.</p>
-</div>`
-        } else {
-          subject = "Your GetSalesCloser cancellation is scheduled"
-          htmlBody = `
-<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#020617;color:#e2e8f0;">
-  <h1 style="font-size:22px;font-weight:700;color:#ffffff;margin:0 0 8px;">Cancellation Scheduled</h1>
-  <p style="color:#94a3b8;font-size:14px;margin:0 0 24px;">Hi ${userName}, your cancellation request for <strong style="color:#ffffff;">${orgName}</strong> has been received.</p>
-  <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px;">
-    <p style="margin:0 0 8px;font-size:13px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Access Ends</p>
-    <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${endDate}</p>
-    <p style="margin:8px 0 0;font-size:12px;color:#64748b;">You have full access to all services until this date. No refund is issued for end-of-term cancellations.</p>
-  </div>
-  <p style="font-size:13px;color:#64748b;margin:0;">If you have any questions, reply to this email or contact us at <a href="mailto:support@getsalescloser.com" style="color:#60a5fa;">support@getsalescloser.com</a>.</p>
-</div>`
-        }
-
-        const emailResp = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: "billing@getsalescloser.com",
-            to: user.email,
-            subject,
-            html: htmlBody,
-          }),
-        })
-        if (!emailResp.ok) {
-          const errBody = await emailResp.text()
-          console.error("[confirm-cancellation] Resend error:", emailResp.status, errBody)
-        } else {
-          console.log("[confirm-cancellation] cancellation email sent to:", user.email)
-        }
-      } catch (emailErr) {
-        console.warn("[confirm-cancellation] email send failed (non-fatal):", emailErr)
-      }
-    }
 
     return new Response(
       JSON.stringify({
