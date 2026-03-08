@@ -157,11 +157,15 @@ serve(async (req) => {
       .insert({
         org_id,
         created_by: user.id,
+        source: "credit_topup",
         billing_cycle: "one_time",
         status: "created",
         intent_source: "credit_topup",
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         reference_id: ref,
+        services: {},
+        addons: {},
+        channels: {},
         pricing_snapshot: {
           final_invoice_amount: total_amount,
           order_id: order.id,
