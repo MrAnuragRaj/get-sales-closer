@@ -211,7 +211,8 @@ serve(async (req) => {
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
     )
   } catch (err) {
-    console.error("[initiate-cancellation]", err)
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS })
+    const msg = (err instanceof Error) ? err.message : (typeof err === "object" && err !== null ? (err as any).message || (err as any).details || JSON.stringify(err) : String(err))
+    console.error("[initiate-cancellation]", msg, err)
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: CORS })
   }
 })

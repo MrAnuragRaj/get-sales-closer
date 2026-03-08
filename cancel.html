@@ -207,7 +207,7 @@
           }),
         });
         const result = await resp.json();
-        if (!resp.ok) throw new Error(result.error || 'Failed to compute refund');
+        if (!resp.ok) throw new Error(result.error || result.message || result.msg || JSON.stringify(result));
 
         _quoteId = result.quote_id;
         renderQuote(result);
