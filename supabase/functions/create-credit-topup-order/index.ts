@@ -169,6 +169,7 @@ serve(async (req) => {
         pricing_snapshot: {
           version: "1",
           final_invoice_amount: total_amount,
+          currency: "USD",
           breakdown: { token_key, quantity: qty, description },
           order_id: order.id,
           order_line_id: line.id,
