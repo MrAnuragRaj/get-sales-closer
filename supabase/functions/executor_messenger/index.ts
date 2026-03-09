@@ -336,14 +336,14 @@ serve(async (req) => {
     }
 
     const brainResult = await generateMessage(supabase, {
-      orgId: task.org_id,
-      leadId: task.lead_id,
-      actorUserId: task.actor_user_id,
-      channel: "messenger",
-      planId: task.plan_id,
+      task_id,
+      org_id: task.org_id,
+      lead: { id: task.lead_id, name: task.leads?.name },
+      channel: "sms",
+      intent: task.metadata?.intent_trace ?? task.metadata?.intent ?? "initial_outreach",
     });
 
-    if (brainResult.error || !brainResult.message) {
+    if (brainResult.error || !brainResult.content) {
       await supabase.from("execution_tasks").update({
         status: "failed",
         last_error: safeString(brainResult.error ?? "AI_GENERATION_FAILED"),
@@ -353,15 +353,18 @@ serve(async (req) => {
       return new Response("AI generation failed", { status: 200 });
     }
 
-    messageText = brainResult.message;
+    messageText = brainResult.content;
   }
 
   // 6) Token consumption (AFTER sender resolution, BEFORE send)
   const { data: consumeRes, error: consumeErr } = await supabase.rpc("consume_tokens_v1", {
     p_org_id: task.org_id,
+    p_scope: "user",
+    p_user_id: task.actor_user_id,
     p_token_key: "messenger_msg",
-    p_quantity: 1,
+    p_amount: 1,
     p_idempotency_key: task_id,
+    p_metadata: { channel: "messenger", provider: "facebook", task_id },
   });
 
   if (consumeErr) {
@@ -374,15 +377,15 @@ serve(async (req) => {
     return new Response("Token RPC failed", { status: 200 });
   }
 
-  const { allowed, reason } = consumeRes as { allowed: boolean; reason: string };
-  if (!allowed) {
+  if (!consumeRes || consumeRes.status !== "ok") {
+    const reason = consumeRes?.reason ?? "TOKEN_CONSUME_DECLINED";
     await supabase.from("execution_tasks").update({
-      status: "failed",
+      status: "paused_insufficient_funds",
       last_error: `TOKEN_CONSUME_DECLINED: ${reason}`,
       locked_by: null,
       locked_until: null,
     }).eq("id", task_id);
-    return new Response("Token declined", { status: 200 });
+    return new Response("Insufficient tokens", { status: 402 });
   }
 
   // 7) Log delivery attempt (pre-send, status=pending) — idempotency guard via UNIQUE(task_id, attempt_number)
@@ -440,10 +443,12 @@ serve(async (req) => {
     // Refund token on network failure
     await supabase.rpc("grant_tokens_core_v1", {
       p_org_id: task.org_id,
+      p_scope: "user",
+      p_user_id: task.actor_user_id,
       p_token_key: "messenger_msg",
-      p_quantity: 1,
+      p_amount: 1,
       p_idempotency_key: `refund:${task_id}:network`,
-      p_note: "Messenger network error — refund",
+      p_metadata: { reason: "Messenger network error — refund", task_id },
     });
 
     const attempt = task.attempt ?? 1;
@@ -487,10 +492,12 @@ serve(async (req) => {
     // Refund token — send never happened
     await supabase.rpc("grant_tokens_core_v1", {
       p_org_id: task.org_id,
+      p_scope: "user",
+      p_user_id: task.actor_user_id,
       p_token_key: "messenger_msg",
-      p_quantity: 1,
+      p_amount: 1,
       p_idempotency_key: `refund:${task_id}:graph_error`,
-      p_note: `Messenger Graph API error ${errorCode} — refund`,
+      p_metadata: { reason: `Messenger Graph API error ${errorCode} — refund`, task_id },
     });
 
     // For 24h window expiry: check routing policy for SMS fallback

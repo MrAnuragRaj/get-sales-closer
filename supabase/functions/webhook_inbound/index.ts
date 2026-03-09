@@ -1051,6 +1051,16 @@ serve(async (req) => {
             metadata: { psid, page_id: pageId, direction: "inbound" },
           }).then(undefined, () => {});
 
+          // Resolve actor_user_id + plan_id for reply_router task creation
+          const [fbOwnerRes, fbPlanRes] = await Promise.all([
+            supabase.from("org_members").select("user_id").eq("org_id", fbLeadOrgId)
+              .in("role", ["owner", "agency_admin", "enterprise_admin"]).limit(1).maybeSingle(),
+            supabase.from("decision_plans").select("id").eq("org_id", fbLeadOrgId)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+          ]);
+          const fbActorId: string | undefined = fbOwnerRes.data?.user_id ?? fbLeadOrgId;
+          const fbPlanId: string | undefined = fbPlanRes.data?.id ?? undefined;
+
           // Route to reply_router
           await replyRouter({
             supabase,
@@ -1058,6 +1068,8 @@ serve(async (req) => {
             lead_id: fbLeadId,
             inbound_text: msgText,
             channel_source: "messenger" as any,
+            actor_user_id: fbActorId,
+            plan_id: fbPlanId,
           });
 
           console.log(`[webhook_inbound] Messenger inbound: lead=${fbLeadId} org=${fbLeadOrgId} psid=${psid}`);
