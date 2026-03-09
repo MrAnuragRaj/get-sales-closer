@@ -158,7 +158,7 @@ serve(async (_req) => {
       // Org name
       const { data: org } = await sb
         .from("organizations")
-        .select("name, owner_id")
+        .select("name")
         .eq("id", orgId)
         .single();
 
@@ -229,19 +229,14 @@ serve(async (_req) => {
       const voiceMinutes = (voiceRows ?? []).reduce((s: number, r: any) => s + (r.minutes_used ?? 0), 0);
       const voiceCost = (voiceRows ?? []).reduce((s: number, r: any) => s + (r.cost ?? 0), 0);
 
-      // Get recipients: owner + admins
-      const recipientIds: string[] = [];
-      if (org.owner_id) recipientIds.push(org.owner_id);
-
+      // Get recipients: all non-agent members (owners, solo users, admins)
       const { data: adminMembers } = await sb
         .from("org_members")
-        .select("user_id, role")
+        .select("user_id")
         .eq("org_id", orgId)
-        .in("role", ["enterprise_admin", "agency_admin"]);
+        .not("role", "eq", "enterprise_agent");
 
-      for (const m of adminMembers ?? []) {
-        if (!recipientIds.includes(m.user_id)) recipientIds.push(m.user_id);
-      }
+      const recipientIds: string[] = (adminMembers ?? []).map((m: any) => m.user_id);
 
       const { data: recipients } = await sb
         .from("profiles")

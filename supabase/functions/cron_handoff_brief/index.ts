@@ -23,9 +23,9 @@ serve(async (_req) => {
   // Fetch upcoming appointments in window
   const { data: appointments, error: apptErr } = await sb
     .from("appointments")
-    .select("id, lead_id, scheduled_at, notes")
-    .gte("scheduled_at", windowStart)
-    .lte("scheduled_at", windowEnd)
+    .select("id, lead_id, start_time, summary")
+    .gte("start_time", windowStart)
+    .lte("start_time", windowEnd)
     .eq("status", "scheduled");
 
   if (apptErr) {
@@ -61,12 +61,13 @@ serve(async (_req) => {
       // Also look for solo owner (role IS NULL + org owner)
       const { data: org } = await sb
         .from("organizations")
-        .select("owner_id, name")
+        .select("id, name")
         .eq("id", lead.org_id)
         .single();
 
       const closerIds: string[] = [];
-      if (org?.owner_id) closerIds.push(org.owner_id);
+      // org.id == owner's user_id in our data model (personal orgs)
+      if (org?.id) closerIds.push(org.id);
       if (members) {
         for (const m of members) {
           if (!closerIds.includes(m.user_id)) closerIds.push(m.user_id);
@@ -97,7 +98,7 @@ serve(async (_req) => {
         .join("\n") ?? "(no prior conversation)";
 
       // Generate brief via GPT-4o-mini
-      const meetingTime = new Date(appt.scheduled_at).toLocaleTimeString("en-US", {
+      const meetingTime = new Date(appt.start_time).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         timeZone: "UTC",
