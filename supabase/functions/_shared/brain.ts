@@ -90,16 +90,25 @@ async function checkCredits(
 
 // 🧠 CONTEXT BUILDER (Updated with Memory)
 async function buildContext(supabase: any, org_id: string, lead_id: string) {
-  // 1. Fetch Settings & Services
-  const { data: settings } = await supabase
-    .from("org_settings")
-    .select("industry, cal_link, persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides")
-    .eq("org_id", org_id)
-    .single();
-  const { data: services } = await supabase
-    .from("org_services")
-    .select("service_key, status")
-    .eq("org_id", org_id);
+  // Fetch all context in parallel to minimize latency
+  const [
+    { data: settings },
+    { data: services },
+    { data: state },
+    { data: history },
+    { data: kbRules },
+  ] = await Promise.all([
+    supabase.from("org_settings")
+      .select("industry, cal_link, persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides")
+      .eq("org_id", org_id).single(),
+    supabase.from("org_services").select("service_key, status").eq("org_id", org_id),
+    supabase.from("conversation_state").select("stage, memory_json").eq("lead_id", lead_id).maybeSingle(),
+    supabase.from("interactions").select("content, created_at")
+      .eq("lead_id", lead_id).eq("direction", "inbound")
+      .order("created_at", { ascending: false }).limit(2),
+    supabase.from("knowledge_base").select("title, content_text")
+      .eq("org_id", org_id).eq("type", "text_rule").limit(10),
+  ]);
 
   const industry = settings?.industry || "general";
   const calLink = settings?.cal_link || null;
@@ -113,22 +122,6 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
     (s: any) => s.service_key === "voice_liaison" && s.status === "active",
   );
 
-  // 2. Fetch MEMORY & STATE (New Logic)
-  const { data: state } = await supabase
-    .from("conversation_state")
-    .select("stage, memory_json")
-    .eq("lead_id", lead_id)
-    .maybeSingle();
-
-  // 3. Fetch SHORT-TERM WINDOW (Last 2 Inbound Messages)
-  const { data: history } = await supabase
-    .from("interactions")
-    .select("content, created_at")
-    .eq("lead_id", lead_id)
-    .eq("direction", "inbound")
-    .order("created_at", { ascending: false })
-    .limit(2);
-
   const recentHistory =
     history?.reverse().map((h: any) => `User: "${h.content}"`).join("\n") ||
     "No recent history.";
@@ -137,13 +130,13 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
     : "No specific facts yet.";
   const currentStage = state?.stage || "outreach";
 
-  // 4. Define Constraints (Industry)
+  // Define Constraints (Industry)
   let constraints = "";
   if (industry === "law") constraints += "CONSTRAINT: Do not predict case outcomes. Refer to attorney. ";
   if (industry === "medical") constraints += "CONSTRAINT: Do not give medical advice. If emergency, direct to 911. ";
   if (industry === "finance") constraints += "CONSTRAINT: No ROI guarantees. ";
 
-  // 5. Define Feature Constraints
+  // Feature Constraints
   if (hasProfessionalIntake) {
     constraints +=
       "STRICT MODE: You must only collect information and escalate. Do not offer advice or solutions. ";
@@ -164,14 +157,6 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
     constraints +=
       `CONSTRAINT: Do not offer an immediate callback. You can only schedule a future call. `;
   }
-
-  // 4b. Fetch Org Knowledge Base (text rules only — PDFs not yet parsed)
-  const { data: kbRules } = await supabase
-    .from("knowledge_base")
-    .select("title, content_text")
-    .eq("org_id", org_id)
-    .eq("type", "text_rule")
-    .limit(10);
 
   const orgKnowledge = kbRules?.length
     ? "\n\nORG KNOWLEDGE BASE:\n" + kbRules.map((r: any) => `- ${r.title}: ${r.content_text}`).join("\n")
@@ -301,13 +286,14 @@ export async function generateMessage(
   }
   // ------------------------------------------------------------------
 
-  // 2. BUILD CONTEXT (fetches industry, constraints, lead memory)
-  // Must happen before resolveModel so industry is available for model selection.
-  const { industry, constraints, knowledge, settings } = await buildContext(supabase, params.org_id, params.lead.id);
+  // 2+5. BUILD CONTEXT + PROMPTS in parallel (saves ~100ms)
+  const [{ industry, constraints, knowledge, settings }, { data: promptConfig }] = await Promise.all([
+    buildContext(supabase, params.org_id, params.lead.id),
+    supabase.from("active_org_prompts").select("*")
+      .eq("org_id", params.org_id).eq("channel", params.channel).maybeSingle(),
+  ]);
 
   // 3. RESOLVE MODEL (industry-aware dual-model routing)
-  // Law/medical orgs → GPT-4o for all substantive intents.
-  // All others (and trivial intents) → GPT-4o-mini.
   const selectedConfig = resolveModel(params.intent, industry);
   console.log(`🤖 Model selected: ${selectedConfig.model} (industry=${industry}, intent=${params.intent})`);
 
@@ -327,14 +313,6 @@ export async function generateMessage(
       error: "INSUFFICIENT_CREDITS",
     };
   }
-
-  // 5. PROMPTS
-  const { data: promptConfig } = await supabase
-    .from("active_org_prompts")
-    .select("*")
-    .eq("org_id", params.org_id)
-    .eq("channel", params.channel)
-    .maybeSingle();
 
   const persona = promptConfig?.system_prompt || "You are a helpful assistant.";
   const version = promptConfig?.version || 0;

@@ -335,12 +335,23 @@ serve(async (req) => {
       return new Response("AI generation locked", { status: 200 });
     }
 
+    // Load most recent inbound message to drive the AI reply
+    const { data: latestInbound } = await supabase
+      .from("interactions")
+      .select("content")
+      .eq("lead_id", task.lead_id)
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const brainResult = await generateMessage(supabase, {
       task_id,
       org_id: task.org_id,
       lead: { id: task.lead_id, name: task.leads?.name },
       channel: "sms",
       intent: task.metadata?.intent_trace ?? task.metadata?.intent ?? "initial_outreach",
+      user_query: latestInbound?.content ?? undefined,
     });
 
     if (brainResult.error || !brainResult.content) {

@@ -232,12 +232,25 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     messageBody = safeString(task.metadata.force_content);
     console.log(`[executor_sms] force_content bypass for task ${task_id}`);
   } else {
+    // Load most recent inbound message; if none, this is initial outreach
+    const { data: latestInbound } = await supabase
+      .from("interactions")
+      .select("content")
+      .eq("lead_id", task.lead_id)
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const effectiveIntent = task.metadata?.intent_trace ?? task.metadata?.intent ?? "initial_outreach";
+
     const brainResult = await generateMessage(supabase, {
       task_id,
       org_id: task.org_id,
       lead: { id: task.lead_id, name: task.leads?.name },
       channel: "sms",
-      intent: "initial_outreach",
+      intent: effectiveIntent,
+      user_query: latestInbound?.content ?? undefined,
     });
 
     if (brainResult.error || !brainResult.content) {
