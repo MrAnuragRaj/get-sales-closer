@@ -604,6 +604,16 @@ serve(async (req) => {
     }).eq("id", deliveryAttemptId);
   }
 
+  // Log outbound interaction so AI has conversation history on next inbound
+  await supabase.from("interactions").insert({
+    org_id: task.org_id,
+    lead_id: task.lead_id,
+    type: "messenger",
+    direction: "outbound",
+    content: messageText,
+    metadata: { task_id, message_id: messageId },
+  }).then(undefined, (e: any) => console.error("[executor_messenger] outbound interaction log failed:", e));
+
   console.log(`[executor_messenger] Sent: task=${task_id} message_id=${messageId} psid=${psid} page=${PAGE_ID}`);
   return new Response(JSON.stringify({ success: true, message_id: messageId }), { status: 200 });
 });

@@ -440,5 +440,15 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     locked_until: null,
   }).eq("id", task_id);
 
+  // Log outbound interaction so AI has conversation history on next inbound
+  await supabase.from("interactions").insert({
+    org_id: task.org_id,
+    lead_id: task.lead_id,
+    type: "sms",
+    direction: "outbound",
+    content: messageBody,
+    metadata: { task_id, sid: twilioJson.sid },
+  }).then(undefined, (e: any) => console.error("[executor_sms] outbound interaction log failed:", e));
+
   return new Response(JSON.stringify({ success: true, sid: twilioJson.sid }), { status: 200 });
 }

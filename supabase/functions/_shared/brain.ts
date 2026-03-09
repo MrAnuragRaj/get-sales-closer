@@ -103,9 +103,9 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
       .eq("org_id", org_id).single(),
     supabase.from("org_services").select("service_key, status").eq("org_id", org_id),
     supabase.from("conversation_state").select("stage, memory_json").eq("lead_id", lead_id).maybeSingle(),
-    supabase.from("interactions").select("content, created_at")
-      .eq("lead_id", lead_id).eq("direction", "inbound")
-      .order("created_at", { ascending: false }).limit(2),
+    supabase.from("interactions").select("content, direction, created_at")
+      .eq("lead_id", lead_id).in("direction", ["inbound", "outbound"])
+      .order("created_at", { ascending: false }).limit(8),
     supabase.from("knowledge_base").select("title, content_text")
       .eq("org_id", org_id).eq("type", "text_rule").limit(10),
   ]);
@@ -122,9 +122,11 @@ async function buildContext(supabase: any, org_id: string, lead_id: string) {
     (s: any) => s.service_key === "voice_liaison" && s.status === "active",
   );
 
+  const hasOutbound = history?.some((h: any) => h.direction === "outbound");
   const recentHistory =
-    history?.reverse().map((h: any) => `User: "${h.content}"`).join("\n") ||
-    "No recent history.";
+    history?.reverse().map((h: any) =>
+      h.direction === "inbound" ? `User: "${h.content}"` : `You: "${h.content}"`
+    ).join("\n") || "No recent history.";
   const memoryFacts = state?.memory_json
     ? JSON.stringify(state.memory_json)
     : "No specific facts yet.";
@@ -170,7 +172,7 @@ RECENT CONTEXT:
 ${recentHistory}${orgKnowledge}
   `;
 
-  return { industry, constraints, knowledge, calLink, settings };
+  return { industry, constraints, knowledge, calLink, settings, hasOutbound };
 }
 
 // ==========================================
@@ -287,7 +289,7 @@ export async function generateMessage(
   // ------------------------------------------------------------------
 
   // 2+5. BUILD CONTEXT + PROMPTS in parallel (saves ~100ms)
-  const [{ industry, constraints, knowledge, settings }, { data: promptConfig }] = await Promise.all([
+  const [{ industry, constraints, knowledge, settings, hasOutbound }, { data: promptConfig }] = await Promise.all([
     buildContext(supabase, params.org_id, params.lead.id),
     supabase.from("active_org_prompts").select("*")
       .eq("org_id", params.org_id).eq("channel", params.channel).maybeSingle(),
@@ -323,7 +325,14 @@ export async function generateMessage(
     { role: "system", content: buildPersonaBlock(settings as PersonaSettings) },
     { role: "system", content: `CUSTOM PROMPT: ${persona}` },
     { role: "system", content: `KNOWLEDGE: ${knowledge}` },
-    { role: "system", content: `CONTEXT: Lead: ${params.lead.name}. Intent: ${params.intent}` },
+    {
+      role: "system",
+      content: `CONTEXT: Lead name: ${params.lead.name}. Intent: ${params.intent}.${
+        hasOutbound
+          ? " This is an ongoing conversation — do NOT re-introduce yourself. Jump directly into answering."
+          : " This is your first message to this lead — introduce yourself briefly."
+      }`,
+    },
   ];
 
   // Email-specific: prevent AI from embedding "Subject:" in the body
