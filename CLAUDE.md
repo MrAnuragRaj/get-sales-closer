@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-09 (Session 25) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-10 (Session 26) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -509,58 +509,104 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 
 ---
 
-### ⚠️ NEXT SESSION — START HERE: E2E Testing (Resume from Group E)
+### ✅ Session 26 Completed (2026-03-10) — E2E Testing (Groups G3–H3)
 
-**Do these first thing. Run every item in order. Note ✅ or ❌ with the exact error for any failure.**
+**Bugs fixed this session:**
 
-#### Group E — Subscription Cancellation (finish first)
-- [ ] **Confirm cancellation email received**: Re-test immediate cancel → confirm email from `support@getsalescloser.com` arrives with correct refund details
-- [ ] **Cancel — end of term**: 3-step flow → choose "Cancel at end of billing period" → confirm → `organizations.service_ends_at` set; services still active; cancellation email received
-- [ ] **Delete My Data — immediate**: After immediate cancel, click "Delete My Data" → confirm popup → CSV export email arrives with 3 attachments; `leads` table empty for org; `data_deletion_processed_at` populated
-- [ ] **Delete My Data — end of term**: After end-of-term cancel, click "Delete My Data" → CSV backup email arrives now; `data_deletion_requested=true`; actual deletion deferred to `service_ends_at`
+**G4 — WhatsApp inbound pipeline (fully fixed):**
+- `webhook_inbound`: Twilio signature validation used `x-forwarded-host` (returns `edge-runtime.supabase.com` internally) → fixed using `SUPABASE_URL` env var for canonical URL
+- `webhook_inbound` SMS/WA/Messenger paths: `actor_user_id` + `plan_id` were never resolved before calling `replyRouter` → tasks were silently dropped (notification inserted instead); fixed by resolving from `org_members` (owner/admin) + `decision_plans` in parallel before each `replyRouter` call
+- `reply_router.ts`: `replyChannel` was hardcoded to `"sms"` for all intents → WA inbound was creating SMS reply tasks; fixed with channel-aware `replyChannel` variable
+- `executor_whatsapp`: StatusCallback URL was unset → Twilio 21609 error; fixed by explicitly appending `StatusCallback` using `SUPABASE_URL`
+- `Supabase JS v2` `.catch()` is not a function on `PostgrestBuilder` (PromiseLike not full Promise) → global replace `.catch(()=>{})` → `.then(undefined, ()=>{})`
 
-#### Group A — Core SMS Pipeline (do next — everything else depends on SMS)
-- [ ] **Mirror Test**: Open `dashboard.html` → complete onboarding step 2 → enter your phone → verify AI intro SMS received within 60s; check `delivery_attempts` row with `status='sent'`
-- [ ] **SMS outbound**: Create a lead → let decision engine + dispatcher run → executor_sms fires → verify SMS received + `delivery_attempts(status='sent', provider_message_id=<sid>)` populated
-- [ ] **SMS inbound reply**: Reply to the SMS above → verify `interactions(type='sms', direction='inbound')` row created + AI response SMS fires back
-- [ ] **Idempotency guard — SMS**: Manually invoke executor_sms twice with the same `task_id` → second call must return `{skipped:true, reason:'duplicate_invocation'}` (HTTP 200); only 1 `delivery_attempts` row for that `(task_id, attempt_number)`
+**Latency fixes:**
+- Instant dispatch trigger: `CREATE TRIGGER on_execution_task_insert AFTER INSERT ON execution_tasks FOR EACH ROW` → calls `net.http_post` to `execution-dispatcher`; reduces worst-case latency from 63s → ~5s
+- `executor_voice`: parallelized platform kill switch + org kill switch + cancellation + billing lock checks (saves ~300ms); parallelized brain context + org settings fetch (saves ~200ms)
+- `brain.ts buildContext`: all 5 DB queries now run in parallel via `Promise.all` (saves ~300ms per AI generation)
+- `brain.ts generateMessage`: `buildContext` + `active_org_prompts` fetch now parallel (saves ~100ms)
+
+**H — Facebook Messenger setup (from scratch):**
+- `org_channel_provider` ENUM: added `meta` value
+- `org_channels` INSERT: provider='meta', channel='messenger', provider_token=page_access_token, metadata.page_id='1037747432755749'
+- `org_channel_capabilities`: messenger_enabled=true, messenger_page_id='1037747432755749'
+- `message_routing_policies`: messenger_fallback_to_sms=true
+- Facebook App: published to Live mode + subscribed page via `POST /{page_id}/subscribed_apps` + added message/messaging_postbacks/message_deliveries/message_reads fields
+- `leads.messenger_psid='26240520752301999'` linked to test lead; 4 duplicate test leads DNC'd
+- `token_wallets`: messenger_msg balance set to 500 for test org
+
+**executor_messenger bugs fixed (3 rounds):**
+- `generateMessage` called with wrong param names (`orgId/leadId/actorUserId/planId`) → correct `BrainParams` (`task_id/org_id/lead/intent`); wrong return field `.message` → `.content`
+- `consume_tokens_v1`: missing `p_scope`/`p_user_id`, `p_quantity` → `p_amount`; result check `{allowed,reason}` → `{status:'ok'}` to match actual RPC return
+- `grant_tokens_core_v1` (both refund sites): missing `p_scope`/`p_user_id`, `p_quantity` → `p_amount`, `p_note` → `p_metadata`
+
+**AI quality fixes (brain.ts + executors):**
+- `executor_messenger` + `executor_sms`: load latest inbound interaction and pass as `user_query` to `generateMessage`; use `task.metadata.intent_trace` as intent (was hardcoded `"initial_outreach"`)
+- `brain.ts buildContext`: load both inbound+outbound interactions (last 8 turns) for full chat history; format as `User: "..."` / `You: "..."` turns
+- `brain.ts generateMessage`: detect `hasOutbound` → inject "do NOT re-introduce yourself" instruction for ongoing conversations; "introduce yourself briefly" only on first message
+- `executor_messenger` + `executor_sms`: write outbound interaction (`direction='outbound'`) after successful send so AI has its own reply history on next turn
+
+**E2E test status this session:**
+- ✅ G3 — WhatsApp SMS fallback confirmed
+- ✅ G4 — WhatsApp inbound pipeline fixed (webhook validation + actor resolution + channel routing + StatusCallback)
+- ✅ H1 — Messenger webhook verification (confirmed live, `--no-verify-jwt` required)
+- ✅ H2 — Messenger PSID auto-link (webhook auto-links single unlinked lead; audit row created)
+- ✅ H3 — Messenger outbound: task succeeds, `delivery_attempts(status='sent')`, `provider_message_id` populated
+- ⚠️ H3 full loop — Inbound→AI reply pipeline works but AI always gives intro-style message; root cause partially addressed (outbound interaction logging + hasOutbound + user_query) but still not resolved at end of session
+- ⚠️ "ok" mystery — Facebook Page inbox shows "ok" alongside every AI reply; confirmed NOT from our system (no "ok" in `execution_tasks.metadata.ai_content`); suspected Facebook automation still active somewhere in Meta Business Suite settings
+
+**Known issues going into next session:**
+1. AI still re-introduces itself on every message despite `hasOutbound` fix — need to investigate if: (a) outbound interaction INSERT has RLS blocking it, (b) `active_org_prompts` persona prompt itself always includes intro, (c) `hasOutbound` isn't being read correctly
+2. "ok" message from Facebook — check Meta Business Suite → Inbox → Automations for FAQ bot / Lead Generation bot (separate from Instant Reply); also check Page Inbox human agent activity
+3. `executor_sms` user_query + intent fix deployed but not yet tested (Group A pending)
+
+---
+
+### ⚠️ NEXT SESSION — START HERE
+
+**Step 0 — Fix AI intro issue (debug first):**
+1. Check if outbound interaction INSERT is succeeding: `SELECT * FROM interactions WHERE lead_id='fbc59169-b7be-4d31-bd1a-099cbd375bd4' AND direction='outbound' ORDER BY created_at DESC LIMIT 5;`
+2. Check `active_org_prompts` for this org: `SELECT channel, system_prompt FROM active_org_prompts WHERE org_id='4c4ae696-de66-4b32-833c-b656454437d6';` — if system_prompt always starts with "Hi I'm Mia..." that's the real problem; edit it to remove the intro
+3. If outbound IS being written but AI still re-intros, the `active_org_prompts.system_prompt` is overriding the `hasOutbound` instruction in CONTEXT — need stronger language in the CONTEXT system message
+
+**Step 1 — Resolve "ok" mystery:**
+- In Facebook: Meta Business Suite → Inbox → Automations → disable ALL (including FAQ, Lead Generation, Away Message, etc.)
+- Or check if Page has a secondary admin/human responding with "ok"
+
+**Then continue E2E in this order:**
+
+#### Group H (finish)
+- [ ] **H3 full round-trip**: Send message to Page → AI replies with contextual response (not intro) → `interactions(direction='outbound')` row created; `interactions(direction='inbound')` row for user message
+- [ ] **H4 — Messenger 24h window SMS fallback**: Set `messenger_type` to expired window scenario → task channel rewritten to `'sms'`; `audit_events(action='channel_fallback_triggered')`
+
+#### Group E — Subscription Cancellation (remaining)
+- [ ] **E1 confirm**: Re-test immediate cancel → confirm email from `support@getsalescloser.com` arrives
+- [ ] **E2 — Cancel end of term**: flow → `organizations.service_ends_at` set; cancellation email received
+- [ ] **Delete My Data — immediate + end of term**
+
+#### Group A — Core SMS Pipeline
+- [ ] **Mirror Test**: dashboard.html → step 2 onboarding → AI intro SMS within 60s; `delivery_attempts(status='sent')`
+- [ ] **SMS outbound**: lead → decision engine → executor_sms → SMS received + `delivery_attempts` row
+- [ ] **SMS inbound reply**: reply to SMS → `interactions(type='sms', direction='inbound')` + contextual AI reply back (not intro)
+- [ ] **Idempotency guard — SMS**: invoke executor_sms twice with same task_id → second returns `{skipped:true}`
 
 #### Group B — Widget & Lead Capture
-- [ ] **widget_inbound — name stopword filter**: Open `chat.html?org=<id>` → type "Hello" → AI asks for name → reply with a stopword like "okay" or "yes" → AI asks again (stopword correctly rejected)
-- [ ] **widget_inbound — last-10-digit dedup**: Submit the same phone number from two different chat sessions → only 1 lead row created; second session reuses existing lead
-- [ ] **widget_inbound — email capture when no booking**: Use an org with no `cal_link` set + architect service inactive → steer conversation to appointment intent → AI asks for email instead of dropping a booking link
+- [ ] name stopword filter | last-10-digit dedup | email capture when no booking
 
 #### Group C — Email Pipeline
-- [ ] **Email outbound**: Create an email `execution_task` → dispatch → verify email arrives in inbox + `delivery_attempts(status='sent')` row written
-- [ ] **Deploy AI card lock**: Log in as a user whose org has sentinel service INACTIVE → open `dashboard.html` → verify "Deploy AI" card shows the locked/upgrade state (not the embed code)
+- [ ] Email outbound | Deploy AI card lock
 
-#### Group F — Automations & Scheduled Jobs
-- [ ] **cron_handoff_brief**: Insert test row into `appointments` with `status='scheduled'` at `NOW() + 7 minutes` → wait for pg_cron #9 (fires every 5min) → verify brief SMS/email received with GPT-generated summary of last interactions
-- [ ] **Weekly ROI email**: Invoke `cron_weekly_roi` manually via Supabase Functions console → verify styled ROI email received in org owner's inbox with correct 7-day metrics
+#### Group F — Automations
+- [ ] cron_handoff_brief | Weekly ROI email
 
-#### Group G — WhatsApp Channel
-- [ ] **WhatsApp outbound (sandbox)**: Confirm `TWILIO_WA_FROM_NUMBER` is set (sandbox: `+14155238886`) → create `execution_task(channel='whatsapp')` for a lead → dispatch → verify WA message received on sandbox-joined device; `delivery_attempts(status='sent')` row written
-- [ ] **WhatsApp delivery callback**: Twilio sends `MessageStatus=delivered` webhook → verify `delivery_attempts.status='delivered'` + `delivered_at` populated
-- [ ] **WhatsApp SMS fallback**: Set `org_channel_capabilities.whatsapp_enabled=false` + `whatsapp_fallback_to_sms=true` → dispatch WA task → SMS received instead
-- [ ] **WhatsApp inbound**: Lead texts sandbox WA number → `interactions(type='whatsapp', direction='inbound')` + AI reply sent back
+#### Group G — WhatsApp (remaining)
+- [ ] G1 WA outbound | G2 WA delivery callback | G4 WA inbound (re-verify AI contextual reply)
 
-#### Group H — Facebook Messenger
-- [ ] **Messenger webhook verification**: ✅ Already confirmed live
-- [ ] **Messenger PSID auto-link**: Lead messages Facebook Page → `leads.messenger_psid` populated; `audit_events(action='messenger_psid_linked')` row exists
-- [ ] **Messenger outbound**: PSID linked → dispatch `execution_task(channel='messenger')` → message in Facebook inbox; `delivery_attempts(status='sent')`
-- [ ] **Messenger 24h window SMS fallback**: Expired 24h window → task channel rewritten to `'sms'`; `audit_events(action='channel_fallback_triggered')`
+#### Group I — Platform Hardening
+- [ ] Kill switch | Dead-letter | Webhook event store | Channel health | Rate limiter panel
 
-#### Group I — Platform Hardening (Admin Panels)
-- [ ] **Platform kill switch**: admin.html P10 → toggle SMS ON → task blocked with `PLATFORM_KILL_SWITCH` → toggle OFF → SMS succeeds
-- [ ] **Dead-letter queue**: Force max_attempts exhaustion → `execution_dead_letters` row → admin P12 Retry → fresh task created
-- [ ] **Webhook event store**: Inbound event → admin P13 → `provider_webhook_events` row with correct provider + status='processed'
-- [ ] **Channel health monitor**: Send messages → wait 5min → `channel_health_current` rows; dashboard badges not all "Unknown"
-- [ ] **Rate limiter admin panel**: Admin P11 loads bucket counts; (optional) exhaust org limit
-
-#### Group J — Multi-Tenant Flows
-- [ ] **Agent invite E2E**: Agency admin invites → agent receives email → claims invite → lands on `agent_dashboard.html`
-- [ ] **Agent human takeover**: Takeover → manual SMS sent → Resume AI → AI resumes on next inbound
-- [ ] **Enterprise leaderboard**: `enterprise_admin.html` leaderboard loads with agent stats
+#### Group J — Multi-Tenant
+- [ ] Agent invite | Agent takeover | Enterprise leaderboard
 
 ---
 
