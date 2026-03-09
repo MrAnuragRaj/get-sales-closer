@@ -148,9 +148,9 @@
           </div>
           <h3 class="text-lg font-bold text-white text-center mb-2">Are you absolutely sure?</h3>
           <p id="delete-modal-msg" class="text-slate-400 text-sm text-center mb-6 leading-relaxed"></p>
-          <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 mb-6 text-xs text-slate-400 leading-relaxed">
+          <div id="delete-modal-info" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4 mb-6 text-xs text-slate-400 leading-relaxed">
             <i class="fa-solid fa-circle-info text-blue-400 mr-2"></i>
-            As a gesture of goodwill, we will email you a <strong class="text-white">complete CSV export</strong> of all your leads, conversations, and appointments before deletion — completely free.
+            <span id="delete-modal-info-text"></span>
           </div>
           <div class="flex gap-3">
             <button onclick="closeDeleteModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition text-sm">
@@ -175,6 +175,7 @@
     let _sb, _session;
     let _quoteId = null;
     let _cancMode = null;
+    let _effectiveAt = null;
 
     requireAuth({
       requireOnboarding: false,
@@ -182,6 +183,20 @@
         _sb = sb;
         const { data: { session } } = await sb.auth.getSession();
         _session = session;
+
+        // Resolve correct dashboard URL based on role
+        const { data: memberships } = await sb.from('org_members').select('org_id, role').eq('user_id', user.id);
+        let dashUrl = 'dashboard.html';
+        if (memberships && memberships.length > 0) {
+          const rolePriority = { 'enterprise_admin': 0, 'agency_admin': 1, 'enterprise_agent': 2 };
+          const sorted = [...memberships].sort((a, b) => (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99));
+          const top = sorted[0];
+          if (top.role === 'agency_admin') dashUrl = 'agency_admin.html';
+          else if (top.role === 'enterprise_admin') dashUrl = 'enterprise_admin.html';
+          else if (top.role === 'enterprise_agent') dashUrl = 'agent_dashboard.html';
+        }
+        document.getElementById('done-dashboard-btn').href = dashUrl;
+
         document.getElementById('page-content').classList.remove('hidden');
       }
     });
@@ -338,6 +353,7 @@
 
         const effectiveAt = result.effective_at ? new Date(result.effective_at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
         const isImmediate = result.cancellation_mode !== 'end_of_term';
+        _effectiveAt = effectiveAt;
 
         document.getElementById('done-title').textContent = isImmediate ? 'Subscription Cancelled' : 'Cancellation Scheduled';
         document.getElementById('done-msg').textContent = isImmediate
@@ -379,8 +395,12 @@
     function openDeleteModal() {
       var msg = _cancMode === 'immediate'
         ? 'This will permanently delete all your leads, conversations, appointments, and settings. This action cannot be undone.'
-        : 'Your data will be permanently deleted on your subscription end date. Once confirmed, this cannot be reversed.';
+        : 'Your data will be permanently deleted on ' + (_effectiveAt || 'your subscription end date') + '. Once confirmed, this cannot be reversed.';
       document.getElementById('delete-modal-msg').textContent = msg;
+      var infoText = _cancMode === 'immediate'
+        ? 'As a gesture of goodwill, we will email you a <strong class="text-white">complete CSV export</strong> of all your leads, conversations, and appointments before deletion — completely free.'
+        : 'We will email you a <strong class="text-white">complete CSV export</strong> of all your data on <strong class="text-white">' + (_effectiveAt || 'your service end date') + '</strong> when your data is deleted — completely free.';
+      document.getElementById('delete-modal-info-text').innerHTML = infoText;
       document.getElementById('delete-modal').classList.remove('hidden');
     }
 
@@ -413,7 +433,7 @@
         if (_cancMode === 'immediate') {
           noteEl.textContent = 'Your data has been deleted. A CSV export has been sent to your email.';
         } else {
-          noteEl.textContent = 'Data deletion scheduled for your subscription end date. A CSV backup has been sent to your email.';
+          noteEl.textContent = 'Confirmed. Your data will be exported and permanently deleted on ' + (_effectiveAt || 'your service end date') + '.';
         }
         noteEl.classList.remove('text-slate-500');
         noteEl.classList.add('text-emerald-400');
