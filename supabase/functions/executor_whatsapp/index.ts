@@ -353,6 +353,13 @@ serve(async (req) => {
   params.append("From", `whatsapp:${WA_FROM}`);
   params.append("Body", messageBody);
 
+  // StatusCallback: explicitly set to our webhook so Twilio delivery receipts work,
+  // and to override any misconfigured sandbox StatusCallback URL (error 21609).
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
+  if (supabaseUrl) {
+    params.append("StatusCallback", `${supabaseUrl}/functions/v1/webhook_inbound?source=twilio`);
+  }
+
   let twilioResp: Response;
   try {
     twilioResp = await fetch(

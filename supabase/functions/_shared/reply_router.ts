@@ -142,6 +142,12 @@ export async function replyRouter(params: {
   }
 
   // 3) Route based on Business Logic
+  // Reply on the same channel the lead used — voice inbound triggers SMS reply (can't re-initiate call)
+  const replyChannel: "sms" | "whatsapp" | "rcs" | "messenger" =
+    channel_source === "whatsapp" || channel_source === "rcs" || channel_source === "messenger"
+      ? channel_source
+      : "sms";
+
   switch (intent) {
     case "unsubscribe":
       await supabase.from("leads").update({ is_dnc: true }).eq("id", lead_id);
@@ -168,7 +174,7 @@ export async function replyRouter(params: {
         await createExecutionTaskStrict(supabase, {
           org_id,
           lead_id,
-          channel: "sms",
+          channel: replyChannel,
           intent,
           actor_user_id,
           plan_id,
@@ -189,7 +195,7 @@ export async function replyRouter(params: {
       await createExecutionTaskStrict(supabase, {
         org_id,
         lead_id,
-        channel: "sms",
+        channel: replyChannel,
         intent,
         actor_user_id,
         plan_id,
@@ -213,7 +219,7 @@ export async function replyRouter(params: {
       await createExecutionTaskStrict(supabase, {
         org_id,
         lead_id,
-        channel: "sms",
+        channel: replyChannel,
         intent,
         actor_user_id,
         plan_id,

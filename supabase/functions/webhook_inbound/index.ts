@@ -37,10 +37,16 @@ function normalizeE164Loose(raw: string, defaultCountry: "US" | "IN" = "US"): st
 function getPublicUrlForTwilio(req: Request): string {
   const u = new URL(req.url);
 
+  // x-forwarded-host inside Supabase Edge resolves to "edge-runtime.supabase.com" (internal),
+  // not the actual project hostname. Use SUPABASE_URL env var for the canonical public base.
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
+  if (supabaseUrl) {
+    return `${supabaseUrl}/functions/v1/webhook_inbound${u.search}`;
+  }
+
+  // Fallback: reconstruct from forwarded headers (less reliable)
   const proto = (req.headers.get("x-forwarded-proto") ?? u.protocol.replace(":", "") ?? "https").trim();
   const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? u.host).trim();
-
-  // Rebuild canonical external URL
   return `${proto}://${host}${u.pathname}${u.search}`;
 }
 
@@ -353,7 +359,7 @@ serve(async (req) => {
 
         // Log event (best-effort — status callbacks are idempotent so no processing gate)
         if (sid) {
-          await persistWebhookEvent(supabase, "twilio", `${sid}:status:${status}`, "whatsapp_status", { sid, status, error_code: params.ErrorCode ?? null }).catch(() => {});
+          await persistWebhookEvent(supabase, "twilio", `${sid}:status:${status}`, "whatsapp_status", { sid, status, error_code: params.ErrorCode ?? null }).then(undefined, () => {});
         }
 
         if (sid) {
@@ -520,7 +526,7 @@ serve(async (req) => {
             })
             .select()
             .single()
-            .catch(() => {});
+            .then(undefined, () => {});
         }
 
         if (pweEocId) await markWebhookProcessed(supabase, pweEocId);
@@ -600,7 +606,7 @@ serve(async (req) => {
         })
         .select()
         .single()
-        .catch(() => {});
+        .then(undefined, () => {});
 
       // Hard intents => halt (voice path)
       const intent = ruleBasedIntentClassifier(inboundText);
@@ -687,7 +693,7 @@ serve(async (req) => {
         // RBM eventTypes: DELIVERED, READ
         if (rbmMessageId && (eventType === "DELIVERED" || eventType === "READ")) {
           // Log event best-effort — delivery receipts are idempotent (updates same row)
-          await persistWebhookEvent(supabase, "google_rbm", `${rbmMessageId}:receipt:${eventType}`, "rbm_delivery_receipt", { request_id: rbmMessageId, event_type: eventType }).catch(() => {});
+          await persistWebhookEvent(supabase, "google_rbm", `${rbmMessageId}:receipt:${eventType}`, "rbm_delivery_receipt", { request_id: rbmMessageId, event_type: eventType }).then(undefined, () => {});
           const patch: Record<string, any> = {
             status: eventType === "READ" ? "read" : "delivered",
           };
@@ -697,7 +703,7 @@ serve(async (req) => {
           await supabase.from("delivery_attempts")
             .update(patch)
             .eq("provider_message_id", rbmMessageId)
-            .catch(() => {});
+            .then(undefined, () => {});
 
           console.log(`[webhook_inbound] RBM delivery receipt: message_id=${rbmMessageId} event=${eventType}`);
         }
@@ -739,7 +745,7 @@ serve(async (req) => {
           action: "inbound_route_no_lead", reason: "no_lead_found_for_phone",
           before_state: null,
           after_state: { phone: rbmFromE164, channel: "rcs", provider: "google_rbm" },
-        }).catch(() => {});
+        }).then(undefined, () => {});
         return new Response("OK", { status: 200 });
       }
 
@@ -752,7 +758,7 @@ serve(async (req) => {
           action: "inbound_route_ambiguous", reason: "multiple_orgs_match_phone",
           before_state: null,
           after_state: { phone: rbmFromE164, channel: "rcs", candidate_org_ids: candidateOrgIds },
-        }).catch(() => {});
+        }).then(undefined, () => {});
         return new Response("OK", { status: 200 });
       }
 
@@ -779,7 +785,7 @@ serve(async (req) => {
         status: "received",
         sent_at: new Date().toISOString(),
         metadata: { from_e164: rbmFromE164, direction: "inbound" },
-      }).catch(() => {});
+      }).then(undefined, () => {});
 
       // Route to reply_router
       await replyRouter({
@@ -872,7 +878,7 @@ serve(async (req) => {
                 .eq("channel", "messenger")
                 .lte("sent_at", watermarkTs)
                 .eq("status", "sent")
-                .catch(() => {});
+                .then(undefined, () => {});
               console.log(`[webhook_inbound] Messenger delivery watermark: page=${pageId} watermark=${watermarkTs}`);
             }
             continue;
@@ -888,7 +894,7 @@ serve(async (req) => {
                 .eq("channel", "messenger")
                 .lte("sent_at", watermarkTs)
                 .in("status", ["sent", "delivered"])
-                .catch(() => {});
+                .then(undefined, () => {});
             }
             continue;
           }
@@ -950,7 +956,7 @@ serve(async (req) => {
                 action: "messenger_psid_no_match", reason: "no_org_for_page_id",
                 before_state: null,
                 after_state: { psid, page_id: pageId, channel: "messenger" },
-              }).catch(() => {});
+              }).then(undefined, () => {});
               continue;
             }
 
@@ -970,7 +976,7 @@ serve(async (req) => {
                 action: "messenger_psid_no_match", reason: "no_unlinked_leads_in_org",
                 before_state: null,
                 after_state: { psid, page_id: pageId, org_id: candidateOrgId },
-              }).catch(() => {});
+              }).then(undefined, () => {});
               continue;
             }
 
@@ -981,7 +987,7 @@ serve(async (req) => {
                 action: "messenger_psid_ambiguous", reason: "multiple_unlinked_leads_in_org",
                 before_state: null,
                 after_state: { psid, page_id: pageId, org_id: candidateOrgId, candidate_count: unlinkedLeads.length },
-              }).catch(() => {});
+              }).then(undefined, () => {});
               continue;
             }
 
@@ -990,7 +996,7 @@ serve(async (req) => {
             await supabase.from("leads")
               .update({ messenger_psid: psid })
               .eq("id", targetLeadId)
-              .catch(() => {});
+              .then(undefined, () => {});
 
             await supabase.from("audit_events").insert({
               org_id: candidateOrgId, actor_type: "system", actor_id: null,
@@ -998,7 +1004,7 @@ serve(async (req) => {
               action: "messenger_psid_linked", reason: "safe_auto_link_single_candidate",
               before_state: { messenger_psid: null },
               after_state: { messenger_psid: psid, page_id: pageId, org_id: candidateOrgId },
-            }).catch(() => {});
+            }).then(undefined, () => {});
 
             console.log(`[webhook_inbound] Messenger PSID auto-linked: lead=${targetLeadId} org=${candidateOrgId} psid=${psid}`);
             fbLeadId = targetLeadId;
@@ -1013,7 +1019,7 @@ serve(async (req) => {
               action: "inbound_route_ambiguous", reason: "psid_linked_to_multiple_leads",
               before_state: null,
               after_state: { psid, page_id: pageId, channel: "messenger", candidate_org_ids: candidateOrgIds },
-            }).catch(() => {});
+            }).then(undefined, () => {});
             continue;
 
           } else {
@@ -1043,7 +1049,7 @@ serve(async (req) => {
             status: "received",
             sent_at: new Date().toISOString(),
             metadata: { psid, page_id: pageId, direction: "inbound" },
-          }).catch(() => {});
+          }).then(undefined, () => {});
 
           // Route to reply_router
           await replyRouter({
@@ -1145,7 +1151,7 @@ serve(async (req) => {
             reason: "no_lead_found_for_phone",
             before_state: null,
             after_state: { phone: fromE164, channel, provider: "twilio" },
-          }).catch(() => {});
+          }).then(undefined, () => {});
           return new Response("OK", { status: 200 });
         }
 
@@ -1163,7 +1169,7 @@ serve(async (req) => {
             reason: "multiple_orgs_match_phone",
             before_state: null,
             after_state: { phone: fromE164, channel, candidate_org_ids: candidateOrgIds },
-          }).catch(() => {});
+          }).then(undefined, () => {});
           return new Response("OK", { status: 200 });
         }
 
@@ -1189,7 +1195,7 @@ serve(async (req) => {
       })
       .select()
       .single()
-      .catch(() => {});
+      .then(undefined, () => {});
 
     // WhatsApp inbound: log to delivery_attempts as received
     if (channel === "whatsapp") {
@@ -1204,7 +1210,7 @@ serve(async (req) => {
         status: "received",
         sent_at: new Date().toISOString(),
         metadata: { from_e164: fromE164, to_e164: toE164, direction: "inbound" },
-      }).catch(() => {});
+      }).then(undefined, () => {});
     }
 
     const intent = ruleBasedIntentClassifier(inboundText);
@@ -1258,12 +1264,26 @@ serve(async (req) => {
       }
     }
 
+    // Resolve actor_user_id (org owner) and plan_id for reply_router task creation
+    let replyActorId: string | null = null;
+    let replyPlanId: string | null = null;
+    const [ownerRes, planRes] = await Promise.all([
+      supabase.from("org_members").select("user_id").eq("org_id", leadOrgId)
+        .in("role", ["owner", "agency_admin", "enterprise_admin"]).limit(1).maybeSingle(),
+      supabase.from("decision_plans").select("id").eq("org_id", leadOrgId)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    replyActorId = ownerRes.data?.user_id ?? leadOrgId; // personal org fallback: org_id = owner user_id
+    replyPlanId = planRes.data?.id ?? null;
+
     await replyRouter({
       supabase,
       org_id: leadOrgId,
       lead_id: leadId,
       inbound_text: inboundText,
       channel_source: channel === "whatsapp" ? "whatsapp" : "sms",
+      actor_user_id: replyActorId ?? undefined,
+      plan_id: replyPlanId ?? undefined,
     });
 
     // Upsert message thread for future routing continuity (resolves shared-number ambiguity)
@@ -1275,7 +1295,7 @@ serve(async (req) => {
         from_identifier: fromE164,
         to_identifier: toE164,
         last_message_at: new Date().toISOString(),
-      }, { onConflict: "from_identifier,to_identifier,channel" }).catch(() => {});
+      }, { onConflict: "from_identifier,to_identifier,channel" }).then(undefined, () => {});
     }
 
     if (pweSmsId) await markWebhookProcessed(supabase, pweSmsId);

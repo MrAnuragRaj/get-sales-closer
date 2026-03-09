@@ -153,20 +153,18 @@ serve(async (req) => {
     return new Response("Task already processed", { status: 200 });
   }
 
-  // 1.4) Platform kill switch (TERMINAL) — checked before org-level
-  const platformGate = await enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "voice");
+  // 1.4–1.6) All four guard checks are independent — run in parallel to save ~300ms
+  const [platformGate, gate, cancGate, bill] = await Promise.all([
+    enforcePlatformKillSwitchForTaskExecutor(supabase, task_id, "voice"),
+    enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id),
+    enforceOrgCancellationForTaskExecutor(supabase, task.org_id, task_id),
+    isBillingLocked(supabase, task.org_id),
+  ]);
+
+  // Check in priority order: platform → org kill switch → cancellation → billing
   if (!platformGate.allow) return platformGate.response;
-
-  // 1.5) Kill-switch wins over everything (TERMINAL)
-  const gate = await enforceKillSwitchForTaskExecutor(supabase, task.org_id, task_id);
   if (!gate.allow) return gate.response;
-
-  // 1.55) Cancellation gate (TERMINAL)
-  const cancGate = await enforceOrgCancellationForTaskExecutor(supabase, task.org_id, task_id);
   if (!cancGate.allow) return cancGate.response;
-
-  // 1.6) Billing lock guard (bridge)
-  const bill = await isBillingLocked(supabase, task.org_id);
   if (bill.locked) {
     await supabase
       .from("execution_tasks")
@@ -323,15 +321,11 @@ serve(async (req) => {
     return new Response("Insufficient tokens (voice init)", { status: 402 });
   }
 
-  // 6) Brain context
-  const brainContext = await getVoiceContext(supabase, task.org_id, leadId);
-
-  // 7) Load org settings (assistant id override)
-  const { data: orgSettings } = await supabase
-    .from("org_settings")
-    .select("vapi_assistant_id")
-    .eq("org_id", task.org_id)
-    .maybeSingle();
+  // 6+7) Brain context and org settings are independent — fetch in parallel to save ~200ms
+  const [brainContext, { data: orgSettings }] = await Promise.all([
+    getVoiceContext(supabase, task.org_id, leadId),
+    supabase.from("org_settings").select("vapi_assistant_id").eq("org_id", task.org_id).maybeSingle(),
+  ]);
 
   // 7.5) Log delivery attempt (pre-call) — idempotency guard via UNIQUE(task_id, attempt_number)
   const attemptNumber = task.attempt ?? 1;
