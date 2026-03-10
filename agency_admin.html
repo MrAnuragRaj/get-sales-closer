@@ -420,12 +420,19 @@
             }
 
             // Send invitation email via Edge Function (best-effort)
-            const { data: { session } } = await _sb.auth.getSession();
+            let _agInviteToken = '';
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+                    try { _agInviteToken = JSON.parse(localStorage.getItem(k) || '{}')?.access_token || ''; } catch {}
+                    if (_agInviteToken) break;
+                }
+            }
             fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/send-agent-invite', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
+                    'Authorization': `Bearer ${_agInviteToken}`
                 },
                 body: JSON.stringify({
                     invited_email: email,

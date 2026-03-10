@@ -841,12 +841,20 @@
             if (error) { alert('Failed to invite: ' + error.message); return; }
 
             // 2. Send invitation email via Edge Function
-            const { data: { session } } = await _sb.auth.getSession();
+            // Read fresh token from localStorage — avoids stale session after 1h
+            let _inviteToken = '';
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+                    try { _inviteToken = JSON.parse(localStorage.getItem(k) || '{}')?.access_token || ''; } catch {}
+                    if (_inviteToken) break;
+                }
+            }
             const res = await fetch(`https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/send-agent-invite`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
+                    'Authorization': `Bearer ${_inviteToken}`
                 },
                 body: JSON.stringify({
                     invited_email: email,
@@ -859,7 +867,9 @@
 
             closeAddAgentModal();
             if (!res.ok) {
-                alert(`Invitation saved, but email failed to send. Share getsalescloser.com/login.html with ${email} manually.`);
+                const errData = await res.json().catch(() => ({}));
+                console.error('[invite] email failed:', errData);
+                alert(`Invitation saved, but email failed to send (${errData.detail || res.status}). Share https://www.getsalescloser.com/login.html with ${email} manually.`);
             } else {
                 alert(`Invitation email sent to ${email}. They'll be added to your team automatically on first login.`);
             }
