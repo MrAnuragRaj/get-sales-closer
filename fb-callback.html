@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connecting Facebook Page — GetSalesCloser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body class="bg-slate-950 min-h-screen flex items-center justify-center p-6">
+
+<div class="w-full max-w-md">
+  <!-- Logo -->
+  <div class="text-center mb-8">
+    <span class="text-2xl font-black text-white tracking-tight">GetSales<span class="text-cyan-400">Closer</span></span>
+  </div>
+
+  <!-- Card -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+
+    <!-- Loading state -->
+    <div id="state-loading">
+      <div class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-5">
+        <i class="fab fa-facebook text-blue-400 text-3xl animate-pulse"></i>
+      </div>
+      <h2 class="text-xl font-bold text-white mb-2">Connecting your Facebook Page</h2>
+      <p class="text-slate-400 text-sm">Exchanging credentials with Meta…</p>
+      <div class="mt-6 flex justify-center">
+        <div class="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    </div>
+
+    <!-- Page picker (when user manages multiple pages) -->
+    <div id="state-picker" class="hidden">
+      <div class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-5">
+        <i class="fab fa-facebook text-blue-400 text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-bold text-white mb-2">Choose a Page</h2>
+      <p class="text-slate-400 text-sm mb-6">Select which Facebook Page to connect to your account.</p>
+      <div id="page-list" class="space-y-3 text-left mb-2"></div>
+      <p class="text-slate-600 text-xs mt-4">Only Pages where you have admin access are shown.</p>
+    </div>
+
+    <!-- Success state -->
+    <div id="state-success" class="hidden">
+      <div class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-5">
+        <i class="fa fa-check-circle text-green-400 text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-bold text-white mb-2">Page Connected!</h2>
+      <p id="success-msg" class="text-slate-400 text-sm mb-6"></p>
+      <p class="text-slate-500 text-xs mb-4">Redirecting you back…</p>
+      <div class="w-full bg-slate-800 rounded-full h-1">
+        <div id="redirect-bar" class="bg-green-400 h-1 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="hidden">
+      <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+        <i class="fa fa-circle-xmark text-red-400 text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-bold text-white mb-2">Connection Failed</h2>
+      <p id="error-msg" class="text-red-400 text-sm mb-6"></p>
+      <button onclick="window.close(); window.history.back();"
+        class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">
+        Go Back
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://klbwigcvrdfeeeeotehu.supabase.co";
+  const FN_BASE = `${SUPABASE_URL}/functions/v1`;
+
+  const params  = new URLSearchParams(window.location.search);
+  const code    = params.get("code");
+  const errorFB = params.get("error");
+  const state   = params.get("state") ?? ""; // "{org_id}|{return_url}"
+
+  const [orgId, ...returnParts] = state.split("|");
+  const returnUrl = returnParts.join("|") || "dashboard.html";
+
+  // ── UI helpers ───────────────────────────────────────────────────────────
+  function show(id) {
+    ["state-loading","state-picker","state-success","state-error"].forEach(s => {
+      document.getElementById(s).classList.toggle("hidden", s !== id);
+    });
+  }
+
+  function showError(msg) {
+    document.getElementById("error-msg").textContent = msg;
+    show("state-error");
+  }
+
+  function showSuccess(pageName) {
+    document.getElementById("success-msg").textContent =
+      `"${pageName}" is now connected. Messenger messages will be handled by your AI agent.`;
+    show("state-success");
+
+    // Progress bar → redirect after 3 seconds
+    let pct = 0;
+    const bar = document.getElementById("redirect-bar");
+    const iv = setInterval(() => {
+      pct = Math.min(pct + 2, 100);
+      bar.style.width = pct + "%";
+      if (pct >= 100) { clearInterval(iv); window.location.href = returnUrl; }
+    }, 60);
+  }
+
+  // ── Page picker renderer ─────────────────────────────────────────────────
+  let _pageTokens = {};
+  function renderPicker(pages) {
+    const list = document.getElementById("page-list");
+    list.innerHTML = pages.map(p => `
+      <button onclick="connectPage('${p.id}', ${JSON.stringify(p.name)}, ${JSON.stringify(p.category)})"
+        class="w-full flex items-center gap-3 p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 transition text-left group">
+        <div class="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+          <i class="fab fa-facebook text-blue-400"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-white font-bold text-sm truncate">${p.name}</p>
+          <p class="text-slate-500 text-xs">${p.category}</p>
+        </div>
+        <i class="fa fa-chevron-right text-slate-600 group-hover:text-blue-400 transition text-xs"></i>
+      </button>
+    `).join("");
+    show("state-picker");
+  }
+
+  async function connectPage(pageId, pageName, pageCategory) {
+    show("state-loading");
+    try {
+      const res = await fetch(`${FN_BASE}/connect-facebook-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "connect",
+          org_id: orgId,
+          page_id: pageId,
+          page_access_token: _pageTokens[pageId] ?? "",
+          page_name: pageName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error ?? "Connection failed");
+      showSuccess(pageName);
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  // ── Main flow ────────────────────────────────────────────────────────────
+  async function run() {
+    // Handle Facebook declining the auth
+    if (errorFB) {
+      showError(params.get("error_description") ?? "Facebook authorization was declined.");
+      return;
+    }
+
+    if (!code) {
+      showError("No authorization code received from Facebook. Please try again.");
+      return;
+    }
+
+    if (!orgId) {
+      showError("Missing organization ID in state parameter. Please start the connection flow again.");
+      return;
+    }
+
+    const redirectUri = `${window.location.origin}/fb-callback.html`;
+
+    try {
+      const res = await fetch(`${FN_BASE}/connect-facebook-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "exchange",
+          org_id: orgId,
+          code,
+          redirect_uri: redirectUri,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? "Exchange failed");
+
+      // Auto-connected (single page)
+      if (data.success && data.auto_connected) {
+        showSuccess(data.page_name);
+        return;
+      }
+
+      // Multiple pages — show picker
+      if (data.pages && data.pages.length > 0) {
+        _pageTokens = data._page_tokens ?? {};
+        renderPicker(data.pages);
+        return;
+      }
+
+      throw new Error(data.error ?? "Unexpected response from server");
+    } catch (e) {
+      showError(e.message);
+    }
+  }
+
+  run();
+</script>
+</body>
+</html>

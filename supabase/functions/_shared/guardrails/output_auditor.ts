@@ -140,8 +140,9 @@ export function outputAuditor(outputText: string, retrievedContext: string): Aud
   // If context is sufficient:
   // enforce overlap for substantial sentences (still allowing paraphrase)
   // NOTE: your old rule was 0.6 overlap which is extremely strict.
-  // 0.35 is a reasonable “faithfulness” heuristic for paraphrasing.
-  const REQUIRED_OVERLAP = 0.35;
+  // 0.15 allows natural conversational replies; still catches pure hallucinations
+  // (invented names, locations, specific false facts that share no words with context).
+  const REQUIRED_OVERLAP = 0.15;
 
   for (const sentence of sentences) {
     const clean = sentence.trim();

@@ -541,6 +541,16 @@
                     <div id="dash-infra-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
+                <!-- Connect Facebook Page -->
+                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <i class="fab fa-facebook text-blue-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Facebook Page</h2>
+                        <span class="text-xs text-slate-500 ml-auto">Messenger channel</span>
+                    </div>
+                    <div id="dash-fb-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+                </div>
+
                 <!-- Credit Wallet Card -->
                 <div id="credit-wallet-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-4">
@@ -718,6 +728,7 @@
                     loadDashDeliveryStatus(currentOrgId, sbClient);
                     loadChannelHealth(currentOrgId, sbClient);
                     loadDashInfraStatus(currentOrgId, sbClient);
+                    loadDashFbPage(currentOrgId, sbClient);
                     loadPersonaSettings();
                     initDeploySection(currentOrgId);
                     loadApiKey(currentOrgId);
@@ -1850,6 +1861,63 @@
                 .eq('org_id', orgId).eq('status', 'active');
             if (error) { el.innerHTML = `<p class="text-red-400 text-xs">Error: ${error.message}</p>`; return; }
             el.innerHTML = _buildInfraHTML(data);
+        }
+
+        // ── Connect Facebook Page ──────────────────────────────────────────────
+        async function loadDashFbPage(orgId, sb) {
+            const el = document.getElementById('dash-fb-body');
+            if (!el || !orgId) return;
+            const { data: channel } = await sb.from('org_channels')
+                .select('metadata, status')
+                .eq('org_id', orgId).eq('channel', 'messenger').eq('is_default', true).eq('status', 'active')
+                .limit(1).maybeSingle();
+            const pageName = channel?.metadata?.page_name;
+            const pageId = channel?.metadata?.page_id;
+            if (channel) {
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 mb-4">
+                        <i class="fab fa-facebook-messenger text-blue-400"></i>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-white font-bold text-sm truncate">${pageName || 'Connected Page'}</p>
+                            <p class="text-slate-500 text-xs">Page ID: ${pageId || '—'}</p>
+                        </div>
+                        <span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Connected</span>
+                    </div>
+                    <button onclick="dashStartFbConnect(event)" class="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-sm font-bold transition">
+                        <i class="fab fa-facebook mr-2"></i>Reconnect / Change Page
+                    </button>`;
+            } else {
+                el.innerHTML = `
+                    <p class="text-slate-400 text-sm mb-4">Connect your Facebook Page to handle Messenger conversations with your AI agent.</p>
+                    <button onclick="dashStartFbConnect(event)" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition">
+                        <i class="fab fa-facebook mr-2"></i>Connect Facebook Page
+                    </button>`;
+            }
+        }
+
+        async function dashStartFbConnect(event) {
+            const btn = event.target.closest('button');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>Loading…';
+            try {
+                const res = await fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/connect-facebook-page', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_config' }),
+                });
+                const data = await res.json();
+                if (!data.app_id) throw new Error(data.error || 'Failed to load Facebook config');
+                const callbackUrl = 'https://www.getsalescloser.com/fb-callback.html';
+                const state = `${currentOrgId}|${window.location.href}`;
+                const oauthUrl = 'https://www.facebook.com/v21.0/dialog/oauth' +
+                    '?client_id=' + encodeURIComponent(data.app_id) +
+                    '&redirect_uri=' + encodeURIComponent(callbackUrl) +
+                    '&scope=pages_show_list,pages_messaging,pages_manage_metadata,pages_read_engagement' +
+                    '&state=' + encodeURIComponent(state);
+                window.location.href = oauthUrl;
+            } catch (e) {
+                btn.disabled = false; btn.innerHTML = origHTML;
+                alert('Error: ' + e.message);
+            }
         }
 
         async function loadDashDeliveryStatus(orgId, sb) {

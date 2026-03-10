@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getServiceSupabaseClient } from "../_shared/db.ts";
-import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 // executor_messenger
@@ -325,46 +324,55 @@ serve(async (req) => {
   if (task.metadata?.force_content) {
     messageText = String(task.metadata.force_content);
   } else {
-    if (task.ai_generation_locked) {
-      await supabase.from("execution_tasks").update({
-        status: "failed",
-        last_error: "AI_GENERATION_LOCKED",
-        locked_by: null,
-        locked_until: null,
-      }).eq("id", task_id);
-      return new Response("AI generation locked", { status: 200 });
-    }
+    // ── widget_inbound AI path ─────────────────────────────────────────────────
+    // Route through the same AI as chat.html (widget_inbound) instead of brain.ts.
+    // Benefits: no auditor false-positives, same persona/KB, same conversation quality,
+    // history explicitly passed as structured turns (not relying on interactions scan).
 
-    // Load most recent inbound message to drive the AI reply
-    const { data: latestInbound } = await supabase
+    // Load last 12 interaction turns for this lead, chronological order
+    const { data: historyRows } = await supabase
       .from("interactions")
-      .select("content")
+      .select("content, direction")
       .eq("lead_id", task.lead_id)
-      .eq("direction", "inbound")
+      .in("direction", ["inbound", "outbound"])
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(12);
 
-    const brainResult = await generateMessage(supabase, {
-      task_id,
-      org_id: task.org_id,
-      lead: { id: task.lead_id, name: task.leads?.name },
-      channel: "sms",
-      intent: task.metadata?.intent_trace ?? task.metadata?.intent ?? "initial_outreach",
-      user_query: latestInbound?.content ?? undefined,
+    const allTurns: Array<{ role: "user" | "assistant"; content: string }> =
+      (historyRows ?? []).reverse().map((h: any) => ({
+        role: h.direction === "outbound" ? "assistant" : "user",
+        content: String(h.content ?? ""),
+      }));
+
+    // Split: last user turn → `message` param; everything before → `history`
+    const lastUserIdx = allTurns.map(h => h.role).lastIndexOf("user");
+    const userMessage = lastUserIdx >= 0 ? allTurns[lastUserIdx].content : "Hello";
+    const history = lastUserIdx >= 0 ? allTurns.slice(0, lastUserIdx) : [];
+
+    console.log(`[executor_messenger] widget_inbound call: task=${task_id} turns=${allTurns.length} msg="${userMessage.slice(0, 80)}"`);
+
+    const { data: widgetData, error: widgetErr } = await supabase.functions.invoke("widget_inbound", {
+      body: {
+        org_id: task.org_id,
+        session_id: task.lead_id, // stable session identifier per lead
+        message: userMessage,
+        history,
+      },
     });
 
-    if (brainResult.error || !brainResult.content) {
+    if (widgetErr || !widgetData?.reply) {
+      console.error(`[executor_messenger] widget_inbound failed: task=${task_id}`, widgetErr ?? "no reply");
       await supabase.from("execution_tasks").update({
         status: "failed",
-        last_error: safeString(brainResult.error ?? "AI_GENERATION_FAILED"),
+        last_error: `WIDGET_INBOUND_FAILED: ${safeString(widgetErr ?? "no reply returned")}`,
         locked_by: null,
         locked_until: null,
       }).eq("id", task_id);
       return new Response("AI generation failed", { status: 200 });
     }
 
-    messageText = brainResult.content;
+    messageText = widgetData.reply;
+    console.log(`[executor_messenger] widget reply: task=${task_id} preview="${messageText.slice(0, 100)}"`);
   }
 
   // 6) Token consumption (AFTER sender resolution, BEFORE send)

@@ -42,7 +42,7 @@ export interface BrainParams {
   task_id: string;
   org_id: string;
   lead: { id: string; name: string; context?: any };
-  channel: "sms" | "email" | "voice";
+  channel: "sms" | "email" | "voice" | "whatsapp" | "rcs" | "messenger";
   intent: string;
   user_query?: string;
 }
@@ -364,6 +364,18 @@ export async function generateMessage(
   }
 
   try {
+    console.log("[brain] debug_generation", JSON.stringify({
+      task_id: params.task_id,
+      org_id: params.org_id,
+      lead_id: params.lead.id,
+      channel: params.channel,
+      intent: params.intent,
+      user_query: params.user_query ?? null,
+      selected_model: selectedConfig.model,
+      prompt_version: version,
+      persona_preview: String(persona).slice(0, 300),
+    }));
+
     const aiResp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -374,7 +386,7 @@ export async function generateMessage(
         model: selectedConfig.model,
         messages,
         temperature: 0.5,
-        max_tokens: params.channel === "sms" ? 150 : 300,
+        max_tokens: params.channel === "sms" ? 150 : params.channel === "voice" ? 400 : 300,
       }),
     });
 
@@ -382,6 +394,13 @@ export async function generateMessage(
     if (aiJson.error) throw new Error(aiJson.error.message);
 
     let content = aiJson.choices[0].message.content.trim().replace(/^"|"$/g, "");
+
+    console.log("[brain] debug_output", JSON.stringify({
+      task_id: params.task_id,
+      channel: params.channel,
+      intent: params.intent,
+      content,
+    }));
 
     // 7. AUDIT
     const audit = outputAuditor(content, knowledge);
