@@ -295,7 +295,7 @@
             const tbody = document.getElementById('usersTable');
             const { data: members, error } = await _sb
                 .from('org_members')
-                .select('user_id, created_at')
+                .select('user_id')
                 .eq('org_id', _orgId)
                 .is('role', null);
 
@@ -326,7 +326,7 @@
                 tr.innerHTML = `
                     <td class="p-4 text-white font-medium">${p.full_name || '—'}</td>
                     <td class="p-4 text-slate-300 text-xs">${p.email || '—'}</td>
-                    <td class="p-4 font-mono text-xs">${new Date(m.created_at).toLocaleDateString()}</td>
+                    <td class="p-4 font-mono text-xs">—</td>
                     <td class="p-4 text-right">
                         <button onclick="removeUser('${m.user_id}')"
                             class="text-red-400 hover:text-red-300 text-xs font-bold transition">Remove</button>
