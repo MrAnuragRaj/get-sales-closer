@@ -564,50 +564,47 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 
 ### ⚠️ NEXT SESSION — START HERE
 
-**Then continue E2E in this order:**
+> **All groups complete except A/B/C/F which are BLOCKED on Twilio USA number approval.**
+> When Twilio approval arrives, test Groups A → B → C → F in order, then platform is ready for launch.
 
-#### Group H ✅ Complete (Session 27)
-- ✅ H3 full round-trip — confirmed working (contextual replies, no re-intro, outbound interactions logged)
-- ✅ H4 — skipped (code review pass; 24h window fallback logic confirmed correct at lines 523–568 executor_messenger)
+#### E2E Test Status — Final (Session 27)
 
-#### Group E ✅ Complete (Session 27)
-- ✅ E1 — Immediate cancel confirmed
-- ✅ E2 — End of term cancel confirmed
-- ✅ Delete My Data — both modes confirmed
+| Group | Status | Notes |
+|---|---|---|
+| H — Messenger | ✅ Complete | H3 contextual AI working; H4 code-review pass |
+| E — Cancellation | ✅ Complete | Immediate, end-of-term, Delete My Data all confirmed |
+| G — WhatsApp | ✅ Complete | Outbound, delivery callback, SMS fallback, inbound AI |
+| I — Platform Hardening | ✅ Complete | Kill switch, dead-letter, webhook store, health, rate limiter |
+| J — Multi-Tenant | ✅ Complete | Agent invite, takeover/resume, leaderboard |
+| A — SMS Pipeline | ⚠️ BLOCKED | Awaiting Twilio USA number approval |
+| B — Widget | ⚠️ BLOCKED | Test after A unblocked |
+| C — Email | ⚠️ BLOCKED | Test after A unblocked |
+| F — Automations | ⚠️ BLOCKED | Test after A unblocked |
 
-#### Group A — Core SMS Pipeline ⚠️ BLOCKED — pending Twilio USA number approval
-> Do NOT test until Twilio permission for sending to USA numbers is granted.
+#### Group A — Core SMS Pipeline (test when Twilio USA approved)
 - [ ] **Mirror Test**: dashboard.html → step 2 onboarding → AI intro SMS within 60s; `delivery_attempts(status='sent')`
 - [ ] **SMS outbound**: lead → decision engine → executor_sms → SMS received + `delivery_attempts` row
-- [ ] **SMS inbound reply**: reply to SMS → `interactions(type='sms', direction='inbound')` + contextual AI reply back (not intro)
-- [ ] **Idempotency guard — SMS**: invoke executor_sms twice with same task_id → second returns `{skipped:true}`
+- [ ] **SMS inbound reply**: reply to SMS → `interactions(type='sms', direction='inbound')` + contextual AI reply back
+- [ ] **Idempotency guard**: invoke executor_sms twice same task_id → second returns `{skipped:true}`
 
-#### Group B — Widget & Lead Capture ⚠️ Test after Group A unblocked
+#### Group B — Widget & Lead Capture
 - [ ] name stopword filter | last-10-digit dedup | email capture when no booking
 
-#### Group C — Email Pipeline ⚠️ Test after Group A unblocked
+#### Group C — Email Pipeline
 - [ ] Email outbound | Deploy AI card lock
 
-#### Group F — Automations ⚠️ Test after Group A unblocked
+#### Group F — Automations
 - [ ] cron_handoff_brief | Weekly ROI email
 
-#### Group G ✅ Complete (Session 27)
-- ✅ G1 WA outbound (executor_whatsapp → widget_inbound AI path; phone fixed to +91 format)
-- ✅ G2 WA delivery callback (delivery_attempts updated to sent+delivered_at)
-- ✅ G3 WA SMS fallback (Session 26)
-- ✅ G4 WA inbound contextual AI reply (confirmed working)
-
-#### Group I ✅ Complete (Session 27)
-- ✅ I1 Kill switch toggle (fixed JWT expiry: getAdminToken() reads fresh from localStorage)
-- ✅ I2 Dead-letter panel loads correctly
-- ✅ I3 Webhook event store (fixed: whatsapp_status events now marked processed)
-- ✅ I4 Channel health badges on dashboard
-- ✅ I5 Rate limiter panel (all 0s — correct, no limits hit)
-
-#### Group J ✅ Complete (Session 27)
-- ✅ J1 Agent invite (fixed JWT expiry on send-agent-invite call; agency_admin created_at column fix)
-- ✅ J2 Agent takeover / resume AI (reply_router gate verified; force_content sends while paused)
-- ✅ J3 Enterprise leaderboard loading correctly
+#### Session 27 Bug Fixes Applied
+- `executor_whatsapp`: switched from brain.ts → widget_inbound (same as Messenger); added outbound interaction logging
+- `webhook_inbound`: `whatsapp_status` events now call `markWebhookProcessed()` — no more stuck pending events
+- `admin.html`: `getAdminToken()` reads fresh JWT from localStorage on every call — fixes JWT expiry after 1h
+- `enterprise_admin.html` + `agency_admin.html`: agent invite reads fresh JWT from localStorage
+- `agency_admin.html`: removed non-existent `org_members.created_at` column from Client Users query
+- `admin.html` Channel Sender Management: removed non-existent `org_channels.provider_id`; reads `metadata.page_id` for Messenger
+- Facebook Page OAuth: `connect-facebook-page` edge fn + `fb-callback.html` + "Facebook Page" card in all 3 portals
+- Test lead phone corrected: `+16391055535` → `+916391055535` (India format for WhatsApp)
 
 ---
 
