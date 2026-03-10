@@ -495,6 +495,21 @@
         // _adminToken holds the validated JWT so functions.invoke can pass it explicitly.
         let _adminToken = '';
 
+        // Always read the latest token from localStorage — other tabs (dashboard, etc.)
+        // auto-refresh it there, so this picks up renewed tokens without a page reload.
+        function getAdminToken() {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('sb-') && k.endsWith('-auth-token')) {
+                    try {
+                        const sess = JSON.parse(localStorage.getItem(k) || '{}');
+                        if (sess?.access_token) return sess.access_token;
+                    } catch {}
+                }
+            }
+            return _adminToken;
+        }
+
         // Helper: update the visible loading-screen message so we know exactly
         // which step the code reaches. Also logs to console for DevTools.
         function setStatus(msg) {
@@ -766,7 +781,7 @@
             try {
                 const { data, error } = await supabase.functions.invoke('notify-partial-payment', {
                     body: { intent_id: intentId, amount_paid: amountPaid },
-                    headers: { Authorization: `Bearer ${_adminToken}` }
+                    headers: { Authorization: `Bearer ${getAdminToken()}` }
                 });
                 if (error) throw error;
                 if (data?.error) throw new Error(data.error);
@@ -1068,7 +1083,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + _adminToken,
+                            'Authorization': 'Bearer ' + getAdminToken(),
                         },
                         body: JSON.stringify({
                             org_id: _provisionTargetOrgId,

@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getServiceSupabaseClient } from "../_shared/db.ts";
-import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 
 const LEASE_SECONDS = 90;
@@ -256,26 +255,50 @@ serve(async (req) => {
     messageBody = safeString(task.metadata.force_content);
     console.log(`[executor_whatsapp] force_content bypass for task ${task_id}`);
   } else {
-    const brainResult = await generateMessage(supabase, {
-      task_id,
-      org_id: task.org_id,
-      lead: { id: task.lead_id, name: task.leads?.name },
-      channel: "whatsapp",
-      intent: "initial_outreach",
+    // Route through widget_inbound (same AI as chat.html) — no auditor false-positives,
+    // same persona/KB, explicit history management.
+    const { data: historyRows } = await supabase
+      .from("interactions")
+      .select("content, direction")
+      .eq("lead_id", task.lead_id)
+      .in("direction", ["inbound", "outbound"])
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    const allTurns: Array<{ role: "user" | "assistant"; content: string }> =
+      (historyRows ?? []).reverse().map((h: any) => ({
+        role: h.direction === "outbound" ? "assistant" : "user",
+        content: String(h.content ?? ""),
+      }));
+
+    const lastUserIdx = allTurns.map(h => h.role).lastIndexOf("user");
+    const userMessage = lastUserIdx >= 0 ? allTurns[lastUserIdx].content : "Hello";
+    const history = lastUserIdx >= 0 ? allTurns.slice(0, lastUserIdx) : [];
+
+    console.log(`[executor_whatsapp] widget_inbound call: task=${task_id} turns=${allTurns.length} msg="${userMessage.slice(0, 80)}"`);
+
+    const { data: widgetData, error: widgetErr } = await supabase.functions.invoke("widget_inbound", {
+      body: {
+        org_id: task.org_id,
+        session_id: task.lead_id,
+        message: userMessage,
+        history,
+      },
     });
 
-    if (brainResult.error || !brainResult.content) {
+    if (widgetErr || !widgetData?.reply) {
+      console.error(`[executor_whatsapp] widget_inbound failed: task=${task_id}`, widgetErr ?? "no reply");
       await supabase.from("execution_tasks").update({
         status: "failed",
-        last_error: safeString(brainResult.error ?? "AI_GENERATION_FAILED"),
+        last_error: `WIDGET_INBOUND_FAILED: ${safeString(widgetErr ?? "no reply returned")}`,
         locked_by: null,
         locked_until: null,
       }).eq("id", task_id);
-
-      return new Response("AI generation failed", { status: 500 });
+      return new Response("AI generation failed", { status: 200 });
     }
 
-    messageBody = brainResult.content;
+    messageBody = widgetData.reply;
+    console.log(`[executor_whatsapp] widget reply: task=${task_id} preview="${messageBody.slice(0, 100)}"`);
   }
 
   // 6) Token consumption (wa_msg, 1 token per message)
@@ -458,6 +481,16 @@ serve(async (req) => {
     locked_by: null,
     locked_until: null,
   }).eq("id", task_id);
+
+  // Log outbound interaction so AI has conversation history on next inbound
+  await supabase.from("interactions").insert({
+    org_id: task.org_id,
+    lead_id: task.lead_id,
+    type: "whatsapp",
+    direction: "outbound",
+    content: messageBody,
+    metadata: { task_id, provider_message_id: providerMessageId },
+  }).then(undefined, (e: any) => console.error("[executor_whatsapp] outbound interaction log failed:", e));
 
   console.log(`[executor_whatsapp] Sent WA message ${providerMessageId} for task ${task_id}`);
 

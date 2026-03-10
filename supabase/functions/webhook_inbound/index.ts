@@ -357,9 +357,10 @@ serve(async (req) => {
         const sid = params.MessageSid ?? params.SmsSid ?? null;
         const status = params.MessageStatus; // sent|delivered|read|failed|undelivered
 
-        // Log event (best-effort — status callbacks are idempotent so no processing gate)
+        // Log event and mark processed after delivery_attempts update
+        let pweWaStatusId: string | null = null;
         if (sid) {
-          await persistWebhookEvent(supabase, "twilio", `${sid}:status:${status}`, "whatsapp_status", { sid, status, error_code: params.ErrorCode ?? null }).then(undefined, () => {});
+          pweWaStatusId = await persistWebhookEvent(supabase, "twilio", `${sid}:status:${status}`, "whatsapp_status", { sid, status, error_code: params.ErrorCode ?? null }).catch(() => null);
         }
 
         if (sid) {
@@ -386,6 +387,7 @@ serve(async (req) => {
           if (daStatusErr) console.error(`[webhook_inbound] delivery_attempts status update failed: ${daStatusErr.message}`);
         }
 
+        if (pweWaStatusId) await markWebhookProcessed(supabase, pweWaStatusId);
         return new Response("OK", { status: 200 });
       }
 
