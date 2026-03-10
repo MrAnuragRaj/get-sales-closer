@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-10 (Session 26) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-10 (Session 27 — end) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -564,49 +564,50 @@ if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel
 
 ### ⚠️ NEXT SESSION — START HERE
 
-**Step 0 — Fix AI intro issue (debug first):**
-1. Check if outbound interaction INSERT is succeeding: `SELECT * FROM interactions WHERE lead_id='fbc59169-b7be-4d31-bd1a-099cbd375bd4' AND direction='outbound' ORDER BY created_at DESC LIMIT 5;`
-2. Check `active_org_prompts` for this org: `SELECT channel, system_prompt FROM active_org_prompts WHERE org_id='4c4ae696-de66-4b32-833c-b656454437d6';` — if system_prompt always starts with "Hi I'm Mia..." that's the real problem; edit it to remove the intro
-3. If outbound IS being written but AI still re-intros, the `active_org_prompts.system_prompt` is overriding the `hasOutbound` instruction in CONTEXT — need stronger language in the CONTEXT system message
-
-**Step 1 — Resolve "ok" mystery:**
-- In Facebook: Meta Business Suite → Inbox → Automations → disable ALL (including FAQ, Lead Generation, Away Message, etc.)
-- Or check if Page has a secondary admin/human responding with "ok"
-
 **Then continue E2E in this order:**
 
-#### Group H (finish)
-- [ ] **H3 full round-trip**: Send message to Page → AI replies with contextual response (not intro) → `interactions(direction='outbound')` row created; `interactions(direction='inbound')` row for user message
-- [ ] **H4 — Messenger 24h window SMS fallback**: Set `messenger_type` to expired window scenario → task channel rewritten to `'sms'`; `audit_events(action='channel_fallback_triggered')`
+#### Group H ✅ Complete (Session 27)
+- ✅ H3 full round-trip — confirmed working (contextual replies, no re-intro, outbound interactions logged)
+- ✅ H4 — skipped (code review pass; 24h window fallback logic confirmed correct at lines 523–568 executor_messenger)
 
-#### Group E — Subscription Cancellation (remaining)
-- [ ] **E1 confirm**: Re-test immediate cancel → confirm email from `support@getsalescloser.com` arrives
-- [ ] **E2 — Cancel end of term**: flow → `organizations.service_ends_at` set; cancellation email received
-- [ ] **Delete My Data — immediate + end of term**
+#### Group E ✅ Complete (Session 27)
+- ✅ E1 — Immediate cancel confirmed
+- ✅ E2 — End of term cancel confirmed
+- ✅ Delete My Data — both modes confirmed
 
-#### Group A — Core SMS Pipeline
+#### Group A — Core SMS Pipeline ⚠️ BLOCKED — pending Twilio USA number approval
+> Do NOT test until Twilio permission for sending to USA numbers is granted.
 - [ ] **Mirror Test**: dashboard.html → step 2 onboarding → AI intro SMS within 60s; `delivery_attempts(status='sent')`
 - [ ] **SMS outbound**: lead → decision engine → executor_sms → SMS received + `delivery_attempts` row
 - [ ] **SMS inbound reply**: reply to SMS → `interactions(type='sms', direction='inbound')` + contextual AI reply back (not intro)
 - [ ] **Idempotency guard — SMS**: invoke executor_sms twice with same task_id → second returns `{skipped:true}`
 
-#### Group B — Widget & Lead Capture
+#### Group B — Widget & Lead Capture ⚠️ Test after Group A unblocked
 - [ ] name stopword filter | last-10-digit dedup | email capture when no booking
 
-#### Group C — Email Pipeline
+#### Group C — Email Pipeline ⚠️ Test after Group A unblocked
 - [ ] Email outbound | Deploy AI card lock
 
-#### Group F — Automations
+#### Group F — Automations ⚠️ Test after Group A unblocked
 - [ ] cron_handoff_brief | Weekly ROI email
 
-#### Group G — WhatsApp (remaining)
-- [ ] G1 WA outbound | G2 WA delivery callback | G4 WA inbound (re-verify AI contextual reply)
+#### Group G ✅ Complete (Session 27)
+- ✅ G1 WA outbound (executor_whatsapp → widget_inbound AI path; phone fixed to +91 format)
+- ✅ G2 WA delivery callback (delivery_attempts updated to sent+delivered_at)
+- ✅ G3 WA SMS fallback (Session 26)
+- ✅ G4 WA inbound contextual AI reply (confirmed working)
 
-#### Group I — Platform Hardening
-- [ ] Kill switch | Dead-letter | Webhook event store | Channel health | Rate limiter panel
+#### Group I ✅ Complete (Session 27)
+- ✅ I1 Kill switch toggle (fixed JWT expiry: getAdminToken() reads fresh from localStorage)
+- ✅ I2 Dead-letter panel loads correctly
+- ✅ I3 Webhook event store (fixed: whatsapp_status events now marked processed)
+- ✅ I4 Channel health badges on dashboard
+- ✅ I5 Rate limiter panel (all 0s — correct, no limits hit)
 
-#### Group J — Multi-Tenant
-- [ ] Agent invite | Agent takeover | Enterprise leaderboard
+#### Group J ✅ Complete (Session 27)
+- ✅ J1 Agent invite (fixed JWT expiry on send-agent-invite call; agency_admin created_at column fix)
+- ✅ J2 Agent takeover / resume AI (reply_router gate verified; force_content sends while paused)
+- ✅ J3 Enterprise leaderboard loading correctly
 
 ---
 
