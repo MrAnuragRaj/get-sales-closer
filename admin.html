@@ -1122,7 +1122,7 @@
             const since7d = new Date(Date.now() - 7*24*60*60*1000).toISOString();
             const [chRes, delRes] = await Promise.all([
                 supabase.from('org_channels')
-                    .select('id, org_id, channel, provider, from_e164, vapi_phone_number_id, provider_id, status, fallback_policy, is_default')
+                    .select('id, org_id, channel, provider, from_e164, vapi_phone_number_id, provider_token, metadata, status, fallback_policy, is_default')
                     .order('org_id').order('channel'),
                 supabase.from('delivery_attempts')
                     .select('org_id, channel, status')
@@ -1176,7 +1176,7 @@
                     <tbody class="divide-y divide-slate-800">
                         ${channels.map(ch => {
                             const name = orgMap[ch.org_id] || ch.org_id.slice(0,8)+'…';
-                            const sender = ch.from_e164 || ch.provider_id || ch.vapi_phone_number_id || '—';
+                            const sender = ch.from_e164 || ch.vapi_phone_number_id || ch.metadata?.page_id || '—';
                             const sc = statusCls[ch.status] || 'bg-slate-600/40 text-slate-400';
                             const toggleLabel = ch.status === 'active' ? 'Disable' : 'Enable';
                             const toggleCls = ch.status === 'active' ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20';
