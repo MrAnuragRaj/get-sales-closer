@@ -141,6 +141,25 @@
                 </div>
             </div>
 
+            <!-- Growth Engine standalone add-on -->
+            <div class="mt-4 mb-6">
+                <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3">Growth Engine — Add-On</p>
+                <div id="card_GE" class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
+                    <div class="text-left flex-1 mr-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine</span>
+                            <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
+                            <span id="badge_GE" class="hidden owned-badge">ACTIVE</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500">AI content · engagement automation · relationship intelligence · revenue attribution</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-[10px] text-emerald-400 font-bold whitespace-nowrap">+$660/mo</span>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+                </div>
+            </div>
+
             <button id="deployBtn" class="w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300 btn-dopamine disabled:opacity-50 disabled:cursor-not-allowed">Generate Invoice</button>
         </div>
     </div>
@@ -170,19 +189,22 @@
             S: document.getElementById('toggleS'), B: document.getElementById('toggleB'),
             A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
-            Priority: document.getElementById('togglePriority')
+            Priority: document.getElementById('togglePriority'),
+            GE: document.getElementById('toggleGE')
         };
         const cards = {
             S: document.getElementById('card_S'), B: document.getElementById('card_B'),
             A: document.getElementById('card_A'), L: document.getElementById('card_L'),
             Intake: document.getElementById('card_Intake'), SafeVoice: document.getElementById('card_SafeVoice'),
-            Priority: document.getElementById('card_Priority')
+            Priority: document.getElementById('card_Priority'),
+            GE: document.getElementById('card_GE')
         };
         const badges = {
             S: document.getElementById('badge_S'), B: document.getElementById('badge_B'),
             A: document.getElementById('badge_A'), L: document.getElementById('badge_L'),
             Intake: document.getElementById('badge_Intake'), SafeVoice: document.getElementById('badge_SafeVoice'),
-            Priority: document.getElementById('badge_Priority')
+            Priority: document.getElementById('badge_Priority'),
+            GE: document.getElementById('badge_GE')
         };
         const deployBtn = document.getElementById('deployBtn');
         const overlay = document.getElementById('deploymentOverlay');
@@ -203,7 +225,14 @@
         async function init(profile) {
             await fetchOwnedEntitlements();
             lockOwnedUI();
-            
+
+            // Auto-select if redirected from entitlement gate (e.g. billing.html?lock=growth_engine)
+            const lockParam = new URLSearchParams(window.location.search).get('lock');
+            if (lockParam === 'growth_engine' && toggles.GE && !toggles.GE.disabled) {
+                toggles.GE.checked = true;
+                setTimeout(() => document.getElementById('card_GE')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+            }
+
             // Interaction Listeners
             Object.values(toggles).forEach(el => {
                 if (el && !el.disabled) el.addEventListener('change', updateButtonState);
@@ -220,13 +249,14 @@
                 if (error) throw error;
 
                 const map = {
-                    'sentinel': 'S', 
-                    'brain': 'B', 
-                    'architect': 'A', 
+                    'sentinel': 'S',
+                    'brain': 'B',
+                    'architect': 'A',
                     'voice': 'L',
-                    'intake': 'Intake', 
-                    'safe_voice': 'SafeVoice', 
-                    'priority': 'Priority'
+                    'intake': 'Intake',
+                    'safe_voice': 'SafeVoice',
+                    'priority': 'Priority',
+                    'growth_engine': 'GE'
                 };
 
                 // data.keys is the flat array of owned service_keys
@@ -293,6 +323,7 @@
             if (toggles.Intake?.checked)    premium += 99;
             if (toggles.SafeVoice?.checked) premium += 199;
             if (toggles.Priority?.checked)  premium += 149;
+            if (toggles.GE?.checked)        premium += 660;
 
             const rawTotal = base + premium;
             const isYearly = billingCycle === 'yearly';
@@ -329,7 +360,8 @@
                 addons: {
                     intake: toggles.Intake?.checked && !owned.addons.has('Intake'),
                     safe_voice: toggles.SafeVoice?.checked && !owned.addons.has('SafeVoice'),
-                    priority: toggles.Priority?.checked && !owned.addons.has('Priority')
+                    priority: toggles.Priority?.checked && !owned.addons.has('Priority'),
+                    growth_engine: toggles.GE?.checked && !owned.addons.has('GE')
                 }
             };
 

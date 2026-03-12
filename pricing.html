@@ -145,6 +145,24 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Growth Engine standalone add-on -->
+                <div class="pt-8 pb-4 text-left">
+                    <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3">Growth Engine — Add-On</p>
+                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
+                        <div class="text-left flex-1 mr-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine</span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400">AI content · engagement automation · relationship intelligence · revenue attribution</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-[10px] text-emerald-400 font-bold whitespace-nowrap">+$660/mo</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="voiceBonus" class="hidden p-4 rounded-xl bg-[#39FF14]/10 border border-[#39FF14]/30 mb-6 text-left">
@@ -167,13 +185,14 @@
         let billingCycle = 'monthly'; // Default
 
         // --- 3. DOM ELEMENTS ---
-        const toggles = { 
-            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'), 
+        const toggles = {
+            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'),
             A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
-            Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'), 
+            Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
             Priority: document.getElementById('togglePriority'),
             Chatbot: document.getElementById('toggleChatbot'),
-            Install: document.getElementById('toggleInstall')
+            Install: document.getElementById('toggleInstall'),
+            GE: document.getElementById('toggleGE')
         };
         const priceDisp = document.getElementById('priceDisplay');
         const channelMenu = document.getElementById('channelMenu');
@@ -237,10 +256,11 @@
 
             // Addons
             let premium = 0;
-            if (toggles.Intake.checked) premium += 99;
+            if (toggles.Intake.checked)    premium += 99;
             if (toggles.SafeVoice.checked) premium += 199;
-            if (toggles.Priority.checked) premium += 149;
-            if (toggles.Chatbot.checked) premium += 149;
+            if (toggles.Priority.checked)  premium += 149;
+            if (toggles.Chatbot.checked)   premium += 149;
+            if (toggles.GE?.checked)       premium += 660;
             
             // Setup Fee (Always one-time, never discounted)
             let oneTime = 0;
@@ -332,7 +352,8 @@
                         safe_voice: toggles.SafeVoice.checked,
                         priority: toggles.Priority.checked,
                         chatbot: toggles.Chatbot.checked,
-                        installation: toggles.Install.checked
+                        installation: toggles.Install.checked,
+                        growth_engine: toggles.GE?.checked || false
                     },
                     channels: {
                         whatsapp: document.querySelector('input[data-id="whatsapp"]').checked,

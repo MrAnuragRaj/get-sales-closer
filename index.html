@@ -136,6 +136,19 @@
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                     </div>
+                    <div class="pt-8 space-y-4">
+                        <p class="text-emerald-400 font-bold text-[9px] uppercase tracking-widest">Growth Engine — Add-On</p>
+                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
+                            <div class="text-left">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine ($660)</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-0.5">AI content · engagement automation · revenue attribution</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-4"><input type="checkbox" id="toggleGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                    </div>
                 </div>
 
                 <button id="deployBtn" onclick="handleDeployment()" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300">Deploy My Closer</button>
@@ -342,11 +355,12 @@
         }
     
         // --- STRICT PRICING & VALIDATION LOGIC ---
-        const toggles = { 
-            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'), 
-            A: document.getElementById('toggleA'), L: document.getElementById('toggleL'), 
+        const toggles = {
+            S: document.getElementById('toggleS'), B: document.getElementById('toggleB'),
+            A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
-            Priority: document.getElementById('togglePriority')
+            Priority: document.getElementById('togglePriority'),
+            GE: document.getElementById('toggleGE')
         };
         const priceDisp = document.getElementById('priceDisplay');
         const chanBoxes = document.querySelectorAll('.chan-box');
@@ -361,7 +375,7 @@
         }
     
         function calculate(event) {
-            const { S, B, A, L, Intake, SafeVoice, Priority } = Object.fromEntries(
+            const { S, B, A, L, Intake, SafeVoice, Priority, GE } = Object.fromEntries(
                 Object.entries(toggles).map(([k, v]) => [k, v ? v.checked : false])
             );
             
@@ -417,7 +431,7 @@
                 if (A) base += 99;
             }
     
-            let premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0);
+            let premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0) + (GE ? 660 : 0);
             const total = base + premium;
     
             let start = parseInt(priceDisp.innerText) || 0;

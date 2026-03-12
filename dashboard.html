@@ -470,6 +470,7 @@
                     <div class="flex items-center gap-3 mb-6">
                         <i class="fa fa-seedling text-emerald-400 text-lg"></i>
                         <h2 class="text-lg font-bold text-white">Growth Intelligence</h2>
+                        <span class="text-[10px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-2 py-0.5 rounded-full">Beta</span>
                         <span class="text-xs text-slate-500 ml-auto">Last 28 days</span>
                     </div>
                     <!-- Stat tiles -->
@@ -499,6 +500,35 @@
                         <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Lead Sources</p>
                         <div id="gi-sources"><p class="text-slate-600 text-xs">Loading...</p></div>
                     </div>
+                    <a href="growth_dashboard.html" class="mt-4 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">
+                        <i class="fa fa-seedling"></i> Open Growth Engine
+                    </a>
+                </div>
+
+                <!-- Revenue Health Card -->
+                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <i class="fa fa-heart-pulse text-rose-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Revenue Health</h2>
+                        <span class="text-xs text-slate-500 ml-auto">Weekly snapshot</span>
+                        <button onclick="refreshDashRevenueHealth()" id="dash-rh-refresh" class="text-xs text-slate-500 hover:text-white transition ml-2" title="Refresh">
+                            <i class="fa fa-rotate-right"></i>
+                        </button>
+                    </div>
+                    <div id="dash-rh-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+                </div>
+
+                <!-- Revenue Doctor Card -->
+                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <i class="fa fa-stethoscope text-indigo-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Revenue Doctor</h2>
+                        <span id="dash-rd-quota-badge" class="hidden text-xs bg-slate-800 border border-white/10 text-slate-400 px-2.5 py-0.5 rounded-full ml-auto">
+                            <i class="fa fa-ticket text-indigo-400 mr-1"></i>
+                            <span id="dash-rd-quota-num">—</span> left
+                        </span>
+                    </div>
+                    <div id="dash-rd-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
                 <!-- WhatsApp Settings Card -->
@@ -695,7 +725,7 @@
 
         const SIDEBAR_CONFIG = {
             'niche_closer': { label: 'Deal Commander', icon: 'fa-bullseye', locked: false, link: '#', module: 'niche_closer' },
-            'content_roi': { label: 'Growth Intelligence', icon: 'fa-chart-line', locked: true, link: '#', module: 'content_roi' },
+            'content_roi': { label: 'Growth Intelligence (Beta)', icon: 'fa-chart-line', locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
             'b': { label: 'Knowledge Brain', icon: 'fa-brain', locked: false, link: 'Knowledge Brain.html', module: 'brain' },
             's': { label: 'Instant Sentinel', icon: 'fa-bolt', locked: false, link: 'sentinel.html', module: 'sentinel' },
             'a': { label: 'Appt. Architect', icon: 'fa-calendar-check', locked: false, link: 'App Architect.html', module: 'architect' },
@@ -724,6 +754,8 @@
                     loadManualActions();
                     loadUpsellInsights();
                     loadGrowthIntelligence();
+                    loadDashRevenueHealth(currentOrgId);
+                    loadDashRevenueDoctor(currentOrgId);
                     loadDashWaSettings(currentOrgId, sbClient);
                     loadDashDeliveryStatus(currentOrgId, sbClient);
                     loadChannelHealth(currentOrgId, sbClient);
@@ -777,11 +809,10 @@
             });
         }
 
-        function handleNavClick(key, isLocked) { 
+        function handleNavClick(key, isLocked) {
             const config = SIDEBAR_CONFIG[key];
             if (!config) return;
-            if (key === 'content_roi') { openModal('locked-missed-revenue-modal'); return; }
-            if (isLocked || config.locked) { 
+            if (isLocked || config.locked) {
                 // Redirect to Billing with Context
                 window.location.href = `billing.html?lock=${config.module}`; 
                 return; 
@@ -1756,6 +1787,138 @@
                 .eq('org_id', orgId);
             el.disabled = false;
             if (error) { el.checked = !enabled; alert('Update failed: ' + error.message); }
+        }
+
+        // ── Revenue Health ─────────────────────────────────────────────────────
+        async function loadDashRevenueHealth(orgId) {
+            const el = document.getElementById('dash-rh-body');
+            if (!el || !orgId) return;
+            try {
+                const { data: { session } } = await sbClient.auth.getSession();
+                const jwt = session?.access_token ?? '';
+                const res = await fetch(
+                    `https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/revenue-health?org_id=${orgId}&window_type=weekly`,
+                    { headers: { Authorization: `Bearer ${jwt}` } }
+                );
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                el.innerHTML = _buildRhHTML(data);
+            } catch(e) {
+                el.innerHTML = `<p class="text-slate-500 text-xs">Unable to load revenue health data.</p>`;
+            }
+        }
+
+        function refreshDashRevenueHealth() {
+            const btn = document.getElementById('dash-rh-refresh');
+            if (btn) btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i>';
+            loadDashRevenueHealth(currentOrgId).then(() => {
+                const b = document.getElementById('dash-rh-refresh');
+                if (b) b.innerHTML = '<i class="fa fa-rotate-right"></i>';
+            });
+        }
+
+        function _buildRhHTML(data) {
+            const score = data.overall_score !== null ? Math.round(Number(data.overall_score)) : null;
+            const scoreCol = score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400';
+            const conf = data.data_confidence || 'sufficient';
+            const confStyle = conf === 'sufficient'
+                ? 'background:rgba(34,197,94,0.1);color:#86efac;border:1px solid rgba(34,197,94,0.3)'
+                : conf === 'partial'
+                    ? 'background:rgba(234,179,8,0.1);color:#fde047;border:1px solid rgba(234,179,8,0.3)'
+                    : 'background:rgba(100,116,139,0.2);color:#94a3b8';
+            const catLabel = { lead_response:'Lead Response', conversation_quality:'Conversation', channel_health:'Channel Health', conversion_health:'Conversion' };
+            const catBars = (data.categories || []).map(c => {
+                const v = c.score !== null ? Math.round(Number(c.score)) : null;
+                const pct = v ?? 0;
+                const col = pct >= 80 ? '#22c55e' : pct >= 60 ? '#eab308' : '#ef4444';
+                const delta = c.delta_vs_previous !== null && c.delta_vs_previous !== undefined
+                    ? `<span style="color:${c.delta_vs_previous >= 0 ? '#4ade80' : '#f87171'}" class="text-[10px]">${c.delta_vs_previous >= 0 ? '▲' : '▼'}${Math.abs(Math.round(c.delta_vs_previous))}</span>`
+                    : '';
+                return `<div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-400">${catLabel[c.category] || c.category}</span>
+                        <span class="flex items-center gap-1.5"><span class="font-bold" style="color:${col}">${v ?? '—'}</span>${delta}</span>
+                    </div>
+                    <div class="h-1.5 rounded-full bg-slate-900 overflow-hidden">
+                        <div class="h-full rounded-full" style="width:${pct}%;background:${col};transition:width 0.7s ease"></div>
+                    </div>
+                </div>`;
+            }).join('');
+            const warnings = (data.warnings || []).filter(w => w.severity === 'high').slice(0, 2);
+            const warnHTML = warnings.length ? `<div class="mt-4 space-y-2">${warnings.map(w =>
+                `<div class="flex gap-2 items-start rounded-lg px-3 py-2" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2)">
+                    <i class="fa fa-triangle-exclamation text-red-400 text-xs mt-0.5 shrink-0"></i>
+                    <p class="text-xs text-slate-300">${w.message}</p>
+                </div>`).join('')}</div>` : '';
+            return `<div class="flex items-center gap-5 mb-4">
+                <div class="text-center shrink-0">
+                    <div class="text-3xl font-black ${scoreCol}">${score ?? '—'}</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">Overall</div>
+                </div>
+                <div class="flex-1 space-y-2.5">${catBars}</div>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] text-slate-600">${data.window_start?.split('T')[0] ?? ''} → ${data.window_end?.split('T')[0] ?? ''}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded" style="${confStyle}">${conf}${data.source === 'cache' ? ' · cached' : ''}</span>
+            </div>${warnHTML}`;
+        }
+
+        // ── Revenue Doctor ─────────────────────────────────────────────────────
+        async function loadDashRevenueDoctor(orgId) {
+            const el = document.getElementById('dash-rd-body');
+            if (!el || !orgId) return;
+            // Entitlement: voice plan required for Revenue Doctor
+            const hasVoice = orgEntitlements['voice'] === 'active';
+            if (!hasVoice) {
+                el.innerHTML = `<div class="text-center py-2">
+                    <i class="fa fa-lock text-slate-600 text-2xl mb-3 block"></i>
+                    <p class="text-sm text-slate-400 font-medium mb-1">Requires the Voice plan</p>
+                    <p class="text-xs text-slate-600 mb-4">Get AI-generated pipeline diagnoses, root cause analysis, and prioritised fix recommendations.</p>
+                    <a href="billing.html" class="inline-block text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg transition">Upgrade to Voice →</a>
+                </div>`;
+                return;
+            }
+            try {
+                const { data: { session } } = await sbClient.auth.getSession();
+                const jwt = session?.access_token ?? '';
+                const [walletRes, listRes] = await Promise.all([
+                    sbClient.from('token_wallets').select('balance')
+                        .eq('org_id', orgId).eq('token_key', 'doctor_report')
+                        .eq('scope', 'org').is('user_id', null).maybeSingle(),
+                    fetch(`https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/revenue-doctor-reports?org_id=${orgId}&limit=1`,
+                        { headers: { Authorization: `Bearer ${jwt}` } })
+                ]);
+                const quota = walletRes.data ? Math.floor(Number(walletRes.data.balance)) : 0;
+                const listData = listRes.ok ? await listRes.json() : { reports: [] };
+                const last = listData.reports?.[0] ?? null;
+                // Update quota badge
+                const badge = document.getElementById('dash-rd-quota-badge');
+                const num   = document.getElementById('dash-rd-quota-num');
+                if (badge && num) { num.textContent = quota; badge.classList.remove('hidden'); }
+                const scoreCol = last ? (last.overall_score >= 80 ? 'text-green-400' : last.overall_score >= 60 ? 'text-yellow-400' : 'text-red-400') : '';
+                const daysAgo = last ? Math.floor((Date.now() - new Date(last.generated_at).getTime()) / 86400000) : null;
+                const ageLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : daysAgo !== null ? `${daysAgo} days ago` : null;
+                const staleWarning = daysAgo !== null && daysAgo > 14
+                    ? `<p class="text-[10px] text-yellow-500 mt-1.5 flex items-center gap-1"><i class="fa fa-triangle-exclamation"></i> Pipeline may have changed — run a new diagnosis.</p>`
+                    : '';
+                const lastHTML = last
+                    ? `<div class="bg-slate-900/60 rounded-xl p-3 mt-3 cursor-pointer hover:bg-slate-900 transition" onclick="window.location.href='revenue_doctor.html'">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-xs font-bold ${scoreCol}">${Math.round(last.overall_score ?? 0)}</span>
+                            <span class="text-[10px] text-slate-600">Last diagnosis: ${ageLabel}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 line-clamp-2">${(last.executive_summary || '').slice(0,120)}${(last.executive_summary?.length ?? 0) > 120 ? '…' : ''}</p>
+                    </div>${staleWarning}`
+                    : `<p class="text-xs text-slate-600 mt-3">No reports yet. Generate your first diagnosis.</p>`;
+                el.innerHTML = `<p class="text-xs text-slate-400 mb-1">${quota} report${quota !== 1 ? 's' : ''} remaining this month.</p>
+                    ${lastHTML}
+                    <a href="revenue_doctor.html" class="mt-4 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)">
+                        <i class="fa fa-stethoscope"></i> Open Revenue Doctor
+                    </a>
+                    ${quota === 0 ? '<p class="text-[10px] text-slate-600 text-center mt-2">Quota resets on the 1st of next month</p>' : ''}`;
+            } catch(e) {
+                el.innerHTML = `<p class="text-slate-500 text-xs">Unable to load Revenue Doctor status.</p>`;
+            }
         }
 
         // ── Delivery Status Dashboard ──────────────────────────────────────────

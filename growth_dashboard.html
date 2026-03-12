@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GetSalesCloser | Growth Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script src="growth-config.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 30px rgba(0,0,0,0.3); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .hidden { display: none !important; }
+        .tab-btn { transition: all 0.2s; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #6366f1; color: white; }
+        .tab-btn:not(.active) { color: #94a3b8; }
+        .tab-btn:not(.active):hover { color: #cbd5e1; }
+        .stat-card { background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 0.75rem; padding: 1.25rem; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em; }
+        .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
+        .badge-yellow { background: rgba(234,179,8,0.15); color: #facc15; }
+        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
+        .badge-blue { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+        .badge-slate { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        .badge-purple { background: rgba(168,85,247,0.15); color: #c084fc; }
+        .list-row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+        .list-row:hover { background: rgba(255,255,255,0.02); }
+        .list-row:last-child { border-bottom: none; }
+        .btn-primary { background: #6366f1; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; transition: background 0.2s; cursor: pointer; border: none; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; padding: 0.4rem 0.85rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; transition: all 0.15s; cursor: pointer; }
+        .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: white; }
+        .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; padding: 0.4rem 0.85rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+        .input-field { width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 0.6rem 0.85rem; color: white; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+        .input-field:focus { border-color: #6366f1; }
+        .select-field { width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 0.6rem 0.85rem; color: white; font-size: 0.85rem; outline: none; }
+        .select-field option { background: #1e293b; }
+        .progress-bar { height: 6px; border-radius: 9999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 9999px; transition: width 0.5s ease; }
+        .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(99,102,241,0.3); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .health-ring { transform: rotate(-90deg); }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 99999; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
+        .platform-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+        .platform-linkedin { background: rgba(10,102,194,0.2); color: #60a5fa; }
+        .platform-x { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+        .platform-instagram { background: rgba(225,48,108,0.15); color: #f9a8d4; }
+        .platform-facebook { background: rgba(24,119,242,0.15); color: #93c5fd; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- Auth loader -->
+<div id="auth-loader" class="modal-overlay">
+    <div class="flex flex-col items-center">
+        <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 text-4xl mb-4"></i>
+        <p class="text-slate-400 text-sm font-bold">Loading Growth Engine...</p>
+    </div>
+</div>
+
+<!-- Locked preview — shown when org does not have growth_engine entitlement -->
+<div id="locked-preview" class="modal-overlay hidden" style="background:linear-gradient(135deg,#0f172a 0%,#0d1f16 100%);">
+    <div class="w-full max-w-md mx-4 text-center">
+        <!-- Icon + badge -->
+        <div class="flex items-center justify-center gap-3 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-900/60 border border-emerald-700/40 flex items-center justify-center">
+                <i class="fa-solid fa-seedling text-emerald-400 text-2xl"></i>
+            </div>
+        </div>
+        <div class="mb-2 flex items-center justify-center gap-2">
+            <h1 class="text-2xl font-bold text-white">Growth Engine</h1>
+            <span class="text-[10px] font-bold uppercase tracking-widest bg-emerald-900/60 text-emerald-400 border border-emerald-700/40 px-2 py-0.5 rounded-full">Beta</span>
+        </div>
+        <p class="text-slate-400 text-sm mb-8">Automate conversations that turn into deals.</p>
+
+        <!-- Feature list -->
+        <div class="text-left bg-slate-800/40 border border-white/5 rounded-2xl p-5 mb-8 space-y-3">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">AI content generation</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Smart engagement automation</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Relationship intelligence (Growth Graph)</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Growth Radar insights</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Revenue attribution</span>
+            </div>
+        </div>
+
+        <!-- Price + CTA -->
+        <div class="mb-3">
+            <span class="text-3xl font-black text-white">$660</span>
+            <span class="text-slate-500 text-sm">/month</span>
+        </div>
+        <button onclick="window.location.href='billing.html?lock=growth_engine'"
+            class="w-full py-4 rounded-xl font-bold text-white text-sm uppercase tracking-widest transition"
+            style="background:linear-gradient(135deg,#10b981,#059669);">
+            Unlock Growth Engine
+        </button>
+        <a href="dashboard.html" class="mt-4 block text-xs text-slate-600 hover:text-slate-400 transition">← Back to Dashboard</a>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<!-- Detail modal -->
+<div id="detail-modal" class="modal-overlay hidden">
+    <div class="glass-panel rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 mx-4">
+        <div class="flex items-start justify-between mb-4">
+            <h3 id="modal-title" class="text-lg font-bold text-white"></h3>
+            <button onclick="closeModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<!-- Approve/Reject confirm modal -->
+<div id="action-modal" class="modal-overlay hidden">
+    <div class="glass-panel rounded-2xl w-full max-w-md p-6 mx-4">
+        <h3 id="action-modal-title" class="text-base font-bold text-white mb-2"></h3>
+        <p id="action-modal-body" class="text-slate-400 text-sm mb-5"></p>
+        <div id="action-modal-extra" class="mb-4 hidden">
+            <textarea id="action-notes" class="input-field" rows="3" placeholder="Notes (optional)..."></textarea>
+        </div>
+        <div class="flex gap-3 justify-end">
+            <button onclick="closeActionModal()" class="btn-ghost">Cancel</button>
+            <button id="action-modal-confirm" class="btn-primary">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Decision Attribution Modal -->
+<div id="decision-modal" class="modal-overlay hidden">
+    <div class="glass-panel rounded-2xl w-full max-w-lg p-6 mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass-chart text-indigo-400"></i>
+                Why did we engage here?
+            </h3>
+            <button onclick="closeDecisionModal()" class="text-slate-500 hover:text-white transition-colors text-lg leading-none">&times;</button>
+        </div>
+        <div id="decision-modal-content" class="text-sm text-slate-300 space-y-3 max-h-96 overflow-y-auto pr-1">
+            <p class="text-slate-500 text-center py-6"><span class="spinner" style="width:.9rem;height:.9rem;border-width:2px"></span></p>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeDecisionModal()" class="btn-ghost text-xs">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Main layout -->
+<div id="page-content" class="hidden h-screen flex flex-col">
+
+    <!-- Top nav -->
+    <header class="glass-panel border-b border-white/5 px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <a href="dashboard.html" class="text-slate-500 hover:text-white transition-colors mr-1">
+                <i class="fa-solid fa-arrow-left text-sm"></i>
+            </a>
+            <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+                <i class="fa-solid fa-seedling text-white text-xs"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white leading-none">Growth Engine</h1>
+                <p id="org-name-label" class="text-xs text-slate-500 leading-none mt-0.5">Loading...</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="api-status" class="flex items-center gap-1.5 text-xs text-slate-500">
+                <span class="w-2 h-2 rounded-full bg-slate-600"></span>
+                <span>Connecting...</span>
+            </div>
+            <button onclick="refreshCurrentTab()" class="btn-ghost text-xs px-3 py-1.5">
+                <i class="fa-solid fa-rotate-right mr-1.5"></i>Refresh
+            </button>
+        </div>
+    </header>
+
+    <!-- Tab bar -->
+    <nav class="glass-panel border-b border-white/5 px-6 flex items-center gap-1 flex-shrink-0 overflow-x-auto no-scrollbar">
+        <button class="tab-btn active px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="overview" onclick="switchTab('overview', this)">
+            <i class="fa-solid fa-gauge-high mr-2 text-xs"></i>Overview
+        </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="ideas" onclick="switchTab('ideas', this)">
+            <i class="fa-solid fa-lightbulb mr-2 text-xs"></i>Ideas
+        </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="drafts" onclick="switchTab('drafts', this)">
+            <i class="fa-solid fa-file-pen mr-2 text-xs"></i>Drafts &amp; Approvals
+        </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="queue" onclick="switchTab('queue', this)">
+            <i class="fa-solid fa-calendar-check mr-2 text-xs"></i>Publish Queue
+        </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="engagement" onclick="switchTab('engagement', this)">
+            <i class="fa-solid fa-comments mr-2 text-xs"></i>Engagement
+        </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="analytics" onclick="switchTab('analytics', this)">
+            <i class="fa-solid fa-chart-line mr-2 text-xs"></i>Analytics
+        </button>
+    </nav>
+
+    <!-- Tab content -->
+    <main class="flex-1 overflow-y-auto p-6">
+
+        <!-- ── OVERVIEW TAB ── -->
+        <div id="tab-overview" class="tab-panel">
+            <!-- Connection Health strip -->
+            <div id="connection-health-strip" class="glass-panel rounded-xl px-5 py-3 mb-5 flex items-center gap-4 flex-wrap">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex-shrink-0">Connections</span>
+                <div id="connection-pills" class="flex items-center gap-2 flex-wrap flex-1">
+                    <span class="text-slate-600 text-xs"><span class="spinner" style="width:.8rem;height:.8rem;border-width:1.5px"></span></span>
+                </div>
+                <button onclick="loadConnectionHealth()" class="text-xs text-slate-600 hover:text-slate-400 flex-shrink-0">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+
+            <!-- Health score row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+                <!-- Health score card -->
+                <div class="glass-panel rounded-xl p-5 flex items-center gap-5">
+                    <div class="relative flex-shrink-0" style="width:80px;height:80px;">
+                        <svg width="80" height="80" viewBox="0 0 80 80">
+                            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                            <circle id="health-ring" cx="40" cy="40" r="34" fill="none" stroke="#6366f1" stroke-width="8"
+                                stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round"
+                                class="health-ring" style="transition:stroke-dashoffset 1s ease"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span id="health-score-text" class="text-xl font-bold text-white">—</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Health Score</div>
+                        <div id="health-label" class="text-sm text-slate-300">Loading...</div>
+                        <button onclick="generateIntelligence()" id="gen-intel-btn" class="mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Regenerate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick stats -->
+                <div class="glass-panel rounded-xl p-5 col-span-2">
+                    <div class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-4">Last 30 Days</div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="overview-stats">
+                        <div class="stat-card"><div class="text-xs text-slate-500 mb-1">Posts Published</div><div class="text-2xl font-bold text-white" id="stat-posts">—</div></div>
+                        <div class="stat-card"><div class="text-xs text-slate-500 mb-1">Total Impressions</div><div class="text-2xl font-bold text-white" id="stat-impressions">—</div></div>
+                        <div class="stat-card"><div class="text-xs text-slate-500 mb-1">Avg. Engagement</div><div class="text-2xl font-bold text-white" id="stat-er">—</div></div>
+                        <div class="stat-card"><div class="text-xs text-slate-500 mb-1">Drafts Pending</div><div class="text-2xl font-bold text-white" id="stat-drafts">—</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform breakdown -->
+            <div class="glass-panel rounded-xl p-5 mb-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-white">Platform Performance</h2>
+                    <select id="overview-period" class="select-field w-auto text-xs" onchange="loadOverview()">
+                        <option value="7">7 days</option>
+                        <option value="30" selected>30 days</option>
+                        <option value="90">90 days</option>
+                    </select>
+                </div>
+                <div id="platform-breakdown" class="space-y-3">
+                    <div class="text-slate-500 text-sm text-center py-4"><span class="spinner"></span></div>
+                </div>
+            </div>
+
+            <!-- Top content preview -->
+            <div class="glass-panel rounded-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-white">Top Performing Content</h2>
+                    <button onclick="switchTab('analytics', document.querySelector('[data-tab=analytics]'))" class="text-xs text-indigo-400 hover:text-indigo-300">View all →</button>
+                </div>
+                <div id="top-content-preview" class="space-y-2">
+                    <div class="text-slate-500 text-sm text-center py-4"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── IDEAS TAB ── -->
+        <div id="tab-ideas" class="tab-panel hidden">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-base font-semibold text-white">Content Ideas</h2>
+                <button onclick="openCreateIdea()" class="btn-primary"><i class="fa-solid fa-plus mr-1.5"></i>New Idea</button>
+            </div>
+
+            <!-- Create idea form (inline, collapsible) -->
+            <div id="create-idea-panel" class="glass-panel rounded-xl p-5 mb-5 hidden">
+                <h3 class="text-sm font-semibold text-white mb-4">Create New Idea</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <input id="idea-title" class="input-field" placeholder="Idea title *" type="text">
+                    <select id="idea-angle" class="select-field">
+                        <option value="">Angle type (optional)</option>
+                        <option value="pain_point">Pain Point</option>
+                        <option value="success_story">Success Story</option>
+                        <option value="educational">Educational</option>
+                        <option value="thought_leadership">Thought Leadership</option>
+                        <option value="trend">Trend</option>
+                        <option value="product">Product</option>
+                    </select>
+                </div>
+                <textarea id="idea-notes" class="input-field mb-3" rows="2" placeholder="Notes (optional)..."></textarea>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="closeCreateIdea()" class="btn-ghost">Cancel</button>
+                    <button onclick="submitIdea()" id="submit-idea-btn" class="btn-primary">Create Idea</button>
+                </div>
+            </div>
+
+            <!-- Ideas filters -->
+            <div class="flex items-center gap-3 mb-4">
+                <select id="ideas-status-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
+                    <option value="">All Statuses</option>
+                    <option value="idea">Idea</option>
+                    <option value="generating">Generating</option>
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                </select>
+                <select id="ideas-platform-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
+                    <option value="">All Platforms</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="x">X</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                </select>
+            </div>
+
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div id="ideas-list">
+                    <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── DRAFTS & APPROVALS TAB ── -->
+        <div id="tab-drafts" class="tab-panel hidden">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-base font-semibold text-white">Drafts &amp; Approvals</h2>
+                <div class="flex items-center gap-2">
+                    <select id="drafts-status-filter" class="select-field w-auto text-xs" onchange="loadDrafts()">
+                        <option value="pending_review">Pending Review</option>
+                        <option value="draft">Draft</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="">All</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div id="drafts-list">
+                    <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PUBLISH QUEUE TAB ── -->
+        <div id="tab-queue" class="tab-panel hidden">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-base font-semibold text-white">Publish Queue</h2>
+                <select id="queue-status-filter" class="select-field w-auto text-xs" onchange="loadQueue()">
+                    <option value="scheduled">Scheduled</option>
+                    <option value="published">Published</option>
+                    <option value="failed">Failed</option>
+                    <option value="">All</option>
+                </select>
+            </div>
+
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div id="queue-list">
+                    <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── ENGAGEMENT TAB ── -->
+        <div id="tab-engagement" class="tab-panel hidden">
+            <!-- Cap status bar -->
+            <div id="caps-bar" class="glass-panel rounded-xl p-4 mb-5">
+                <div class="text-slate-500 text-sm text-center py-2"><span class="spinner"></span></div>
+            </div>
+
+            <!-- Sub-nav -->
+            <div class="flex items-center gap-1 mb-5 border-b border-white/5">
+                <button class="engagement-sub-tab active tab-btn px-4 py-2.5 text-sm font-medium" data-sub="opportunities" onclick="switchEngagementSub('opportunities', this)">Opportunities</button>
+                <button class="engagement-sub-tab tab-btn px-4 py-2.5 text-sm font-medium" data-sub="targets" onclick="switchEngagementSub('targets', this)">Targets</button>
+                <button class="engagement-sub-tab tab-btn px-4 py-2.5 text-sm font-medium" data-sub="actions" onclick="switchEngagementSub('actions', this)">Action Log</button>
+                <button class="engagement-sub-tab tab-btn px-4 py-2.5 text-sm font-medium" data-sub="radar" onclick="switchEngagementSub('radar', this)">
+                    <i class="fa-solid fa-radar mr-1.5 text-indigo-400"></i>Radar
+                </button>
+            </div>
+
+            <!-- Opportunities -->
+            <div id="eng-opportunities" class="engagement-sub-panel">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <select id="opp-status-filter" class="select-field w-auto text-xs" onchange="loadOpportunities()">
+                            <option value="pending_review">Pending Review</option>
+                            <option value="auto_approved">Auto-Approved</option>
+                            <option value="approved">Approved</option>
+                            <option value="executed">Executed</option>
+                            <option value="">All</option>
+                        </select>
+                        <select id="opp-platform-filter" class="select-field w-auto text-xs" onchange="loadOpportunities()">
+                            <option value="">All Platforms</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="x">X</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="instagram">Instagram</option>
+                        </select>
+                    </div>
+                    <button onclick="loadOpportunities()" class="btn-ghost text-xs">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="glass-panel rounded-xl overflow-hidden">
+                    <div id="opportunities-list">
+                        <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Targets -->
+            <div id="eng-targets" class="engagement-sub-panel hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="openAddTarget()" class="btn-primary text-xs"><i class="fa-solid fa-plus mr-1.5"></i>Add Target</button>
+                    <select id="target-type-filter" class="select-field w-auto text-xs" onchange="loadTargets()">
+                        <option value="">All Types</option>
+                        <option value="profile">Profile</option>
+                        <option value="company">Company</option>
+                        <option value="hashtag">Hashtag</option>
+                        <option value="keyword">Keyword</option>
+                    </select>
+                </div>
+
+                <!-- Add target form -->
+                <div id="add-target-panel" class="glass-panel rounded-xl p-5 mb-4 hidden">
+                    <h3 class="text-sm font-semibold text-white mb-3">Add Engagement Target</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <select id="target-type-input" class="select-field">
+                            <option value="profile">Profile</option>
+                            <option value="company">Company</option>
+                            <option value="hashtag">Hashtag</option>
+                            <option value="keyword">Keyword</option>
+                        </select>
+                        <select id="target-platform-input" class="select-field">
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="x">X</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="instagram">Instagram</option>
+                        </select>
+                    </div>
+                    <input id="target-identifier-input" class="input-field mb-3" type="text" placeholder="Identifier (URL, handle, keyword) *">
+                    <input id="target-label-input" class="input-field mb-3" type="text" placeholder="Label (friendly name, optional)">
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="closeAddTarget()" class="btn-ghost">Cancel</button>
+                        <button onclick="submitTarget()" class="btn-primary">Add Target</button>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-xl overflow-hidden">
+                    <div id="targets-list">
+                        <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action log -->
+            <div id="eng-actions" class="engagement-sub-panel hidden">
+                <div class="glass-panel rounded-xl overflow-hidden">
+                    <div id="actions-list">
+                        <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Radar -->
+            <div id="eng-radar" class="engagement-sub-panel hidden">
+                <div id="radar-content">
+                    <div class="text-slate-500 text-sm text-center py-8"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── ANALYTICS TAB ── -->
+        <div id="tab-analytics" class="tab-panel hidden">
+            <!-- Intelligence summary -->
+            <div class="glass-panel rounded-xl p-5 mb-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-white">Growth Intelligence</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">AI-generated weekly summary</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="intel-period" class="select-field w-auto text-xs" onchange="loadIntelligence()">
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                        <button onclick="generateIntelligence()" id="gen-intel-btn-2" class="btn-primary text-xs"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>Generate</button>
+                    </div>
+                </div>
+                <div id="intelligence-content">
+                    <div class="text-slate-500 text-sm text-center py-4"><span class="spinner"></span></div>
+                </div>
+            </div>
+
+            <!-- Top content -->
+            <div class="glass-panel rounded-xl p-5 mb-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-white">Top Content</h2>
+                    <div class="flex items-center gap-2">
+                        <select id="top-content-basis" class="select-field w-auto text-xs" onchange="loadTopContent()">
+                            <option value="engagement_rate">By Engagement Rate</option>
+                            <option value="impressions">By Impressions</option>
+                            <option value="clicks">By Clicks</option>
+                            <option value="shares">By Shares</option>
+                        </select>
+                        <select id="top-content-platform" class="select-field w-auto text-xs" onchange="loadTopContent()">
+                            <option value="">All Platforms</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="x">X</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="facebook">Facebook</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="top-content-list" class="space-y-2">
+                    <div class="text-slate-500 text-sm text-center py-4"><span class="spinner"></span></div>
+                </div>
+            </div>
+
+            <!-- ROI summary -->
+            <div class="glass-panel rounded-xl p-5">
+                <h2 class="text-sm font-semibold text-white mb-4">Engagement ROI</h2>
+                <div id="roi-content">
+                    <div class="text-slate-500 text-sm text-center py-4"><span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+// Base URL is set in growth-config.js (window.GROWTH_API_BASE).
+// Do not hardcode a URL here. Change growth-config.js for each environment.
+const GROWTH_API = (window.GROWTH_API_BASE || 'http://localhost:8000') + '/growth';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let _sb = null;
+let _profile = null;
+let _membership = null;
+let _orgId = null;
+let _jwt = null;
+let _currentTab = 'overview';
+let _actionCallback = null;
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+requireAuth({
+    requireOnboarding: false,
+    onAuthenticated: async (profile, user, sb) => {
+        _sb = sb;
+        _profile = profile;
+
+        const { data: mem } = await sb.from('org_members')
+            .select('org_id, role, organizations(name)')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        _membership = mem;
+        _orgId = mem?.org_id;
+        document.getElementById('org-name-label').textContent = mem?.organizations?.name || 'My Org';
+
+        // ── Entitlement gate ────────────────────────────────────────────────
+        // growth_engine must be an active org_service. If not, redirect to billing.
+        if (_orgId) {
+            const { data: svc } = await sb.from('org_services')
+                .select('status')
+                .eq('org_id', _orgId)
+                .eq('service_key', 'growth_engine')
+                .maybeSingle();
+            if (svc?.status !== 'active') {
+                // Show locked preview instead of hard redirect — converts curiosity into purchase
+                document.getElementById('auth-loader').classList.add('hidden');
+                document.getElementById('locked-preview').classList.remove('hidden');
+                return;
+            }
+        }
+
+        // Get JWT
+        const { data: { session } } = await sb.auth.getSession();
+        _jwt = session?.access_token;
+
+        document.getElementById('page-content').classList.remove('hidden');
+        document.getElementById('auth-loader').classList.add('hidden');
+
+        await checkApiHealth();
+        switchTab('overview', document.querySelector('[data-tab=overview]'));
+    }
+});
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function growthFetch(path, opts = {}) {
+    // Refresh JWT on every call — guards against in-page session expiry
+    const { data: { session } } = await _sb.auth.getSession();
+    _jwt = session?.access_token;
+
+    // No session → redirect immediately, do not attempt the API call
+    if (!_jwt) {
+        window.location.href = 'login.html';
+        throw new Error('session_expired');
+    }
+
+    const res = await fetch(`${GROWTH_API}${path}`, {
+        ...opts,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${_jwt}`,
+            ...(opts.headers || {}),
+        },
+    });
+
+    // 401 = token rejected by Growth Engine (expired or invalid) → re-login
+    if (res.status === 401) {
+        window.location.href = 'login.html';
+        throw new Error('session_expired');
+    }
+
+    // 403 = authenticated but no org membership → onboarding incomplete
+    if (res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'not_authorized — complete onboarding first');
+    }
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
+
+async function checkApiHealth() {
+    const el = document.getElementById('api-status');
+    try {
+        await growthFetch('/health');
+        el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span>Connected</span>';
+    } catch {
+        el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span>Offline</span>';
+    }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    if (btn) btn.classList.add('active');
+    document.getElementById(`tab-${name}`).classList.remove('hidden');
+    _currentTab = name;
+    loadTab(name);
+}
+
+async function loadTab(name) {
+    if (name === 'overview')    { loadConnectionHealth(); await loadOverview(); await loadIntelligenceSummaryForOverview(); await loadTopContentPreview(); }
+    if (name === 'ideas')       loadIdeas();
+    if (name === 'drafts')      loadDrafts();
+    if (name === 'queue')       loadQueue();
+    if (name === 'engagement')  { await loadConnectionHealth(); loadCaps(); loadOpportunities(); }
+    if (name === 'analytics')   { loadIntelligence(); loadTopContent(); loadRoi(); }
+}
+
+function refreshCurrentTab() { loadTab(_currentTab); }
+
+// ── Sub-tab (engagement) ──────────────────────────────────────────────────────
+function switchEngagementSub(name, btn) {
+    document.querySelectorAll('.engagement-sub-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.engagement-sub-panel').forEach(p => p.classList.add('hidden'));
+    btn.classList.add('active');
+    document.getElementById(`eng-${name}`).classList.remove('hidden');
+    if (name === 'targets')  loadTargets();
+    if (name === 'actions')  loadActions();
+    if (name === 'radar')    loadRadar();
+}
+
+// ── CONNECTION HEALTH ────────────────────────────────────────────────────────
+// Cached per-platform capability map: { linkedin: {engage_capable, status, ...}, ... }
+// Populated by loadConnectionHealth(); consumed by loadOpportunities() for Execute gate.
+let _platformCapCache = {};
+
+async function loadConnectionHealth() {
+    const el = document.getElementById('connection-pills');
+    try {
+        const data = await growthFetch('/accounts/status');
+        const platforms = data.platforms || [];
+        if (!platforms.length) { el.innerHTML = '<span class="text-xs text-slate-600">No platforms configured</span>'; return; }
+
+        // Cache capability per platform so opportunity list can gate Execute
+        _platformCapCache = {};
+        platforms.forEach(p => { _platformCapCache[p.platform] = p; });
+
+        el.innerHTML = platforms.map(p => {
+            const cfg = _connCfg(p.status);
+            const expiredNote = p.token_expired ? ' · token expired' : '';
+            const lastOk = p.last_publish_success
+                ? `<span class="text-slate-600 text-xs ml-1">last ok ${fmtDate(p.last_publish_success)}</span>` : '';
+            const lastFail = p.last_publish_failure && p.status !== 'connected'
+                ? `<span class="text-red-500/70 text-xs ml-1">fail ${fmtDate(p.last_publish_failure)}</span>` : '';
+
+            // Engage capability badge
+            let engageBadge = '';
+            if (p.status === 'feature_disabled') {
+                engageBadge = '';
+            } else if (p.engage_status_reason === 'platform_unsupported') {
+                engageBadge = `<span class="text-xs text-slate-500 ml-1" title="Instagram commenting on others' posts is not supported by the official API">engage: N/A</span>`;
+            } else if (p.engage_capable) {
+                engageBadge = `<span class="text-xs ml-1" style="color:#4ade80" title="Engagement ready">engage ✓</span>`;
+            } else {
+                const reason = _engageReasonLabel(p.engage_status_reason);
+                engageBadge = `<span class="text-xs text-yellow-400/80 ml-1" title="${reason}">engage: ${reason}</span>`;
+            }
+
+            return `
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style="background:${cfg.bg}">
+                    ${platformPill(p.platform)}
+                    <span class="text-xs font-medium" style="color:${cfg.color}">${cfg.label}${expiredNote}</span>
+                    ${lastOk}${lastFail}
+                    ${engageBadge}
+                    ${p.reconnect_url && p.status !== 'feature_disabled' ? `<a href="${p.reconnect_url}" class="text-xs text-indigo-400 hover:text-indigo-300 ml-1">Reconnect</a>` : ''}
+                </div>`;
+        }).join('');
+    } catch(e) {
+        el.innerHTML = `<span class="text-slate-600 text-xs">${esc(e.message)}</span>`;
+    }
+}
+
+function _engageReasonLabel(reason) {
+    const map = {
+        no_account:           'not connected',
+        token_expired:        'token expired',
+        missing_scope:        'missing scope',
+        platform_unsupported: 'N/A',
+        feature_disabled:     'disabled',
+        disconnected:         'disconnected',
+        reauth_required:      'reconnect needed',
+        error:                'error',
+    };
+    return map[reason] || reason || 'not ready';
+}
+
+function _connCfg(status) {
+    const map = {
+        connected:        { color: '#4ade80', bg: 'rgba(34,197,94,0.06)',  label: 'Connected' },
+        reauth_required:  { color: '#facc15', bg: 'rgba(234,179,8,0.08)', label: 'Reconnect needed' },
+        error:            { color: '#f87171', bg: 'rgba(239,68,68,0.08)', label: 'Error' },
+        not_connected:    { color: '#94a3b8', bg: 'rgba(100,116,139,0.1)', label: 'Not connected' },
+        disconnected:     { color: '#94a3b8', bg: 'rgba(100,116,139,0.1)', label: 'Disconnected' },
+        feature_disabled: { color: '#475569', bg: 'rgba(71,85,105,0.1)',  label: 'Disabled' },
+    };
+    return map[status] || { color: '#94a3b8', bg: 'rgba(100,116,139,0.1)', label: status };
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+async function loadOverview() {
+    const days = document.getElementById('overview-period').value;
+    const el = document.getElementById('platform-breakdown');
+    try {
+        const data = await growthFetch(`/analytics/overview?period_days=${days}`);
+
+        document.getElementById('stat-posts').textContent = fmt(data.total_posts);
+        document.getElementById('stat-impressions').textContent = fmtK(data.total_impressions);
+        document.getElementById('stat-er').textContent = fmtPct(data.avg_engagement_rate);
+
+        el.innerHTML = data.platforms.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-4">No metrics yet. Ingest some data first.</p>'
+            : data.platforms.map(p => `
+                <div class="flex items-center gap-3">
+                    <div class="w-24 text-xs font-medium text-slate-300">${platformPill(p.platform)}</div>
+                    <div class="flex-1">
+                        <div class="progress-bar">
+                            <div class="progress-fill bg-indigo-500" style="width:${Math.min(parseFloat(p.avg_engagement_rate)*1000, 100)}%"></div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-400 w-20 text-right">${fmtPct(p.avg_engagement_rate)} ER</div>
+                    <div class="text-xs text-slate-500 w-16 text-right">${fmtK(p.total_impressions)} imp</div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+    }
+}
+
+async function loadIntelligenceSummaryForOverview() {
+    try {
+        const data = await growthFetch('/analytics/intelligence?period_type=weekly');
+        const score = data.health_score || 0;
+        const offset = 213.6 - (213.6 * score / 100);
+        document.getElementById('health-ring').style.strokeDashoffset = offset;
+        document.getElementById('health-score-text').textContent = Math.round(score);
+        document.getElementById('health-label').textContent = healthLabel(score);
+    } catch {
+        document.getElementById('health-score-text').textContent = '?';
+        document.getElementById('health-label').textContent = 'No summary yet';
+    }
+}
+
+async function loadTopContentPreview() {
+    const el = document.getElementById('top-content-preview');
+    try {
+        const data = await growthFetch('/analytics/top-content?limit=3&period_days=30');
+        el.innerHTML = data.items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-4">No metrics yet.</p>'
+            : data.items.map(item => topContentRow(item)).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+    }
+}
+
+// Load pending drafts count for overview stat
+async function loadDraftCount() {
+    try {
+        const data = await growthFetch('/drafts?status=pending_review&limit=1');
+        // We don't have this endpoint, approximate from variants list
+        document.getElementById('stat-drafts').textContent = '—';
+    } catch { document.getElementById('stat-drafts').textContent = '—'; }
+}
+
+// ── IDEAS ─────────────────────────────────────────────────────────────────────
+async function loadIdeas() {
+    const el = document.getElementById('ideas-list');
+    const status = document.getElementById('ideas-status-filter').value;
+    const platform = document.getElementById('ideas-platform-filter').value;
+    let url = '/topics?limit=50';
+    if (status)   url += `&status=${status}`;
+    if (platform) url += `&platform=${platform}`;
+    try {
+        const data = await growthFetch(url);
+        const items = data.topics || data.items || [];
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No ideas yet. Create one to get started, or try adjusting your filters.</p>'
+            : items.map(t => `
+                <div class="list-row px-5 py-3.5 flex items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-sm font-medium text-white truncate">${esc(t.title || 'Untitled')}</span>
+                            ${statusBadge(t.status)}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                            ${t.angle_type ? `<span class="text-indigo-400">${t.angle_type}</span>` : ''}
+                            <span>${fmtDate(t.created_at)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        ${t.status === 'idea' ? `<button onclick="triggerGenerate('${t.id}')" class="btn-ghost text-xs">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Generate
+                        </button>` : ''}
+                        <button onclick="viewIdea('${t.id}')" class="btn-ghost text-xs">View</button>
+                    </div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+function openCreateIdea() { document.getElementById('create-idea-panel').classList.remove('hidden'); }
+function closeCreateIdea() {
+    document.getElementById('create-idea-panel').classList.add('hidden');
+    document.getElementById('idea-title').value = '';
+    document.getElementById('idea-notes').value = '';
+}
+
+async function submitIdea() {
+    const title = document.getElementById('idea-title').value.trim();
+    if (!title) { toast('Enter a title', 'error'); return; }
+    const btn = document.getElementById('submit-idea-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+        await growthFetch('/topics', {
+            method: 'POST',
+            body: JSON.stringify({
+                title,
+                angle_type: document.getElementById('idea-angle').value || null,
+                notes: document.getElementById('idea-notes').value || null,
+            }),
+        });
+        toast('Idea created', 'success');
+        closeCreateIdea();
+        loadIdeas();
+    } catch(e) { toast(e.message, 'error'); }
+    btn.disabled = false; btn.textContent = 'Create Idea';
+}
+
+async function triggerGenerate(topicId) {
+    try {
+        await growthFetch(`/topics/${topicId}/generate`, { method: 'POST' });
+        toast('Generation started', 'success');
+        loadIdeas();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function viewIdea(id) {
+    try {
+        const t = await growthFetch(`/topics/${id}`);
+        openModal(`Idea: ${esc(t.title)}`, `
+            <dl class="space-y-3 text-sm">
+                <div><dt class="text-slate-500 text-xs mb-0.5">Status</dt><dd>${statusBadge(t.status)}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Angle</dt><dd class="text-white">${t.angle_type || '—'}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Notes</dt><dd class="text-slate-300">${esc(t.notes || '—')}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Created</dt><dd class="text-slate-400">${fmtDate(t.created_at)}</dd></div>
+            </dl>
+        `);
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── DRAFTS ────────────────────────────────────────────────────────────────────
+async function loadDrafts() {
+    const el = document.getElementById('drafts-list');
+    const status = document.getElementById('drafts-status-filter').value;
+    let url = '/variants?limit=50';
+    if (status) url += `&status=${status}`;
+    try {
+        const data = await growthFetch(url);
+        const items = data.variants || data.items || [];
+        if (status === 'pending_review') document.getElementById('stat-drafts').textContent = items.length;
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No variants found.</p>'
+            : items.map(v => `
+                <div class="list-row px-5 py-4">
+                    <div class="flex items-start gap-3 mb-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                ${statusBadge(v.status)}
+                                ${platformPill(v.platform)}
+                                ${v.angle_type ? `<span class="text-xs text-indigo-400">${v.angle_type}</span>` : ''}
+                            </div>
+                            <p class="text-sm text-slate-200 leading-relaxed line-clamp-2">${esc(v.body_text || '').substring(0, 200)}${(v.body_text||'').length > 200 ? '…' : ''}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">${fmtDate(v.created_at)}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="viewVariant('${v.id}')" class="btn-ghost text-xs">View</button>
+                            ${v.status === 'pending_review' ? `
+                                <button onclick="confirmApprove('${v.id}')" class="btn-ghost text-xs text-green-400 border-green-500/30 hover:border-green-400/50">Approve</button>
+                                <button onclick="confirmReject('${v.id}')" class="btn-danger text-xs">Reject</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+async function viewVariant(id) {
+    try {
+        const v = await growthFetch(`/variants/${id}`);
+        openModal('Variant Detail', `
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 flex-wrap">${statusBadge(v.status)} ${platformPill(v.platform)} ${v.angle_type ? `<span class="badge badge-blue">${v.angle_type}</span>` : ''}</div>
+                <div class="bg-slate-900/60 rounded-lg p-4">
+                    <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">${esc(v.body_text || '')}</p>
+                </div>
+                ${v.status === 'pending_review' ? `
+                <div class="flex gap-2">
+                    <button onclick="closeModal();confirmApprove('${v.id}')" class="btn-primary flex-1">Approve</button>
+                    <button onclick="closeModal();confirmReject('${v.id}')" class="btn-danger flex-1">Reject</button>
+                </div>` : ''}
+                <dl class="grid grid-cols-2 gap-2 text-xs">
+                    <div><dt class="text-slate-500">Created</dt><dd class="text-slate-300">${fmtDate(v.created_at)}</dd></div>
+                    <div><dt class="text-slate-500">Updated</dt><dd class="text-slate-300">${fmtDate(v.updated_at)}</dd></div>
+                </dl>
+            </div>
+        `);
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+function confirmApprove(variantId) {
+    showActionModal('Approve Variant', 'This variant will be approved and moved to the publish queue.', false, async () => {
+        await growthFetch(`/variants/${variantId}/approve`, { method: 'POST', body: JSON.stringify({}) });
+        toast('Variant approved', 'success');
+        loadDrafts();
+    });
+}
+
+function confirmReject(variantId) {
+    showActionModal('Reject Variant', 'This variant will be rejected. Add a note to help the content author improve.', true, async () => {
+        const notes = document.getElementById('action-notes').value.trim();
+        await growthFetch(`/variants/${variantId}/reject`, { method: 'POST', body: JSON.stringify({ notes: notes || null }) });
+        toast('Variant rejected', 'success');
+        loadDrafts();
+    });
+}
+
+// ── QUEUE ─────────────────────────────────────────────────────────────────────
+async function loadQueue() {
+    const el = document.getElementById('queue-list');
+    const status = document.getElementById('queue-status-filter').value;
+    let url = '/queue?limit=50';
+    if (status) url += `&status=${status}`;
+    try {
+        const data = await growthFetch(url);
+        const items = data.items || data.queue || [];
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No queue items found.</p>'
+            : items.map(q => `
+                <div class="list-row px-5 py-3.5 flex items-center gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            ${statusBadge(q.status)}
+                            ${platformPill(q.platform)}
+                        </div>
+                        <p class="text-xs text-slate-500">${q.scheduled_for ? 'Scheduled: ' + fmtDate(q.scheduled_for) : 'No schedule set'}</p>
+                    </div>
+                    <div class="text-right">
+                        ${q.published_url ? `<a href="${q.published_url}" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>View post</a>` : ''}
+                        <p class="text-xs text-slate-600 mt-0.5">${fmtDate(q.updated_at || q.created_at)}</p>
+                    </div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+// ── ENGAGEMENT ────────────────────────────────────────────────────────────────
+async function loadCaps() {
+    const el = document.getElementById('caps-bar');
+    try {
+        const data = await growthFetch('/engagement/caps');
+        const comm = data.commercial;
+        const pct = comm.limit > 0 ? Math.round((comm.used / comm.limit) * 100) : 0;
+        const color = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-yellow-500' : 'bg-green-500';
+        el.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+                <div class="text-xs font-semibold text-white">Daily Engagement Cap — ${data.plan}</div>
+                <div class="text-xs text-slate-400">${comm.used} / ${comm.limit} used today</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill ${color}" style="width:${pct}%"></div>
+            </div>
+            ${data.platform_safety?.length ? `
+            <div class="mt-3 flex flex-wrap gap-3">
+                ${data.platform_safety.map(s => `
+                    <div class="text-xs text-slate-400 flex items-center gap-1.5">
+                        ${platformPill(s.platform)} <span>${s.action_type}: ${s.used}/${s.limit}</span>
+                    </div>`).join('')}
+            </div>` : ''}
+        `;
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-2">${e.message}</p>`;
+    }
+}
+
+async function loadOpportunities() {
+    const el = document.getElementById('opportunities-list');
+    const status = document.getElementById('opp-status-filter').value;
+    const platform = document.getElementById('opp-platform-filter').value;
+    let url = '/engagement/opportunities?limit=50';
+    if (status)   url += `&status=${status}`;
+    if (platform) url += `&platform=${platform}`;
+    try {
+        const data = await growthFetch(url);
+        const items = data.opportunities || data.items || [];
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No opportunities yet. Add engagement targets to start discovering posts to engage with.</p>'
+            : items.map(o => `
+                <div class="list-row px-5 py-4">
+                    <div class="flex items-start gap-3 mb-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                ${statusBadge(o.status)} ${platformPill(o.platform)}
+                                <span class="badge badge-slate">${o.opportunity_type}</span>
+                                ${o.confidence_score != null ? `<span class="text-xs text-slate-400">Confidence: <span class="${o.confidence_score >= 0.7 ? 'text-green-400' : 'text-yellow-400'}">${Math.round(o.confidence_score * 100)}%</span></span>` : ''}
+                                ${o.risk_score != null ? `<span class="text-xs text-slate-400">Risk: <span class="${o.risk_score < 0.3 ? 'text-green-400' : 'text-red-400'}">${Math.round(o.risk_score * 100)}%</span></span>` : ''}
+                            </div>
+                            ${o.author_name ? `<div class="flex items-center gap-2 mb-1 flex-wrap">
+                                <span class="text-xs text-slate-400">${esc(o.author_name)}</span>
+                                ${_relationshipCard(o)}
+                            </div>` : ''}
+                            ${o.draft_content ? `<p class="text-sm text-slate-300 leading-relaxed bg-slate-900/40 rounded p-2 mt-1">${esc(o.draft_content).substring(0, 250)}${(o.draft_content||'').length > 250 ? '…' : ''}</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">${fmtDate(o.discovered_at || o.created_at)}</span>
+                        <div class="flex items-center gap-2">
+                            ${(o.status === 'pending_score' || o.status === 'scoring')
+                                ? `<span class="text-xs text-slate-500"><span class="spinner" style="width:.7rem;height:.7rem;border-width:1.5px;margin-right:.3rem"></span>Scoring…</span>`
+                                : (o.status === 'approved' || o.status === 'auto_approved') ? _executeBtn(o) : ''}
+                            ${o.confidence_score != null
+                                ? `<button onclick="showDecision('${o.id}')" class="btn-ghost text-xs py-1 px-2" title="See why this opportunity was scored and routed">
+                                       <i class="fa-solid fa-circle-question mr-1 opacity-70"></i>Why?
+                                   </button>`
+                                : ''}
+                        </div>
+                    </div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+function _executeBtn(o) {
+    const cap = _platformCapCache[o.platform];
+
+    // Instagram: official API does not support commenting on others' posts
+    if (o.platform === 'instagram') {
+        return `<span class="text-xs text-slate-500" title="Instagram commenting on third-party posts is not supported by the official API">
+                    <i class="fa-solid fa-ban mr-1 opacity-50"></i>Not supported
+                </span>`;
+    }
+
+    // Cache not yet loaded — show button optimistically (will fail at server with clear error)
+    if (!cap) {
+        return `<button onclick="executeOpportunity('${o.id}')" class="btn-primary text-xs">
+                    <i class="fa-solid fa-play mr-1"></i>Execute
+                </button>`;
+    }
+
+    if (cap.status === 'feature_disabled') {
+        return `<span class="text-xs text-slate-500"><i class="fa-solid fa-lock mr-1 opacity-50"></i>Platform disabled</span>`;
+    }
+
+    if (!cap.engage_capable) {
+        const reason = _engageReasonLabel(cap.engage_status_reason);
+        return `<button disabled title="Engagement not ready: ${reason}"
+                    class="btn-primary text-xs opacity-40 cursor-not-allowed">
+                    <i class="fa-solid fa-play mr-1"></i>Execute
+                </button>
+                <span class="text-xs text-yellow-400/70">${reason}</span>`;
+    }
+
+    return `<button onclick="executeOpportunity('${o.id}')" class="btn-primary text-xs">
+                <i class="fa-solid fa-play mr-1"></i>Execute
+            </button>`;
+}
+
+function _relationshipCard(o) {
+    const seen     = o.author_seen_count    || 0;
+    const engaged  = o.author_engaged_count || 0;
+    const lastEngaged = o.author_last_engaged_at;
+
+    if (!seen && !engaged) return '';   // new author — no graph data yet
+
+    const parts = [];
+
+    // Returning author highlight
+    if (engaged > 0) {
+        parts.push(`<span class="badge badge-green" title="You previously engaged with this author">
+                        <i class="fa-solid fa-rotate-right mr-1 text-xs"></i>Returning
+                    </span>`);
+    }
+
+    // Seen badge
+    if (seen > 0) {
+        const badgeClass = engaged > 0 ? 'badge-green' : (seen >= 3 ? 'badge-blue' : 'badge-slate');
+        parts.push(`<span class="${badgeClass} badge text-xs" title="Times seen in your discovery feed">
+                        Seen ${seen}×
+                    </span>`);
+    }
+
+    // Engaged badge
+    if (engaged > 0) {
+        parts.push(`<span class="badge badge-green text-xs" title="Times you engaged with this author">
+                        Engaged ${engaged}×
+                    </span>`);
+        if (lastEngaged) {
+            parts.push(`<span class="text-xs text-slate-500">Last ${fmtDate(lastEngaged)}</span>`);
+        }
+    }
+
+    // Priority note (shown when graph priority is active)
+    if (engaged > 0) {
+        parts.push(`<span class="text-xs text-indigo-400/70 italic" title="Growth Graph prioritized this author based on prior engagement">
+                        Prioritized by relationship
+                    </span>`);
+    }
+
+    return parts.join('');
+}
+
+async function executeOpportunity(id) {
+    showActionModal('Execute Opportunity', 'This will post a comment or reply on the target platform.', false, async () => {
+        await growthFetch(`/engagement/opportunities/${id}/execute`, { method: 'POST' });
+        toast('Executed!', 'success');
+        loadOpportunities();
+        loadCaps();
+    });
+}
+
+function closeDecisionModal() {
+    document.getElementById('decision-modal').classList.add('hidden');
+}
+
+async function showDecision(oppId) {
+    const modal   = document.getElementById('decision-modal');
+    const content = document.getElementById('decision-modal-content');
+    content.innerHTML = `<p class="text-slate-500 text-center py-6"><span class="spinner" style="width:.9rem;height:.9rem;border-width:2px"></span></p>`;
+    modal.classList.remove('hidden');
+
+    try {
+        const data = await growthFetch(`/engagement/opportunities/${oppId}/decision`);
+        const decisions = data.decisions || [];
+
+        if (decisions.length === 0) {
+            content.innerHTML = `<p class="text-slate-500 text-center py-4">Decision data not yet available — scoring may still be in progress.</p>`;
+            return;
+        }
+
+        content.innerHTML = decisions.map(d => {
+            const fv = d.feature_vector || {};
+            let sections = '';
+
+            if (d.decision_type === 'engagement_scored') {
+                sections = `
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        ${fv.confidence_score != null ? `<div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">Confidence</div><div class="text-sm font-semibold ${fv.confidence_score >= 0.75 ? 'text-green-400' : 'text-yellow-400'}">${Math.round(fv.confidence_score*100)}%</div></div>` : ''}
+                        ${fv.risk_score != null ? `<div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">Risk</div><div class="text-sm font-semibold ${fv.risk_score < 0.3 ? 'text-green-400' : 'text-red-400'}">${Math.round(fv.risk_score*100)}%</div></div>` : ''}
+                        ${fv.relevance_score != null ? `<div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">Relevance</div><div class="text-sm font-semibold text-indigo-400">${Math.round(fv.relevance_score*100)}%</div></div>` : ''}
+                    </div>
+                    ${fv.plan ? `<div class="text-xs text-slate-500">Plan: <span class="text-slate-300">${fv.plan}</span>${fv.score_attempt ? ` · Retry #${fv.score_attempt}` : ''}</div>` : ''}
+                    ${d.model_version ? `<div class="text-xs text-slate-500">Analysis version: <span class="text-slate-400">${d.model_version}</span></div>` : ''}`;
+            } else if (d.decision_type === 'engagement_executed') {
+                sections = `
+                    <div class="grid grid-cols-2 gap-2">
+                        ${fv.approval_status ? `<div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">Approval path</div><div class="text-xs font-medium text-slate-200">${fmtStatus(fv.approval_status)}</div></div>` : ''}
+                        <div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">Outcome</div><div class="text-xs font-medium ${d.outcome === 'success' ? 'text-green-400' : 'text-red-400'}">${d.outcome || '—'}</div></div>
+                        ${fv.http_status ? `<div class="bg-slate-800/60 rounded p-2"><div class="text-xs text-slate-500 mb-0.5">HTTP</div><div class="text-xs font-medium text-slate-300">${fv.http_status}</div></div>` : ''}
+                        ${fv.platform_action_id ? `<div class="bg-slate-800/60 rounded p-2 col-span-2"><div class="text-xs text-slate-500 mb-0.5">Platform ID</div><div class="text-xs font-mono text-slate-400 truncate">${fv.platform_action_id}</div></div>` : ''}
+                    </div>`;
+            }
+
+            return `
+                <div class="border border-white/5 rounded-lg p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-indigo-300 uppercase tracking-wide">${fmtDecisionType(d.decision_type)}</span>
+                        <span class="text-xs text-slate-500">${fmtDate(d.decided_at)}</span>
+                    </div>
+                    ${d.decision_reason ? `<p class="text-xs text-slate-300 leading-relaxed bg-slate-900/50 rounded p-2">${esc(d.decision_reason)}</p>` : ''}
+                    ${sections}
+                    ${d.policy ? `<div class="text-xs text-slate-500">Policy: <span class="text-slate-400">${d.policy.replace(/_/g,' ')}</span></div>` : ''}
+                </div>`;
+        }).join('');
+
+    } catch(e) {
+        content.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${esc(e.message)}</p>`;
+    }
+}
+
+async function loadTargets() {
+    const el = document.getElementById('targets-list');
+    const type = document.getElementById('target-type-filter').value;
+    let url = '/engagement/targets?limit=100';
+    if (type) url += `&target_type=${type}`;
+    try {
+        const data = await growthFetch(url);
+        const items = data.targets || data.items || [];
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No targets yet. Add one to start discovering opportunities.</p>'
+            : items.map(t => `
+                <div class="list-row px-5 py-3.5 flex items-center gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span class="badge badge-slate">${t.target_type}</span>
+                            ${platformPill(t.platform)}
+                            ${t.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-slate">Paused</span>'}
+                        </div>
+                        <p class="text-sm text-white font-medium">${esc(t.label || t.identifier)}</p>
+                        ${t.label ? `<p class="text-xs text-slate-500 truncate">${esc(t.identifier)}</p>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="discoverOpps('${t.id}')" class="btn-ghost text-xs"><i class="fa-solid fa-magnifying-glass mr-1"></i>Discover</button>
+                        <button onclick="deleteTarget('${t.id}')" class="btn-danger text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+function openAddTarget()  { document.getElementById('add-target-panel').classList.remove('hidden'); }
+function closeAddTarget() { document.getElementById('add-target-panel').classList.add('hidden'); }
+
+async function submitTarget() {
+    const identifier = document.getElementById('target-identifier-input').value.trim();
+    if (!identifier) { toast('Enter an identifier', 'error'); return; }
+    try {
+        await growthFetch('/engagement/targets', {
+            method: 'POST',
+            body: JSON.stringify({
+                target_type: document.getElementById('target-type-input').value,
+                platform:    document.getElementById('target-platform-input').value,
+                identifier,
+                label:       document.getElementById('target-label-input').value.trim() || null,
+            }),
+        });
+        toast('Target added', 'success');
+        closeAddTarget();
+        loadTargets();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function discoverOpps(targetId) {
+    try {
+        const data = await growthFetch(`/engagement/targets/${targetId}/discover`, { method: 'POST' });
+        toast(`Found ${data.opportunities_created ?? 0} new opportunities`, 'success');
+        loadOpportunities();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteTarget(id) {
+    showActionModal('Delete Target', 'Remove this engagement target? Existing opportunities will remain.', false, async () => {
+        await growthFetch(`/engagement/targets/${id}`, { method: 'DELETE' });
+        toast('Target removed', 'success');
+        loadTargets();
+    });
+}
+
+async function loadActions() {
+    const el = document.getElementById('actions-list');
+    try {
+        const data = await growthFetch('/engagement/actions?limit=50');
+        const items = data.actions || data.items || [];
+        el.innerHTML = items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-8">No actions yet. Approve and execute opportunities to see engagement activity here.</p>'
+            : items.map(a => `
+                <div class="list-row px-5 py-3.5 flex items-center gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            ${statusBadge(a.status)} ${platformPill(a.platform)}
+                            <span class="badge badge-slate">${a.action_type}</span>
+                            ${a.approval_status ? `<span class="badge badge-purple">${a.approval_status}</span>` : ''}
+                        </div>
+                        ${a.content_sent ? `<p class="text-xs text-slate-400 truncate">${esc(a.content_sent).substring(0, 120)}</p>` : ''}
+                    </div>
+                    <span class="text-xs text-slate-500 flex-shrink-0">${fmtDate(a.executed_at || a.created_at)}</span>
+                </div>`).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${e.message}</p>`;
+    }
+}
+
+// ── RADAR ─────────────────────────────────────────────────────────────────────
+async function loadRadar() {
+    const el = document.getElementById('radar-content');
+    try {
+        const d = await growthFetch('/radar');
+
+        if (!d.computed) {
+            el.innerHTML = `
+                <div class="glass-panel rounded-xl p-8 text-center">
+                    <i class="fa-solid fa-satellite-dish text-3xl text-slate-600 mb-3 block"></i>
+                    <p class="text-slate-400 text-sm font-medium mb-1">No radar snapshot yet</p>
+                    <p class="text-slate-500 text-xs">Radar snapshots are generated automatically. Check back after your first engagements are executed.</p>
+                </div>`;
+            return;
+        }
+
+        const health = d.engagement_health || {};
+        const attr   = d.attribution_summary || {};
+        const authors = d.top_authors || [];
+        const angles  = d.top_angles  || [];
+
+        el.innerHTML = `
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-satellite-dish text-indigo-400"></i>
+                        Growth Radar
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Last computed ${fmtDate(d.computed_at)} · ${d.period_days}d window</p>
+                </div>
+            </div>
+
+            <!-- Health stat cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                ${_radarStatCard('Executions', health.total_executed ?? '—', 'fa-play')}
+                ${_radarStatCard('Success Rate', health.success_rate != null ? Math.round(health.success_rate*100)+'%' : '—', 'fa-check', health.success_rate >= 0.8 ? 'text-green-400' : 'text-yellow-400')}
+                ${_radarStatCard('Auto-Approved', health.auto_approval_rate != null ? Math.round(health.auto_approval_rate*100)+'%' : '—', 'fa-robot')}
+                ${_radarStatCard('Avg Confidence', health.avg_confidence != null ? Math.round(health.avg_confidence*100)+'%' : '—', 'fa-bullseye', health.avg_confidence >= 0.75 ? 'text-green-400' : 'text-yellow-400')}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                <!-- Top Authors -->
+                <div class="glass-panel rounded-xl p-4">
+                    <h3 class="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+                        <i class="fa-solid fa-users mr-1.5 text-indigo-400"></i>Top Authors to Engage
+                    </h3>
+                    ${authors.length === 0
+                        ? '<p class="text-slate-500 text-xs text-center py-4">No authors tracked yet. Execute engagements to build relationship data.</p>'
+                        : authors.map(a => `
+                            <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-xs text-slate-200 truncate">${esc(a.author_name || 'Unknown')}</p>
+                                    <p class="text-xs text-slate-500">${platformPill(a.platform)} <span class="ml-1">Seen ${a.seen_count}× · Engaged ${a.engaged_count}×</span></p>
+                                </div>
+                                <div class="flex-shrink-0 ml-2">
+                                    <span class="text-xs font-semibold text-indigo-300">${a.relationship_score}</span>
+                                    <span class="text-xs text-slate-600 ml-0.5">pts</span>
+                                </div>
+                            </div>`).join('')}
+                </div>
+
+                <!-- Top Angles -->
+                <div class="glass-panel rounded-xl p-4">
+                    <h3 class="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wide">
+                        <i class="fa-solid fa-angles-right mr-1.5 text-indigo-400"></i>Top Content Angles
+                    </h3>
+                    ${angles.length === 0
+                        ? '<p class="text-slate-500 text-xs text-center py-4">No content data yet</p>'
+                        : angles.map(a => `
+                            <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="badge badge-blue text-xs">${esc(a.angle_type)}</span>
+                                    <span class="text-xs text-slate-500">${a.variant_count} variant${a.variant_count !== 1 ? 's' : ''}</span>
+                                </div>
+                                ${a.avg_hook_score != null
+                                    ? `<span class="text-xs text-slate-400">Hook <span class="text-indigo-300 font-medium">${Math.round(a.avg_hook_score*100)}%</span></span>`
+                                    : ''}
+                            </div>`).join('')}
+                </div>
+            </div>
+
+            <!-- Attribution -->
+            <div class="glass-panel rounded-xl p-4 flex items-center gap-4">
+                <i class="fa-solid fa-link text-2xl text-indigo-400/70 flex-shrink-0"></i>
+                <div>
+                    <p class="text-sm font-semibold text-white">${attr.total_attributed ?? 0} engagement${attr.total_attributed !== 1 ? 's' : ''} matched to leads</p>
+                    <p class="text-xs text-slate-500">${attr.high_confidence_count ?? 0} high-confidence match${attr.high_confidence_count !== 1 ? 'es' : ''} (≥85%)</p>
+                </div>
+            </div>`;
+
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-8">${esc(e.message)}</p>`;
+    }
+}
+
+function _radarStatCard(label, value, icon, valueClass = 'text-white') {
+    return `
+        <div class="glass-panel rounded-xl p-4 text-center">
+            <i class="fa-solid ${icon} text-slate-500 text-sm mb-1 block"></i>
+            <div class="text-lg font-bold ${valueClass}">${value}</div>
+            <div class="text-xs text-slate-500 mt-0.5">${label}</div>
+        </div>`;
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────────────────────────
+async function loadIntelligence() {
+    const el = document.getElementById('intelligence-content');
+    const period = document.getElementById('intel-period').value;
+    try {
+        const data = await growthFetch(`/analytics/intelligence?period_type=${period}`);
+        const summary = data.summary_json || {};
+        const recs = summary.recommendations || [];
+        const trends = summary.platform_trends || [];
+        el.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="stat-card text-center">
+                    <div class="text-3xl font-bold text-white mb-1">${Math.round(data.health_score || 0)}</div>
+                    <div class="text-xs text-slate-500">Health Score</div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="text-3xl font-bold text-white mb-1">${data.variants_analyzed || 0}</div>
+                    <div class="text-xs text-slate-500">Variants Analyzed</div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="text-3xl font-bold text-white mb-1">${recs.length}</div>
+                    <div class="text-xs text-slate-500">Recommendations</div>
+                </div>
+            </div>
+            ${trends.length ? `
+            <div class="mb-4">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Platform Trends</h4>
+                <div class="space-y-2">
+                    ${trends.map(t => `
+                        <div class="flex items-center gap-3">
+                            <div class="w-24">${platformPill(t.platform)}</div>
+                            <span class="text-xs ${t.trend === 'up' ? 'text-green-400' : t.trend === 'down' ? 'text-red-400' : 'text-slate-400'}">
+                                <i class="fa-solid ${t.trend === 'up' ? 'fa-arrow-trend-up' : t.trend === 'down' ? 'fa-arrow-trend-down' : 'fa-minus'} mr-1"></i>
+                                ${fmtPct(t.avg_engagement_rate)} ER
+                            </span>
+                            <span class="badge ${t.benchmark_rating === 'above_heuristic_strong' ? 'badge-green' : t.benchmark_rating === 'above_heuristic_baseline' ? 'badge-yellow' : 'badge-red'}">
+                                ${t.benchmark_rating.replace(/_/g, ' ')}
+                            </span>
+                        </div>`).join('')}
+                </div>
+            </div>` : ''}
+            ${recs.length ? `
+            <div>
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Recommendations</h4>
+                <div class="space-y-2">
+                    ${recs.map(r => `
+                        <div class="bg-slate-900/40 rounded-lg p-3 border border-white/5">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="badge ${r.priority === 'high' ? 'badge-red' : r.priority === 'medium' ? 'badge-yellow' : 'badge-slate'}">${r.priority}</span>
+                                <span class="text-xs text-slate-400">${r.category?.replace(/_/g,' ')}</span>
+                            </div>
+                            <p class="text-sm text-white font-medium">${esc(r.action)}</p>
+                            <p class="text-xs text-slate-400 mt-0.5">${esc(r.reason)}</p>
+                        </div>`).join('')}
+                </div>
+            </div>` : ''}
+            <p class="text-xs text-slate-600 mt-3">Generated ${fmtDate(data.generated_at)} · ${period} period: ${fmtDate(data.period_start)} – ${fmtDate(data.period_end)}</p>
+        `;
+    } catch(e) {
+        if (e.message.includes('404') || e.message.includes('no_intelligence')) {
+            el.innerHTML = `<p class="text-slate-500 text-sm text-center py-4">No summary yet. Click Generate to create one.</p>`;
+        } else {
+            el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+        }
+    }
+}
+
+async function generateIntelligence() {
+    const period = document.getElementById('intel-period')?.value || 'weekly';
+    const btns = ['gen-intel-btn', 'gen-intel-btn-2'].map(id => document.getElementById(id)).filter(Boolean);
+    btns.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span> Generating...'; });
+    try {
+        await growthFetch(`/analytics/intelligence/generate?period_type=${period}`, { method: 'POST' });
+        toast('Intelligence summary generated', 'success');
+        loadIntelligence();
+        loadIntelligenceSummaryForOverview();
+    } catch(e) { toast(e.message, 'error'); }
+    btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>Generate'; });
+}
+
+async function loadTopContent() {
+    const el = document.getElementById('top-content-list');
+    const basis = document.getElementById('top-content-basis').value;
+    const platform = document.getElementById('top-content-platform').value;
+    let url = `/analytics/top-content?limit=10&ranking_basis=${basis}&period_days=30`;
+    if (platform) url += `&platform=${platform}`;
+    try {
+        const data = await growthFetch(url);
+        el.innerHTML = data.items.length === 0
+            ? '<p class="text-slate-500 text-sm text-center py-4">No metrics yet.</p>'
+            : data.items.map(item => topContentRow(item)).join('');
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+    }
+}
+
+function topContentRow(item) {
+    return `
+        <div class="bg-slate-900/40 rounded-lg p-3 border border-white/5">
+            <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        ${platformPill(item.platform)}
+                        ${item.angle_type ? `<span class="text-xs text-indigo-400">${item.angle_type}</span>` : ''}
+                        <span class="text-xs text-slate-500">Ranked by: <span class="text-slate-300">${item.ranked_by?.replace(/_/g,' ')}</span></span>
+                    </div>
+                    <p class="text-sm text-slate-200 line-clamp-2">${esc((item.body_text_snippet||'').substring(0,160))}</p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <div class="text-sm font-bold text-white">${fmtPct(item.engagement_rate)}</div>
+                    <div class="text-xs text-slate-500">ER</div>
+                    <div class="text-xs text-slate-400 mt-0.5">${fmtK(item.impressions)} imp</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                <span><i class="fa-solid fa-heart mr-1 text-red-400/60"></i>${fmt(item.reactions)}</span>
+                <span><i class="fa-solid fa-comment mr-1 text-blue-400/60"></i>${fmt(item.comments_received)}</span>
+                <span><i class="fa-solid fa-share-nodes mr-1 text-green-400/60"></i>${fmt(item.shares)}</span>
+                ${item.published_url ? `<a href="${item.published_url}" target="_blank" class="ml-auto text-indigo-400 hover:text-indigo-300"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>View</a>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+async function loadRoi() {
+    const el = document.getElementById('roi-content');
+    try {
+        const data = await growthFetch('/analytics/roi?period_days=30');
+        const roi = data.engagement_roi || {};
+        el.innerHTML = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div class="stat-card text-center">
+                    <div class="text-2xl font-bold text-white">${fmt(roi.total_engagements || 0)}</div>
+                    <div class="text-xs text-slate-500">Total Actions</div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="text-2xl font-bold text-green-400">${fmt(roi.successful_engagements || 0)}</div>
+                    <div class="text-xs text-slate-500">Successful</div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="text-2xl font-bold text-white">${fmtPct(roi.avg_confidence_score || 0)}</div>
+                    <div class="text-xs text-slate-500">Avg Confidence</div>
+                </div>
+                <div class="stat-card text-center">
+                    <div class="text-2xl font-bold text-white">${fmtPct(roi.avg_risk_score || 0)}</div>
+                    <div class="text-xs text-slate-500">Avg Risk</div>
+                </div>
+            </div>
+            ${(roi.platforms||[]).length ? `
+            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">By Platform</h4>
+            <div class="space-y-2">
+                ${(roi.platforms||[]).map(p => `
+                    <div class="flex items-center gap-3">
+                        ${platformPill(p.platform)}
+                        <span class="text-xs text-slate-400">${p.action_count} actions</span>
+                        <span class="text-xs ${p.success_rate >= 0.7 ? 'text-green-400' : p.success_rate >= 0.4 ? 'text-yellow-400' : 'text-red-400'}">${Math.round((p.success_rate||0)*100)}% success</span>
+                    </div>`).join('')}
+            </div>` : ''}
+        `;
+    } catch(e) {
+        el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+    }
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(title, body) {
+    document.getElementById('modal-title').innerHTML = title;
+    document.getElementById('modal-body').innerHTML = body;
+    document.getElementById('detail-modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('detail-modal').classList.add('hidden'); }
+
+function showActionModal(title, body, showNotes, callback) {
+    document.getElementById('action-modal-title').textContent = title;
+    document.getElementById('action-modal-body').textContent = body;
+    const extra = document.getElementById('action-modal-extra');
+    extra.classList.toggle('hidden', !showNotes);
+    document.getElementById('action-notes').value = '';
+    _actionCallback = callback;
+    document.getElementById('action-modal').classList.remove('hidden');
+}
+function closeActionModal() {
+    document.getElementById('action-modal').classList.add('hidden');
+    _actionCallback = null;
+}
+document.getElementById('action-modal-confirm').addEventListener('click', async () => {
+    if (!_actionCallback) return;
+    const btn = document.getElementById('action-modal-confirm');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try {
+        await _actionCallback();
+        closeActionModal();
+    } catch(e) { toast(e.message, 'error'); }
+    btn.disabled = false; btn.textContent = 'Confirm';
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+    const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-indigo-600' };
+    const icons  = { success: 'fa-check', error: 'fa-triangle-exclamation', info: 'fa-info' };
+    const el = document.createElement('div');
+    el.className = `toast ${colors[type]} text-white text-sm px-4 py-3 rounded-lg shadow-xl flex items-center gap-2 max-w-xs`;
+    el.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span>${esc(msg)}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmt(n) { return Number(n || 0).toLocaleString(); }
+function fmtK(n) { n = Number(n || 0); return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(1) + 'K' : String(n); }
+function fmtPct(n) { return (Number(n || 0) * 100).toFixed(2) + '%'; }
+function fmtDate(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    if (isNaN(d)) return String(s).substring(0, 10);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function healthLabel(score) {
+    if (score >= 75) return 'Excellent growth';
+    if (score >= 50) return 'Good momentum';
+    if (score >= 25) return 'Needs attention';
+    return 'Getting started';
+}
+
+function platformPill(p) {
+    if (!p) return '';
+    const cls = { linkedin: 'platform-linkedin', x: 'platform-x', instagram: 'platform-instagram', facebook: 'platform-facebook' };
+    const icons = { linkedin: 'fa-linkedin', x: 'fa-x-twitter', instagram: 'fa-instagram', facebook: 'fa-facebook' };
+    const icon = icons[p] || 'fa-globe';
+    const cls2 = cls[p] || 'platform-x';
+    return `<span class="platform-pill ${cls2}"><i class="fa-brands ${icon}"></i>${p}</span>`;
+}
+
+function statusBadge(s) {
+    const map = {
+        idea: 'badge-slate', generating: 'badge-blue', draft: 'badge-blue',
+        pending_review: 'badge-yellow', approved: 'badge-green', queued: 'badge-green',
+        published: 'badge-green', rejected: 'badge-red', failed: 'badge-red',
+        scheduled: 'badge-blue', executed: 'badge-green', expired: 'badge-slate',
+        auto_approved: 'badge-green', human_approved: 'badge-purple',
+        pending_score: 'badge-blue', scoring: 'badge-blue', executing: 'badge-blue',
+    };
+    return `<span class="badge ${map[s] || 'badge-slate'}">${fmtStatus(s)}</span>`;
+}
+
+function fmtStatus(s) {
+    const labels = {
+        auto_approved: 'Auto-Approved', human_approved: 'Approved',
+        pending_review: 'Pending Review', pending_score: 'Awaiting Score',
+        manual_review: 'Pending Review',
+    };
+    return labels[s] || (s ? s.replace(/_/g, ' ') : '—');
+}
+
+function fmtDecisionType(t) {
+    const labels = { engagement_scored: 'Scoring Analysis', engagement_executed: 'Execution Record', content_generated: 'Content Generation' };
+    return labels[t] || (t ? t.replace(/_/g, ' ') : t);
+}
+</script>
+</body>
+</html>

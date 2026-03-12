@@ -28,6 +28,144 @@
             <button onclick="logout()" class="text-slate-400 hover:text-white text-sm">Log Out</button>
         </div>
 
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- FOUNDER DASHBOARD                                                   -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div class="bg-gradient-to-br from-slate-900 to-slate-950 border border-emerald-900/30 rounded-2xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-emerald-400 animate-pulse"></div>
+                    <h2 class="text-xl font-bold text-white">Founder Dashboard</h2>
+                    <span id="fd-computed-at" class="text-[10px] text-slate-600 font-mono"></span>
+                </div>
+                <button onclick="loadFounderDashboard()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+
+            <!-- Row 1: Live Pulse tiles -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-new-users-today" class="text-2xl font-black text-white">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">New Users Today</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-ge-orgs" class="text-2xl font-black text-emerald-400">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">GE Active Orgs</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-mrr" class="text-2xl font-black text-indigo-400">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">GE MRR Est.</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-attach" class="text-2xl font-black text-yellow-400">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Attach Rate</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-opps-today" class="text-2xl font-black text-blue-400">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Engagements Today</p>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 text-center">
+                    <p id="fd-deals" class="text-2xl font-black text-rose-400">—</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider">Deals Influenced</p>
+                </div>
+            </div>
+
+            <!-- Row 2: Health metrics with targets -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                <!-- Activation Rate -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Activation Rate</p>
+                        <span class="text-[9px] text-slate-600">target &gt;40%</span>
+                    </div>
+                    <p id="fd-activation" class="text-3xl font-black text-white mb-2">—</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-1.5">
+                        <div id="fd-activation-bar" class="h-1.5 rounded-full bg-emerald-500 transition-all" style="width:0%"></div>
+                    </div>
+                    <p id="fd-activation-note" class="text-[9px] text-slate-600 mt-1.5">—</p>
+                </div>
+                <!-- Avg TTFV -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Avg Time to First Value</p>
+                        <span class="text-[9px] text-slate-600">target &lt;15 min</span>
+                    </div>
+                    <p id="fd-ttfv" class="text-3xl font-black text-white mb-2">—</p>
+                    <p id="fd-ttfv-status" class="text-[9px] mt-1.5">—</p>
+                </div>
+                <!-- Automation Trust -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Automation Trust Rate</p>
+                        <span class="text-[9px] text-slate-600">target &gt;50%</span>
+                    </div>
+                    <p id="fd-trust" class="text-3xl font-black text-white mb-2">—</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-1.5">
+                        <div id="fd-trust-bar" class="h-1.5 rounded-full bg-indigo-500 transition-all" style="width:0%"></div>
+                    </div>
+                    <p id="fd-trust-note" class="text-[9px] text-slate-600 mt-1.5">—</p>
+                </div>
+                <!-- Attribution Rate -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Lead Attribution Rate</p>
+                        <span class="text-[9px] text-slate-600">target 5–10%</span>
+                    </div>
+                    <p id="fd-attribution" class="text-3xl font-black text-white mb-2">—</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-1.5">
+                        <div id="fd-attribution-bar" class="h-1.5 rounded-full bg-rose-500 transition-all" style="width:0%"></div>
+                    </div>
+                    <p id="fd-attribution-note" class="text-[9px] text-slate-600 mt-1.5">—</p>
+                </div>
+            </div>
+
+            <!-- Row 3: Retention + Engagement funnel -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+                <!-- Retention cohorts -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Retention Cohorts</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-[9px] text-slate-600 mb-1">Month 1 · target &gt;85%</p>
+                            <p id="fd-ret-30" class="text-2xl font-black text-white">—</p>
+                            <p id="fd-ret-30-note" class="text-[9px] text-slate-600 mt-1"></p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-slate-600 mb-1">Month 3 · target &gt;70%</p>
+                            <p id="fd-ret-90" class="text-2xl font-black text-white">—</p>
+                            <p id="fd-ret-90-note" class="text-[9px] text-slate-600 mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Engagement funnel -->
+                <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Engagement Pipeline</p>
+                    <div id="fd-funnel" class="space-y-2">
+                        <p class="text-slate-600 text-xs italic">Loading…</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 4: Beta Prospect Pipeline -->
+            <div class="border-t border-slate-800 pt-5">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Beta Prospect Pipeline <span class="normal-case text-slate-600 ml-1">— paying orgs without Growth Engine, sorted by activity</span></p>
+                    <span id="fd-prospect-count" class="text-[10px] text-slate-600"></span>
+                </div>
+                <div id="fd-prospects" class="overflow-x-auto">
+                    <p class="text-slate-600 text-xs italic text-center py-4">Loading…</p>
+                </div>
+            </div>
+
+            <!-- Growth schema not ready notice -->
+            <div id="fd-schema-notice" class="hidden mt-3 text-[10px] text-yellow-600/70 text-center">
+                <i class="fa-solid fa-circle-exclamation mr-1"></i>
+                Growth Engine schema not yet populated — engagement metrics will appear after first engagements are processed.
+            </div>
+        </div>
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
             <div class="flex items-center gap-3 mb-6">
                 <div class="h-3 w-3 rounded-full bg-yellow-400 animate-pulse"></div>
@@ -456,6 +594,84 @@
             </div>
         </div>
 
+        <!-- P10b: GROWTH ENGINE FEATURE FLAGS -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-indigo-500"></div>
+                    <h2 class="text-xl font-bold text-white">Growth Engine Flags</h2>
+                </div>
+                <button onclick="loadGrowthFlags()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Enable experimental Growth Engine behaviours without a redeploy. Changes take effect within 60 seconds. Both flags are safe to toggle off at any time to revert instantly.</p>
+            <div id="growth-flags-list">
+                <p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Growth Engine Beta Access -->
+        <div class="bg-slate-900 border border-emerald-900/40 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-emerald-500"></div>
+                    <h2 class="text-xl font-bold text-white">Growth Engine Beta Access</h2>
+                </div>
+                <button onclick="loadGrowthBetaPanel()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">Grant or revoke Growth Engine access for any organisation — no payment required. Changes take effect immediately.</p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                <!-- Grant panel -->
+                <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Grant Access</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="selectAllGrowthOrgs('grant')" class="text-[10px] text-slate-500 hover:text-slate-300 transition">Select all</button>
+                            <span class="text-slate-700 text-xs">·</span>
+                            <button onclick="clearGrowthOrgs('grant')" class="text-[10px] text-slate-500 hover:text-slate-300 transition">Clear</button>
+                        </div>
+                    </div>
+                    <input type="text" id="grant-search" placeholder="Filter by name or email…" oninput="filterGrowthList('grant')"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 outline-none focus:border-emerald-700 mb-3">
+                    <div id="grant-list" class="space-y-0.5 max-h-60 overflow-y-auto pr-1">
+                        <p class="text-slate-600 text-xs italic text-center py-5">Loading…</p>
+                    </div>
+                    <button onclick="grantGrowthAccess()" id="grant-btn"
+                        class="mt-3 w-full py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition bg-emerald-700 hover:bg-emerald-600 text-white">
+                        <i class="fa fa-unlock mr-1.5"></i> Grant Access
+                    </button>
+                    <p id="grant-msg" class="text-xs text-center mt-1.5 h-4"></p>
+                </div>
+
+                <!-- Revoke panel -->
+                <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-red-400 uppercase tracking-wider">Revoke Access</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="selectAllGrowthOrgs('revoke')" class="text-[10px] text-slate-500 hover:text-slate-300 transition">Select all</button>
+                            <span class="text-slate-700 text-xs">·</span>
+                            <button onclick="clearGrowthOrgs('revoke')" class="text-[10px] text-slate-500 hover:text-slate-300 transition">Clear</button>
+                        </div>
+                    </div>
+                    <input type="text" id="revoke-search" placeholder="Filter by name or email…" oninput="filterGrowthList('revoke')"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 outline-none focus:border-red-800 mb-3">
+                    <div id="revoke-list" class="space-y-0.5 max-h-60 overflow-y-auto pr-1">
+                        <p class="text-slate-600 text-xs italic text-center py-5">Loading…</p>
+                    </div>
+                    <button onclick="revokeGrowthAccess()" id="revoke-btn"
+                        class="mt-3 w-full py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition bg-red-900/40 hover:bg-red-800/60 text-red-300 border border-red-800/40">
+                        <i class="fa fa-lock mr-1.5"></i> Revoke Access
+                    </button>
+                    <p id="revoke-msg" class="text-xs text-center mt-1.5 h-4"></p>
+                </div>
+
+            </div>
+        </div>
+
         <!-- P9: RATE LIMIT & SECURITY OVERVIEW -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 mb-10">
             <div class="flex items-center justify-between mb-6">
@@ -489,6 +705,11 @@
     <script>
         const supabaseUrl = 'https://klbwigcvrdfeeeeotehu.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+
+        // Growth Engine — set this to your Railway production URL.
+        // The internal secret is held server-side in the growth-flag-proxy edge function.
+        // Set GROWTH_ENGINE_URL + GROWTH_ENGINE_INTERNAL_SECRET via: supabase secrets set
+        const GROWTH_ENGINE_URL = 'https://your-engine.railway.app';
 
         // supabase client is assigned to window.supabase inside the IIFE after auth
         // passes — avoids any global-scope naming conflict with the CDN's UMD export.
@@ -630,6 +851,9 @@
                 loadChannelHealthMonitor();
                 loadRateLimitMonitor();
                 loadPlatformFlags();
+                loadGrowthFlags();
+                loadGrowthBetaPanel();
+                loadFounderDashboard();
             } catch (err) {
                 setStatus('Error: ' + err.message + '. Redirecting…');
                 console.error('Admin init error:', err);
@@ -2075,6 +2299,494 @@
 
             showToast(enable ? `🚫 "${flag}" enabled — sending blocked.` : `✅ "${flag}" disabled — sending resumed.`);
             await loadPlatformFlags();
+        }
+
+        // ── Growth Engine Feature Flags ───────────────────────────────────────────
+
+        const GROWTH_FLAG_META = {
+            growth_graph_priority: {
+                label: 'Relationship Priority',
+                desc:  'Scoring queue prioritises authors with prior engagement history over FIFO. Enable after a few days of engagement data have accumulated.',
+                icon:  'fa-diagram-project',
+            },
+            learning_loop: {
+                label: 'Adaptive Learning',
+                desc:  'Auto-approval thresholds adjust based on rolling 30-day execution success rates. Enable after at least 30 days of traffic per platform.',
+                icon:  'fa-brain',
+            },
+        };
+
+        async function loadGrowthFlags() {
+            const el = document.getElementById('growth-flags-list');
+            if (!el) return;
+
+            el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
+            try {
+                const jwt = getAdminToken();
+                const res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                    headers: { 'Authorization': `Bearer ${jwt}` },
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const flags = data.flags || [];
+
+                el.innerHTML = `
+                <p class="text-xs text-slate-600 mb-3">Environment: <span class="text-slate-400">${data.environment || '—'}</span></p>
+                <div class="space-y-3">
+                    ${flags.map(f => {
+                        const meta = GROWTH_FLAG_META[f.key] || { label: f.key, desc: '', icon: 'fa-flag' };
+                        const isOn = f.enabled === true;
+                        const updatedAt = f.updated_at ? new Date(f.updated_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+                        const updatedBy = f.updated_by_user_id ? `<span class="text-slate-600 text-[10px] block mt-0.5">by ${f.updated_by_user_id.slice(0,8)}…</span>` : '';
+                        return `
+                        <div class="flex items-center justify-between gap-4 bg-slate-800/50 rounded-xl px-5 py-4 ${isOn ? 'border border-indigo-500/30' : 'border border-white/5'}">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <i class="fa-solid ${meta.icon} text-indigo-400 text-xs"></i>
+                                    <span class="text-sm font-semibold text-white">${meta.label}</span>
+                                    ${isOn
+                                        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-400">ON</span>`
+                                        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/60 text-slate-500">OFF</span>`
+                                    }
+                                </div>
+                                <p class="text-xs text-slate-500 leading-relaxed">${meta.desc}</p>
+                                <p class="text-xs text-slate-600 mt-1">Last changed: ${updatedAt}${updatedBy}</p>
+                            </div>
+                            <button
+                                onclick="toggleGrowthFlag('${f.key}', ${!isOn}, this)"
+                                class="flex-shrink-0 px-4 py-2 rounded-lg text-xs font-bold transition ${isOn ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25'}"
+                            >${isOn ? 'Disable' : 'Enable'}</button>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            } catch(e) {
+                el.innerHTML = `<p class="text-red-400 text-xs p-4">Error loading flags: ${e.message}</p>`;
+            }
+        }
+
+        async function toggleGrowthFlag(key, enable, btn) {
+            if (!confirm(`${enable ? 'Enable' : 'Disable'} "${GROWTH_FLAG_META[key]?.label || key}"?\n\nChanges take effect within 60 seconds.`)) return;
+
+            btn.disabled = true;
+            btn.textContent = '…';
+
+            try {
+                const jwt = getAdminToken();
+                const res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwt}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ key, enabled: enable }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${res.status}`);
+                }
+                showToast(`${GROWTH_FLAG_META[key]?.label || key} ${enable ? 'enabled' : 'disabled'}`);
+                await loadGrowthFlags();
+            } catch(e) {
+                alert('Toggle failed: ' + e.message);
+                btn.disabled = false;
+                btn.textContent = enable ? 'Enable' : 'Disable';
+            }
+        }
+
+        // ── Founder Dashboard ─────────────────────────────────────────────────────
+        async function loadFounderDashboard() {
+            // Reset tiles
+            ['fd-new-users-today','fd-ge-orgs','fd-mrr','fd-attach','fd-opps-today','fd-deals',
+             'fd-activation','fd-ttfv','fd-trust','fd-attribution',
+             'fd-ret-30','fd-ret-90'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.textContent = '…';
+            });
+            document.getElementById('fd-funnel').innerHTML    = '<p class="text-slate-600 text-xs italic">Loading…</p>';
+            document.getElementById('fd-prospects').innerHTML = '<p class="text-slate-600 text-xs italic text-center py-4">Loading…</p>';
+            document.getElementById('fd-schema-notice').classList.add('hidden');
+
+            try {
+                // Run both RPCs in parallel
+                const [metricsRes, prospectsRes] = await Promise.all([
+                    supabase.rpc('admin_get_growth_metrics'),
+                    supabase.rpc('admin_get_beta_prospects')
+                ]);
+
+                if (metricsRes.error) throw metricsRes.error;
+                const m = metricsRes.data;
+
+                // ── Timestamp ────────────────────────────────────────────────
+                const ts = new Date(m.computed_at);
+                document.getElementById('fd-computed-at').textContent =
+                    'Updated ' + ts.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+                // ── Row 1: Live Pulse ─────────────────────────────────────────
+                const acq = m.acquisition;
+                document.getElementById('fd-new-users-today').textContent = acq.new_users_today;
+                document.getElementById('fd-ge-orgs').textContent         = acq.ge_active_orgs;
+                document.getElementById('fd-mrr').textContent             = '$' + acq.mrr_estimate.toLocaleString();
+                document.getElementById('fd-attach').textContent          = acq.attach_rate_pct + '%';
+                document.getElementById('fd-opps-today').textContent      = m.engagement.today ?? '—';
+                document.getElementById('fd-deals').textContent           = m.attribution.deals_influenced;
+
+                // Attach rate colour
+                const attachEl = document.getElementById('fd-attach');
+                attachEl.className = 'text-2xl font-black ' +
+                    (acq.attach_rate_pct >= 25 ? 'text-emerald-400' : acq.attach_rate_pct >= 10 ? 'text-yellow-400' : 'text-red-400');
+
+                // ── Row 2: Health Metrics ─────────────────────────────────────
+                const act = m.activation;
+                const eng = m.engagement;
+                const att = m.attribution;
+
+                // Activation rate
+                const actPct = act.activation_rate_pct;
+                document.getElementById('fd-activation').textContent = m.growth_schema_ready ? actPct + '%' : 'N/A';
+                document.getElementById('fd-activation-bar').style.width = Math.min(actPct, 100) + '%';
+                document.getElementById('fd-activation-bar').className =
+                    'h-1.5 rounded-full transition-all ' + (actPct >= 40 ? 'bg-emerald-500' : actPct >= 25 ? 'bg-yellow-500' : 'bg-red-500');
+                document.getElementById('fd-activation-note').textContent =
+                    m.growth_schema_ready ? (act.activated_orgs + ' of ' + acq.ge_active_orgs + ' orgs activated') : 'Awaiting first engagements';
+                document.getElementById('fd-activation-note').className =
+                    'text-[9px] mt-1.5 ' + (actPct >= 40 ? 'text-emerald-600' : 'text-slate-600');
+
+                // TTFV
+                const ttfvHours = act.avg_ttfv_hours;
+                if (ttfvHours === null || ttfvHours === undefined) {
+                    document.getElementById('fd-ttfv').textContent = 'N/A';
+                    document.getElementById('fd-ttfv-status').textContent = 'No data yet';
+                    document.getElementById('fd-ttfv-status').className = 'text-[9px] mt-1.5 text-slate-600';
+                } else {
+                    const mins = Math.round(ttfvHours * 60);
+                    document.getElementById('fd-ttfv').textContent = mins < 60 ? mins + ' min' : (ttfvHours).toFixed(1) + ' hr';
+                    const onTarget = ttfvHours <= 0.25;
+                    document.getElementById('fd-ttfv-status').textContent = onTarget ? '✓ On target (<15 min)' : '⚠ Above target (15 min)';
+                    document.getElementById('fd-ttfv-status').className = 'text-[9px] mt-1.5 ' + (onTarget ? 'text-emerald-500' : 'text-yellow-500');
+                }
+
+                // Automation trust rate
+                const trustPct = eng.trust_rate_pct;
+                document.getElementById('fd-trust').textContent = m.growth_schema_ready ? trustPct + '%' : 'N/A';
+                document.getElementById('fd-trust-bar').style.width = Math.min(trustPct, 100) + '%';
+                document.getElementById('fd-trust-bar').className =
+                    'h-1.5 rounded-full transition-all ' + (trustPct >= 50 ? 'bg-indigo-500' : trustPct >= 30 ? 'bg-yellow-500' : 'bg-red-500');
+                document.getElementById('fd-trust-note').textContent =
+                    m.growth_schema_ready ? (eng.auto_approved + ' auto-approved · ' + eng.pending_review + ' need review') : 'Awaiting data';
+
+                // Attribution rate
+                const attrPct = att.attribution_rate_pct;
+                document.getElementById('fd-attribution').textContent = attrPct + '%';
+                document.getElementById('fd-attribution-bar').style.width = Math.min(attrPct * 10, 100) + '%'; // 10% = full bar
+                document.getElementById('fd-attribution-bar').className =
+                    'h-1.5 rounded-full transition-all ' + (attrPct >= 5 ? 'bg-emerald-500' : 'bg-slate-600');
+                document.getElementById('fd-attribution-note').textContent =
+                    att.attributed_leads + ' of ' + att.total_leads + ' leads attributed';
+
+                // ── Row 3a: Retention ─────────────────────────────────────────
+                const ret = m.retention;
+                if (ret.retention_30d_pct === null) {
+                    document.getElementById('fd-ret-30').textContent = '—';
+                    document.getElementById('fd-ret-30-note').textContent = 'No 30-day cohort yet';
+                } else {
+                    document.getElementById('fd-ret-30').textContent = ret.retention_30d_pct + '%';
+                    document.getElementById('fd-ret-30').className =
+                        'text-2xl font-black ' + (ret.retention_30d_pct >= 85 ? 'text-emerald-400' : ret.retention_30d_pct >= 70 ? 'text-yellow-400' : 'text-red-400');
+                    document.getElementById('fd-ret-30-note').textContent = ret.retained_30d + ' of ' + ret.cohort_30d + ' retained';
+                }
+                if (ret.retention_90d_pct === null) {
+                    document.getElementById('fd-ret-90').textContent = '—';
+                    document.getElementById('fd-ret-90-note').textContent = 'No 90-day cohort yet';
+                } else {
+                    document.getElementById('fd-ret-90').textContent = ret.retention_90d_pct + '%';
+                    document.getElementById('fd-ret-90').className =
+                        'text-2xl font-black ' + (ret.retention_90d_pct >= 70 ? 'text-emerald-400' : ret.retention_90d_pct >= 50 ? 'text-yellow-400' : 'text-red-400');
+                    document.getElementById('fd-ret-90-note').textContent = ret.retained_90d + ' of ' + ret.cohort_90d + ' retained';
+                }
+
+                // ── Row 3b: Engagement funnel ─────────────────────────────────
+                if (m.growth_schema_ready && eng.total > 0) {
+                    const funnel = [
+                        { label: 'Total Discovered',  val: eng.total,        color: 'bg-slate-500' },
+                        { label: 'Auto-Approved',      val: eng.auto_approved, color: 'bg-indigo-500' },
+                        { label: 'Pending Review',     val: eng.pending_review, color: 'bg-yellow-500' },
+                        { label: 'Executing',          val: eng.executing,     color: 'bg-emerald-500' },
+                        { label: 'Failed / Expired',   val: eng.failed,        color: 'bg-red-600/70' },
+                    ];
+                    document.getElementById('fd-funnel').innerHTML = funnel.map(f => {
+                        const pct = eng.total > 0 ? Math.round((f.val / eng.total) * 100) : 0;
+                        return `<div>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="text-[10px] text-slate-400">${f.label}</span>
+                                <span class="text-[10px] text-slate-400 font-bold">${f.val.toLocaleString()} <span class="text-slate-600">(${pct}%)</span></span>
+                            </div>
+                            <div class="w-full bg-slate-700/50 rounded-full h-1.5">
+                                <div class="${f.color} h-1.5 rounded-full" style="width:${pct}%"></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                } else {
+                    document.getElementById('fd-funnel').innerHTML =
+                        '<p class="text-slate-600 text-xs italic">No engagement data yet.</p>';
+                }
+
+                if (!m.growth_schema_ready) {
+                    document.getElementById('fd-schema-notice').classList.remove('hidden');
+                }
+
+                // ── Row 4: Beta Prospects ─────────────────────────────────────
+                _renderBetaProspects(prospectsRes);
+
+            } catch(e) {
+                console.error('Founder dashboard error:', e);
+                document.getElementById('fd-funnel').innerHTML =
+                    `<p class="text-red-400 text-xs">Error: ${e.message}</p>`;
+            }
+        }
+
+        function _renderBetaProspects(res) {
+            const el = document.getElementById('fd-prospects');
+            const countEl = document.getElementById('fd-prospect-count');
+            if (res.error) {
+                el.innerHTML = `<p class="text-red-400 text-xs">${res.error.message}</p>`;
+                return;
+            }
+            const rows = res.data || [];
+            countEl.textContent = rows.length ? rows.length + ' prospects' : '';
+            if (!rows.length) {
+                el.innerHTML = '<p class="text-slate-600 text-xs italic text-center py-4">All paying orgs already have Growth Engine, or no paying customers yet.</p>';
+                return;
+            }
+            el.innerHTML = `<table class="w-full text-left text-xs text-slate-400 min-w-[600px]">
+                <thead class="text-[10px] uppercase text-slate-600 border-b border-slate-800">
+                    <tr>
+                        <th class="py-2 pr-4">Org</th>
+                        <th class="py-2 pr-4">Owner</th>
+                        <th class="py-2 pr-4">Type</th>
+                        <th class="py-2 pr-4 text-right">Leads</th>
+                        <th class="py-2 pr-4">Sentinel</th>
+                        <th class="py-2">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/50">
+                    ${rows.map(r => `<tr class="hover:bg-slate-800/30 transition">
+                        <td class="py-2 pr-4">
+                            <p class="text-white font-semibold">${_geEscape(r.org_name)}</p>
+                            <p class="text-[9px] text-slate-600 font-mono">${r.org_id}</p>
+                        </td>
+                        <td class="py-2 pr-4">
+                            <p>${_geEscape(r.owner_name)}</p>
+                            <p class="text-[9px] text-slate-600">${_geEscape(r.owner_email)}</p>
+                        </td>
+                        <td class="py-2 pr-4">
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                r.org_type === 'enterprise' ? 'bg-indigo-900/50 text-indigo-400' :
+                                r.org_type === 'agency'     ? 'bg-blue-900/50 text-blue-400' :
+                                'bg-slate-700/50 text-slate-400'}">${r.org_type}</span>
+                        </td>
+                        <td class="py-2 pr-4 text-right font-bold text-white">${r.lead_count}</td>
+                        <td class="py-2 pr-4">
+                            ${r.has_sentinel
+                                ? '<span class="text-[10px] text-emerald-400">✓ Active</span>'
+                                : '<span class="text-[10px] text-slate-600">—</span>'}
+                        </td>
+                        <td class="py-2">
+                            <button onclick="grantGrowthToOrg('${r.org_id}', this)"
+                                class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-900/40 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-800/50 transition">
+                                Grant Beta
+                            </button>
+                        </td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+        }
+
+        // Quick single-org grant from the prospect table
+        async function grantGrowthToOrg(orgId, btn) {
+            btn.disabled = true; btn.textContent = '…';
+            const { error } = await supabase.rpc('admin_grant_growth_engine', { p_org_id: orgId });
+            if (error) {
+                btn.textContent = 'Failed'; btn.disabled = false;
+                alert('Grant failed: ' + error.message);
+            } else {
+                btn.textContent = '✓ Granted';
+                btn.className = 'text-[10px] font-bold px-2 py-1 rounded bg-emerald-900/40 text-emerald-400 cursor-default';
+                // Also refresh the beta panel lists
+                await loadGrowthBetaPanel();
+            }
+        }
+
+        // ── Growth Engine Beta Access ──────────────────────────────────────────────
+        let _growthGrantData  = [];   // orgs without growth_engine
+        let _growthRevokeData = [];   // orgs with growth_engine active
+
+        function _geRolePriority(role) {
+            if (role === 'enterprise_admin') return 3;
+            if (role === 'agency_admin')     return 2;
+            return 1; // null = solo
+        }
+        function _geRoleLabel(role) {
+            if (role === 'enterprise_admin') return 'Enterprise';
+            if (role === 'agency_admin')     return 'Agency';
+            return 'Solo';
+        }
+        function _geEscape(str) {
+            return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        async function loadGrowthBetaPanel() {
+            ['grant','revoke'].forEach(p => {
+                document.getElementById(`${p}-list`).innerHTML =
+                    '<p class="text-slate-600 text-xs italic text-center py-5">Loading…</p>';
+                document.getElementById(`${p}-msg`).textContent = '';
+            });
+
+            try {
+                // All relevant org members (solo + enterprise_admin + agency_admin)
+                const { data: allMembers, error: e1 } = await supabase
+                    .from('org_members')
+                    .select('org_id, role, organizations(id, name), profiles(full_name, email)')
+                    .or('role.is.null,role.eq.enterprise_admin,role.eq.agency_admin');
+                if (e1) throw e1;
+
+                // Orgs with active growth_engine
+                const { data: activeRows, error: e2 } = await supabase
+                    .from('org_services')
+                    .select('org_id')
+                    .eq('service_key', 'growth_engine')
+                    .eq('status', 'active');
+                if (e2) throw e2;
+
+                const activeSet = new Set((activeRows || []).map(r => r.org_id));
+
+                // Deduplicate: one row per org, highest-priority role wins
+                const orgMap = new Map();
+                for (const m of (allMembers || [])) {
+                    if (!orgMap.has(m.org_id) ||
+                        _geRolePriority(m.role) > _geRolePriority(orgMap.get(m.org_id).role)) {
+                        orgMap.set(m.org_id, m);
+                    }
+                }
+                const all = [...orgMap.values()];
+
+                _growthGrantData  = all.filter(m => !activeSet.has(m.org_id));
+                _growthRevokeData = all.filter(m =>  activeSet.has(m.org_id));
+
+                _renderGrowthList('grant',  _growthGrantData);
+                _renderGrowthList('revoke', _growthRevokeData);
+
+            } catch(e) {
+                const html = `<p class="text-red-400 text-xs text-center py-4">${_geEscape(e.message)}</p>`;
+                document.getElementById('grant-list').innerHTML  = html;
+                document.getElementById('revoke-list').innerHTML = html;
+            }
+        }
+
+        function _renderGrowthList(panel, data, filter = '') {
+            const el = document.getElementById(`${panel}-list`);
+            const q = filter.toLowerCase();
+            const filtered = q
+                ? data.filter(m =>
+                    (m.profiles?.full_name  || '').toLowerCase().includes(q) ||
+                    (m.profiles?.email      || '').toLowerCase().includes(q) ||
+                    (m.organizations?.name  || '').toLowerCase().includes(q))
+                : data;
+
+            if (!filtered.length) {
+                el.innerHTML = `<p class="text-slate-600 text-xs italic text-center py-5">${
+                    q ? 'No matches.' :
+                    panel === 'grant' ? 'All orgs already have access.' : 'No orgs have access yet.'
+                }</p>`;
+                return;
+            }
+
+            el.innerHTML = filtered.map(m => {
+                const orgId   = m.org_id;
+                const orgName = _geEscape(m.organizations?.name || 'Unnamed Org');
+                const name    = _geEscape(m.profiles?.full_name || '—');
+                const email   = _geEscape(m.profiles?.email     || '');
+                const label   = _geRoleLabel(m.role);
+                const lc      = m.role === 'enterprise_admin' ? 'text-indigo-400'
+                              : m.role === 'agency_admin'     ? 'text-blue-400'
+                              :                                 'text-slate-400';
+                return `<label class="flex items-start gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-slate-700/40 transition">
+                    <input type="checkbox" value="${orgId}" class="ge-${panel}-cb mt-0.5 accent-emerald-500 flex-shrink-0 cursor-pointer">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-white text-xs font-semibold truncate">${orgName}</span>
+                            <span class="text-[10px] font-bold ${lc} flex-shrink-0">${label}</span>
+                        </div>
+                        <p class="text-slate-500 text-[10px] truncate">${name} · ${email}</p>
+                        <p class="text-slate-700 text-[9px] font-mono">${orgId}</p>
+                    </div>
+                </label>`;
+            }).join('');
+        }
+
+        function filterGrowthList(panel) {
+            const q    = document.getElementById(`${panel}-search`).value.trim();
+            const data = panel === 'grant' ? _growthGrantData : _growthRevokeData;
+            _renderGrowthList(panel, data, q);
+        }
+        function selectAllGrowthOrgs(panel) {
+            document.querySelectorAll(`.ge-${panel}-cb`).forEach(cb => cb.checked = true);
+        }
+        function clearGrowthOrgs(panel) {
+            document.querySelectorAll(`.ge-${panel}-cb`).forEach(cb => cb.checked = false);
+        }
+
+        async function grantGrowthAccess() {
+            const selected = [...document.querySelectorAll('.ge-grant-cb:checked')].map(cb => cb.value);
+            if (!selected.length) { showToast('Select at least one organisation.'); return; }
+
+            const btn = document.getElementById('grant-btn');
+            const msg = document.getElementById('grant-msg');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-circle-notch fa-spin mr-1.5"></i> Granting…';
+
+            let ok = 0, fail = 0;
+            for (const orgId of selected) {
+                const { error } = await supabase.rpc('admin_grant_growth_engine', { p_org_id: orgId });
+                if (error) { console.error('grant failed', orgId, error); fail++; } else { ok++; }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-unlock mr-1.5"></i> Grant Access';
+            if (fail) {
+                msg.textContent = `${ok} granted, ${fail} failed — check console.`;
+                msg.className = 'text-xs text-center mt-1.5 h-4 text-yellow-400';
+            } else {
+                msg.textContent = `✓ ${ok} org(s) granted access.`;
+                msg.className = 'text-xs text-center mt-1.5 h-4 text-emerald-400';
+            }
+            if (ok) await loadGrowthBetaPanel();
+        }
+
+        async function revokeGrowthAccess() {
+            const selected = [...document.querySelectorAll('.ge-revoke-cb:checked')].map(cb => cb.value);
+            if (!selected.length) { showToast('Select at least one organisation.'); return; }
+            if (!confirm(`Revoke Growth Engine access from ${selected.length} org(s)?`)) return;
+
+            const btn = document.getElementById('revoke-btn');
+            const msg = document.getElementById('revoke-msg');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-circle-notch fa-spin mr-1.5"></i> Revoking…';
+
+            let ok = 0, fail = 0;
+            for (const orgId of selected) {
+                const { error } = await supabase.rpc('admin_revoke_growth_engine', { p_org_id: orgId });
+                if (error) { console.error('revoke failed', orgId, error); fail++; } else { ok++; }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-lock mr-1.5"></i> Revoke Access';
+            if (fail) {
+                msg.textContent = `${ok} revoked, ${fail} failed — check console.`;
+                msg.className = 'text-xs text-center mt-1.5 h-4 text-yellow-400';
+            } else {
+                msg.textContent = `✓ ${ok} org(s) revoked.`;
+                msg.className = 'text-xs text-center mt-1.5 h-4 text-red-400';
+            }
+            if (ok) await loadGrowthBetaPanel();
         }
 
         async function toggleKillSwitch(orgId, btn) {

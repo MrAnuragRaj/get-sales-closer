@@ -5,6 +5,264 @@
 
 ---
 
+## Revenue Doctor — Session 9 (2026-03-12) — Enterprise Team Intelligence
+
+**New file:** `_shared/team_attention.ts`
+- Per-agent rollup from `leads.assigned_to` + `interactions.user_id` (2 targeted parallel queries)
+- 6 flag types per lead per agent: `slow_response` (>4h after inbound), `no_response`, `high_intent_loss`, `pricing_leak`, `booking_weakness`, `one_sided` (≥3 agent msgs, ≤1 lead reply)
+- Priority score = `25*slow + 20*no_response + 20*high_intent + 15*pricing + 10*booking + 10*one_sided + min(10, leads/2)`
+- Buckets: `immediate_attention` (≥60), `coaching` (35-59), `top_performer` (<35 + deals>0), `insufficient_data` (<10 leads or <5 convs)
+- Returns `TeamAttentionResult` with bucketed arrays + `windowSummary`
+
+**`doctor_payload_builder.ts`:** Added `teamAttention?: TeamAttentionResult` to `DiagnosticPayload`. `buildDiagnosticPayload` new optional params: `leads?`, `isEnterprise?`, `memberMap?`. `buildTeamAttention` runs concurrently with `buildConversationIntelligence` in `Promise.all`.
+
+**`revenue-doctor-generate/index.ts`:**
+- Fetches `organizations.org_type` in parallel with membership check (step 3)
+- Enterprise: fetches `org_members WHERE role='enterprise_agent'` + `profiles(full_name, email)` → builds `memberMap`
+- `ReportContent` extended with optional `team_overview`, `users_requiring_attention`, `coaching_priorities`
+- `buildTeamPromptSection()` appended to LLM prompt when `p.teamAttention` present — includes structured flag data + exact JSON schema instructions for 3 new keys
+
+**`revenue_doctor.html`:** Three new render functions (`renderTeamOverview`, `renderUsersRequiringAttention`, `renderCoachingPriorities`). Three conditional sections after Expected Revenue Impact — emit `''` when keys absent (backward compatible with old reports).
+
+**Verified (runtime):** Enterprise org `53298e00` generated report `8cff918d` — `has_team_overview=true`, `has_users_requiring_attention=true`, `has_coaching_priorities=true`. Prior report `b3de1c30` (pre-RD9) — all three `false`. Zero DB schema changes.
+
+---
+
+## Revenue Doctor — Session 8 (2026-03-11) — Monetization Polish
+
+**Buy More Reports flow:**
+- `create-credit-topup-order`: added `doctor_report` token key; fixed SKUs (not unit pricing): `DOCTOR_REPORT_BUNDLES = {5:79, 10:149, 20:249}`; bundle validation + `unit_amount = bundle_price / qty`
+- `fulfill-paid-order`: after `credit_wallet_add_v1`, calls `grant_tokens_core_v1(scope='org')` for `doctor_report` to sync `token_wallets` (runtime layer — what `consume_tokens_v1` reads)
+- `revenue_doctor.html` `#buy-modal`: 3 bundle cards (5/$79, 10/$149 POPULAR, 20/$249 BEST VALUE); `openBuyModal/closeBuyModal/selectBundle/purchaseBundle()`; `#buy-reports-btn` in navbar when quota=0; error state CTA in generate modal
+
+**Info modal (`#info-modal`):** 3-section static content explaining what Revenue Doctor does; `?` button in navbar
+
+**Staged loading UX:** 4 stages with named indicators (`#stage-0` to `#stage-3`); progress bar `#gen-progress`; `startStageProgress/stopStageProgress/updateStageUI()` advancing on 9s intervals (5%→20%→45%→65%→85%)
+
+**Share link:** `history.replaceState(null,'','?report='+reportId)` on `selectReport()`; boot reads `new URLSearchParams(location.search).get('report')` to auto-load; `copyShareLink()` with clipboard + 2s label feedback
+
+**Export:** `exportMarkdown()` builds full `.md` from `_currentReport`; `exportPdf()` calls `window.print()`; `no-print` CSS class hides all nav/header buttons from PDF
+
+**Age indicator:** In `loadDashRevenueDoctor()` and `entLoadRevenueDoctor()`: `daysAgo` computed from `last.generated_at`; `ageLabel` = "Today/Yesterday/N days ago"; stale warning (yellow triangle) when `daysAgo > 14`
+
+---
+
+## Revenue Doctor — Sessions 1–7 (2026-03-10) — Foundation Through Hardening
+
+**Sessions 1–3 (DB + Adapters + Scorer):**
+- Tables: `revenue_doctor_reports` (full report store), `doctor_report_metrics` (flat metrics for trending), `token_wallets` (runtime quota), `token_ledger`
+- `_shared/revenue_adapters.ts`: `fetchLeadFacts`, `fetchConversationFacts`, `fetchChannelFacts`, `fetchFunnelFacts`, `fetchCampaignFacts`; `buildDateWindow()`; all org-scoped; safety caps (5k/10k rows)
+- `_shared/health_scorer.ts`: `scoreLeadResponse`, `scoreConversationQuality`, `scoreChannelHealth`, `scoreConversionHealth`, `computeOverallScore`, `generateWarnings`; prev-period delta support
+- `_shared/doctor_payload_builder.ts`: intelligent sampling (3-tier: questions/drop-off/other); GPT-4o-mini conversation classification (7 objections, 7 intents); funnel + automation insights; PII-scrubbed evidence samples; `buildDiagnosticPayload()`
+- `_shared/pii_scrubber.ts`: regex scrub for phone/email/name patterns; `truncateExcerpt()`
+
+**Sessions 4–5 (Edge Functions + Viewer):**
+- `revenue-doctor-generate`: auth → membership → entitlement (voice service) → quota → rate limit → credit consume → 5 adapters parallel → scorer → payload builder → GPT-4o prompt → persist
+- `revenue-doctor-reports`: list + fetch saved reports by org
+- `revenue_doctor.html`: full-page viewer; report list sidebar; generate modal; health snapshot bars; 9-section report renderer
+
+**Session 6 (Dashboard Integration):**
+- `dashboard.html`: Revenue Doctor card — last report summary, score, generate button, quota badge; `loadDashRevenueDoctor()`
+- `enterprise_admin.html`: same card; `entLoadRevenueDoctor()`
+
+**Session 7 (Hardening):**
+- 40s `AbortController` timeout on OpenAI fetch; refund + 504 on `AbortError`
+- `request_id = crypto.randomUUID()` at handler start; included in all logs + report row
+- `generation_duration_ms` tracked from before LLM loop to after
+- Rate limit: count `revenue_doctor_reports WHERE generated_at > NOW()-60s`; 429 if ≥3
+- `validateReportContent()`: checks 8 required sections; `MAX_LLM_ATTEMPTS=2` retry loop; refund + 422 if both invalid
+- `refresh_doctor_report_credits()` SQL function: writes to BOTH `credit_wallets` (display) AND `token_wallets` (runtime); idempotency via `idempotency_key` TEXT; pg_cron #17 `5 0 1 * *`
+- Token allotment: enterprise (`org_type='enterprise'`) = 999, voice plan = 10
+
+---
+
+## Session 27 — 2026-03-10 (Bug Fixes + E2E Final)
+
+**Bug fixes:**
+- `executor_whatsapp`: switched from `brain.ts` → `widget_inbound` logic (same as Messenger); added outbound interaction logging
+- `webhook_inbound`: `whatsapp_status` events now call `markWebhookProcessed()` — no more stuck pending events
+- `admin.html`: `getAdminToken()` reads fresh JWT from `localStorage` on every call — fixes expiry after 1h
+- `enterprise_admin.html` + `agency_admin.html`: agent invite reads fresh JWT from `localStorage`
+- `agency_admin.html`: removed non-existent `org_members.created_at` column from Client Users query
+- `admin.html` Channel Sender Management: removed non-existent `org_channels.provider_id`; reads `metadata.page_id` for Messenger
+
+**Facebook Page OAuth:**
+- `connect-facebook-page` edge function + `fb-callback.html`
+- "Facebook Page" card added to all 3 portals; OAuth flow stores `provider_token` + `metadata.page_id` in `org_channels`
+
+**Test data fix:** Test lead phone corrected `+16391055535` → `+916391055535` (India format for WhatsApp)
+
+**E2E status at session end:** Groups H/E/G/I/J ✅ complete. Groups A/B/C/F ⚠️ blocked on Twilio USA number.
+
+---
+
+## Session 26 — 2026-03-10 (E2E Testing G3–H3)
+
+**G4 — WhatsApp inbound pipeline (4 bugs fixed):**
+1. `webhook_inbound`: Twilio signature validation used `x-forwarded-host` → fixed using `SUPABASE_URL` env var
+2. `webhook_inbound`: `actor_user_id` + `plan_id` never resolved before `replyRouter` → tasks silently dropped; fixed by parallel-resolving from `org_members` + `decision_plans`
+3. `reply_router.ts`: `replyChannel` hardcoded to `"sms"` for all intents → fixed with channel-aware variable
+4. `executor_whatsapp`: `StatusCallback` URL unset → Twilio 21609; fixed by appending `SUPABASE_URL`-based URL
+
+**Supabase JS v2 fix:** `.catch()` not a function on `PostgrestBuilder` → global replace `.catch(()=>{})` → `.then(undefined, ()=>{})`
+
+**Latency fixes:**
+- Instant dispatch trigger: `on_execution_task_insert` AFTER INSERT → `net.http_post` to `execution-dispatcher`; worst-case latency 63s → ~5s
+- `executor_voice`: parallelized 4 startup checks + brain context fetches (~500ms saved)
+- `brain.ts buildContext` + `generateMessage`: all DB queries parallel via `Promise.all` (~400ms saved)
+
+**H — Facebook Messenger setup (from scratch):**
+- `org_channel_provider` ENUM: added `meta`; `org_channels` row inserted with `provider_token`, `metadata.page_id`
+- `org_channel_capabilities`: `messenger_enabled=true`, `messenger_page_id` set
+- Facebook App: Live mode + page subscription (`POST /{page_id}/subscribed_apps`); message/deliveries/reads fields
+- `leads.messenger_psid` linked to test lead; 4 duplicate test leads DNC'd
+
+**`executor_messenger` bugs fixed (3 rounds):**
+- `generateMessage` wrong param names → correct `BrainParams`; wrong return field `.message` → `.content`
+- `consume_tokens_v1`: missing `p_scope`/`p_user_id`; `p_quantity` → `p_amount`
+- `grant_tokens_core_v1`: missing `p_scope`/`p_user_id`; `p_quantity` → `p_amount`; `p_note` → `p_metadata`
+
+**AI quality fixes:**
+- `executor_messenger` + `executor_sms`: load latest inbound interaction as `user_query`; use `task.metadata.intent_trace` as intent
+- `brain.ts buildContext`: load last 8 turns (both inbound+outbound); format as `User:`/`You:` turns
+- `brain.ts generateMessage`: detect `hasOutbound` → inject "do NOT re-introduce yourself" instruction
+- Both executors: write outbound interaction after successful send
+
+---
+
+## Session 25 — 2026-03-09 (Cancel Flow Fixes + Data Deletion)
+
+**Cancel flow fixes:**
+- `initiate-cancellation` + `confirm-cancellation` redeployed with `--no-verify-jwt`
+- Cancellation email: `billing@` → `support@getsalescloser.com`; moved before `execute-refund` to prevent Razorpay latency blocking delivery
+- Number purchase always excluded from refund (Twilio non-refundable); `numberRefund` logic removed
+- Currency fixed to USD (`$` / `en-US`) throughout `cancel.html`
+- Step 3 mode-aware: immediate → 45s countdown → `index.html`; end-of-term → dashboard button
+- All error messages now show actual server error (not generic fallback)
+
+**New feature — Delete My Data:**
+- `export-and-delete-org-data` edge function: exports leads+interactions+appointments as CSV attachments (Resend); deletes all org data
+- `cancel.html` step 3: "Delete My Data" button → confirmation popup → calls function
+- Immediate: CSV sent + deleted now. End of term: CSV sent now, deletion at `service_ends_at`
+- DB: `data_deletion_requested TIMESTAMPTZ` + `data_deletion_processed_at TIMESTAMPTZ` on `subscription_cancellations`
+- pg_cron #16 (`scheduled-data-deletions`, daily 2am UTC): `process_scheduled_data_deletions()` fires for end-of-term orgs past end date
+
+**Payment recovery:**
+- `payment.html` now stores `razorpay_payment_id` in `payment_attempts.provider_ref`
+- `recover-payment` edge function live: `success.html` auto-recovers on timeout — no more manual intervention
+- Dynamic pricing on `number_request_checkout.html`: SMS-only=$90, Voice-only=$90, Both=$110
+
+**E2E verified (D1, D2, D3, E1):** Credit top-up, low balance alert, number purchase, cancel immediate all confirmed working.
+
+---
+
+## Sessions 22–24 — 2026-03-08 (Institutional-Grade Hardening)
+
+### Step 1 — Platform Kill Switch ✅
+- `platform_control_flags` table (7 rows seeded); `enforcePlatformKillSwitchFor*` in `security.ts`
+- 3-layer enforcement: `campaign_ticker` + `execution-dispatcher` + all 6 executors
+- `admin.html` P10 panel: toggle + mandatory reason + audit trail
+- Audit: `platform_flag_enabled` / `platform_flag_disabled`
+
+### Step 2 — Global Rate Limiter ✅
+- `rate_limit_buckets` table + indexes; `check_and_increment_rate_limit_v1` atomic dual-scope RPC
+- `RATE_LIMIT_DEFAULTS`: sms 30/1000, voice 5/50, email/wa/rcs/messenger 30/500
+- Enforced in all 6 executors BEFORE token consumption; rate-limited → reschedule 60s (NOT terminal)
+- `admin.html` P11 monitor panel; fail-open on RPC error; audit: `rate_limit_blocked_org`, `rate_limit_blocked_platform`
+
+### Step 3 — Dead-Letter Queue ✅
+- `execution_dead_letters` table; `execution_policy_v1`: `MAX_ATTEMPTS_EXCEEDED` → `dead_lettered`
+- Dispatcher inserts DLQ snapshot; original task preserved at `status='dead_lettered'`
+- `admin.html` P12: Inspect modal / Retry (creates fresh task, attempt=0) / Cancel / "Show resolved" toggle
+- Audit: `execution_dead_lettered`, `execution_dead_letter_retry_requested`, `execution_dead_letter_cancelled`
+
+### Step 4 — Provider Webhook Event Store ✅
+- `provider_webhook_events` table; UNIQUE on `(provider, provider_event_id)`
+- `persistWebhookEvent` / `markWebhookProcessed` / `markWebhookFailed` helpers in `webhook_inbound`
+- 7 event types: `sms_inbound`, `whatsapp_inbound`, `whatsapp_status` (Twilio), `vapi_end_of_call`, `vapi_transcript` (VAPI), `rbm_inbound`, `rbm_delivery_receipt` (RBM), `messenger_inbound` (Facebook)
+- `already_processed=true` gate → return 200 immediately (prevents double token settlement)
+- `webhook_inbound` now requires `--no-verify-jwt` (was missing — caused Facebook GET 401)
+- `admin.html` P13: provider/status/time filters + summary counts + Inspect modal
+
+### Step 5 — Channel Health Monitor ✅
+- `channel_health_current` (single table; `org_id IS NULL` = platform row)
+- Two partial unique indexes: `(org_id, channel) WHERE org_id IS NOT NULL` and `(channel) WHERE org_id IS NULL`
+- `compute_channel_health_v1()` PL/pgSQL UPSERT from `delivery_attempts` over last 1h; pg_cron #14 every 5min
+- Thresholds: excellent(<1%), normal(<3%), elevated(<7%), degraded(≥7%), unknown(no data)
+- Dashboard: "Channel Health" card reads from table (canonical badge); old client-computed badge removed
+- `admin.html` P14: platform-level table + degraded/elevated orgs breakdown
+
+### Step 6 — Idempotency Guard for Executors ✅
+- `UNIQUE INDEX delivery_attempts_task_attempt_uidx ON delivery_attempts (task_id, attempt_number) WHERE task_id IS NOT NULL`
+- All 6 executors: pre-send INSERT with `attempt_number: task.attempt ?? 1`; on 23505 unique_violation → skip (return 200)
+- `executor_sms` + `executor_email` + `executor_voice`: `delivery_attempts` added for first time (tracking + idempotency)
+
+---
+
+## Sessions 20–21 — 2026-03-07 (Credits, Multi-Channel, Cancellation)
+
+### Credit Substrate (Session 20)
+- **Tables:** `credit_wallets`, `credit_ledger`, `credit_alert_state`, `orders`, `order_lines`, `idempotency_keys`, `audit_events`, `usage_rating_events`, `usage_settlements`
+- **RPCs:** `credit_wallet_add_v1` (atomic increment), `run_wallet_ledger_reconciliation()` (drift detection), `consume_tokens_v1`, `grant_tokens_core_v1`
+- **`credits.js`** shared module: `initCreditWallet`, `showTopupModal`, wallet card, low-balance flash banner; `Credits.refresh()` + `visibilitychange` listener
+- Token pricing (frozen): voice_min=$0.20/min (alert<10), sms_msg=$0.01 (alert<100), ai_credit=$0.01/30 (alert<5000), wa_msg=$0.01 (alert<100)
+
+### Personalized Number ($110 bundle, Session 20)
+- `create-number-purchase-order`: 4 order lines (number_fee, setup_fee, credit_voice, credit_sms); `intent_source='number_purchase'`
+- `fulfill-number-request`: idempotent; amount integrity check; grants voice_min+sms_msg via ledger; creates `org_channel_provision_requests(status='payment_received')`; emails admin
+- `admin.html` Provisioning Queue: lists requests; Provision modal → `org_channels_purchase`; marks `succeeded`
+- `executor_sms` + `executor_voice`: per-org FROM number/VAPI phone_number_id lookup from `org_channels`
+
+### Cancel Subscription (Session 20)
+- **Tables:** `subscription_contracts` (backfilled, 2 real + 6 ambiguous), `cancellation_feedback`, `refund_quotes`, `subscription_cancellations`, `refund_executions`
+- **Organizations columns:** `cancellation_status`, `service_ends_at`
+- **RPC:** `is_org_cancelled_v1(p_org_id UUID) RETURNS BOOLEAN`
+- **Edge functions:** `initiate-cancellation`, `confirm-cancellation`, `execute-refund`
+- **3-layer enforcement:** `campaign_ticker` + `execution-dispatcher` + all executors
+- **`cancel.html`:** 3-step: feedback → refund preview → confirm; modes: immediate (45s countdown → index.html) / end_of_term (dashboard button)
+- Refund exclusions (frozen): top-ups always excluded; number purchase always excluded (Twilio non-refundable)
+
+### WhatsApp (Session 20)
+- Tables: `org_channel_capabilities`, `message_routing_policies`, `delivery_attempts` (all seeded)
+- `executor_whatsapp`: capability gate → `whatsapp_fallback_to_sms` policy; `delivery_attempts` logging; token key `wa_msg`
+- `webhook_inbound`: WA status callback → `delivery_attempts`; WA inbound → `interactions(type='whatsapp')` + `replyRouter`
+- `platform_channels(twilio, whatsapp, +14155238886)` inserted for shared WA inbound routing
+
+### RCS / Google RBM (Session 20)
+- `executor_rcs`: Google RBM Business Communications API; Google SA → OAuth2 JWT via WebCrypto; device capability fallback to SMS on 403/404; token key `rcs_msg`
+- `webhook_inbound google_rbm`: Pub/Sub push envelope; `agentEvent` → delivery_attempts; `userEvent` → replyRouter
+
+### Facebook Messenger (Session 20)
+- `executor_messenger`: Graph API v21.0; per-org `org_channels.provider_token`; PSID guard; 24h window → SMS fallback; terminal 551/190
+- `webhook_inbound facebook_messenger`: GET hub challenge; POST X-Hub-Signature-256; watermark receipts; PSID inbound routing
+
+### Routing Hardening (Session 20)
+- `org_channels.fallback_policy` TEXT DEFAULT 'allow_shared' (allow_shared / fail_task / admin_override)
+- 3-step outbound resolution in all executors: active is_default → fallback_policy → shared/fail/admin
+- Resolution BEFORE token consumption — `fail_task` never wastes a token
+- `tests/channel-routing-tests.sql`: 5 regression tests
+
+### Session 21 — Delivery Status, PSID Auto-Link, Channel Infrastructure
+- Delivery Status: `_buildDeliveryHTML` covers 5 channels + health badge (Excellent/Normal/Elevated/Degraded); all 3 portals
+- PSID auto-link: inbound Messenger → resolve org from page_id → single unlinked lead → `UPDATE leads.messenger_psid`; audit: `messenger_psid_linked/ambiguous/no_match`
+- Channel Infrastructure card: dedicated vs shared badge per channel; `_buildInfraHTML` helper; all 3 portals
+- `admin.html`: Channel Sender Management + Health + Toggle columns; new Channel Fallback Events panel
+- `message_threads` table: UNIQUE on `(from_identifier, to_identifier, channel)`; thread-first lookup in SMS/WA inbound path
+
+---
+
+## Session 19 — 2026-03-06 (Sprint 6)
+
+- `api_keys` table: `generate_api_key()` function; UI in all 3 dashboards; `last_used_at` updated by `hook_inbound`
+- API key audit: `audit_events` table; hook_inbound logs each call with org_id + lead outcome
+- Growth Intelligence card: `dashboard.html` + `agency_admin.html` + `enterprise_admin.html`; `generate-upsell-insight` edge function
+- `send-welcome-email` edge function: Welcome email (Resend, `hello@getsalescloser.com`); called from `dashboard.html` on `onboarding_completed` transition
+- Email address convention established: hello@/support@/billing@
+- PDF pipeline: `knowledge_brain` edge function updated to handle `.pdf` uploads; `documents` Storage bucket created
+- Service activation fix: `org_services` INSERT on `approve_agency_enterprise_deal` + `fulfill-paid-order`
+
+---
+
 ## Session 18 — 2026-03-06 (Sprint 2–5 Complete)
 
 ### Sprint 2 — AI Pause Gate + Live Wire + Takeover

@@ -6,6 +6,13 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
+// Frozen bundle pricing for Revenue Doctor reports
+const DOCTOR_REPORT_BUNDLES: Record<number, number> = {
+  5:  79,
+  10: 149,
+  20: 249,
+}
+
 // Frozen pricing — matches roadmap policy decisions
 // AI: $0.01 per 30 credits → unit cost per credit = 0.01/30
 // Amount computed as: Math.round((qty / 30) * 0.01 * 100) / 100
@@ -17,15 +24,19 @@ const CREDIT_CONFIG: Record<string, {
   step: number              // UI step hint returned to frontend
   ai_bundle?: boolean       // special billing: per-30-bundle not per-unit
 }> = {
-  voice_min:  { label: "Voice Minutes",    unit_price: 0.20,          min_qty: 100,   line_type: "credit_voice", step: 100 },
-  sms_msg:    { label: "SMS Credits",      unit_price: 0.01,          min_qty: 2000,  line_type: "credit_sms",   step: 1000 },
-  ai_credit:  { label: "AI Credits",       unit_price: 0.01 / 30,     min_qty: 90000, line_type: "credit_ai",    step: 90000, ai_bundle: true },
-  wa_msg:     { label: "WhatsApp Credits", unit_price: 0.01,          min_qty: 2000,  line_type: "credit_wa",    step: 1000 },
-  rcs_msg:       { label: "RCS Credits",       unit_price: 0.01, min_qty: 2000, line_type: "credit_rcs",       step: 1000 },
-  messenger_msg: { label: "Messenger Credits", unit_price: 0.01, min_qty: 2000, line_type: "credit_messenger", step: 1000 },
+  voice_min:     { label: "Voice Minutes",           unit_price: 0.20,      min_qty: 100,   line_type: "credit_voice",    step: 100 },
+  sms_msg:       { label: "SMS Credits",             unit_price: 0.01,      min_qty: 2000,  line_type: "credit_sms",      step: 1000 },
+  ai_credit:     { label: "AI Credits",              unit_price: 0.01 / 30, min_qty: 90000, line_type: "credit_ai",       step: 90000, ai_bundle: true },
+  wa_msg:        { label: "WhatsApp Credits",        unit_price: 0.01,      min_qty: 2000,  line_type: "credit_wa",       step: 1000 },
+  rcs_msg:       { label: "RCS Credits",             unit_price: 0.01,      min_qty: 2000,  line_type: "credit_rcs",      step: 1000 },
+  messenger_msg: { label: "Messenger Credits",       unit_price: 0.01,      min_qty: 2000,  line_type: "credit_messenger", step: 1000 },
+  doctor_report: { label: "Revenue Doctor Reports",  unit_price: 0,         min_qty: 5,     line_type: "credit_doctor",   step: 5 },
 }
 
 function computeLineAmount(token_key: string, qty: number): number {
+  if (token_key === 'doctor_report') {
+    return DOCTOR_REPORT_BUNDLES[qty] ?? 0
+  }
   const cfg = CREDIT_CONFIG[token_key]
   if (!cfg) return 0
   if (cfg.ai_bundle) {
@@ -67,7 +78,7 @@ serve(async (req) => {
     const cfg = CREDIT_CONFIG[token_key as string]
     if (!cfg) {
       return new Response(
-        JSON.stringify({ error: "Invalid token_key. Must be one of: voice_min, sms_msg, ai_credit, wa_msg" }),
+        JSON.stringify({ error: "Invalid token_key. Must be one of: voice_min, sms_msg, ai_credit, wa_msg, rcs_msg, messenger_msg, doctor_report" }),
         { status: 400, headers: CORS },
       )
     }
@@ -77,6 +88,14 @@ serve(async (req) => {
     if (!Number.isInteger(qty) || qty < cfg.min_qty) {
       return new Response(
         JSON.stringify({ error: `Minimum quantity is ${cfg.min_qty}` }),
+        { status: 400, headers: CORS },
+      )
+    }
+
+    // For doctor_report, only fixed bundle sizes are allowed
+    if (token_key === 'doctor_report' && !DOCTOR_REPORT_BUNDLES[qty]) {
+      return new Response(
+        JSON.stringify({ error: "For doctor_report, valid bundle quantities are 5, 10, or 20" }),
         { status: 400, headers: CORS },
       )
     }
@@ -117,6 +136,11 @@ serve(async (req) => {
     const description = `${qty.toLocaleString()} ${cfg.label}`
     const ref = `GSC-${Date.now()}`
 
+    // Compute unit_amount for order_lines
+    const unit_amount = token_key === 'doctor_report'
+      ? (DOCTOR_REPORT_BUNDLES[qty] / qty)
+      : (cfg.ai_bundle ? (0.01 / 30) : cfg.unit_price)
+
     // 1. Create order
     const { data: order, error: orderErr } = await sb
       .from("orders")
@@ -142,7 +166,7 @@ serve(async (req) => {
         line_type: cfg.line_type,
         description,
         quantity: qty,
-        unit_amount: cfg.ai_bundle ? (0.01 / 30) : cfg.unit_price,
+        unit_amount,
         line_amount: total_amount,
         token_key,
         token_quantity: qty,

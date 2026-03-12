@@ -17,6 +17,8 @@ const CORS = {
 //     which returns the authoritative new balance used in the ledger entry.
 //     No read-compute-write race.
 //  4. AUDIT LOGGING: every grant + any amount mismatch is written to audit_events.
+//  5. DOCTOR REPORT SYNC: for doctor_report token, also calls grant_tokens_core_v1 to sync
+//     token_wallets so consume_tokens_v1 (runtime quota check) reads updated balance.
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -182,6 +184,22 @@ serve(async (req) => {
       await sb.from("credit_ledger")
         .update({ balance_after: new_balance })
         .eq("idempotency_key", line_idem_key)
+
+      // ── For doctor_report (org-scoped runtime token), also sync token_wallets ──
+      // so consume_tokens_v1 can read the updated balance during quota enforcement
+      if (token_key === 'doctor_report') {
+        await sb.rpc("grant_tokens_core_v1", {
+          p_org_id: org_id,
+          p_scope: "org",
+          p_user_id: null,
+          p_token_key: token_key,
+          p_amount: quantity,
+          p_idempotency_key: `tw:${line_idem_key}`,
+          p_metadata: { source: "fulfill_paid_order", billing_intent_id, order_line_id: line.id },
+        }).then(undefined, (e: unknown) =>
+          console.error("[fulfill-paid-order] token_wallets sync failed for doctor_report:", e)
+        )
+      }
 
       // ── Transition alert state to 'recovered' if balance crossed threshold ───
       const { data: alertStates } = await sb

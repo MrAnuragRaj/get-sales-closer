@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revenue Doctor | GetSalesCloser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        .hidden { display: none !important; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.07); }
+        .report-row { transition: background 0.15s, border-color 0.15s; border-left: 3px solid transparent; cursor: pointer; }
+        .report-row:hover { background: rgba(99,102,241,0.06); border-left-color: rgba(99,102,241,0.4); }
+        .report-row.active { background: rgba(99,102,241,0.12); border-left-color: #6366f1; }
+        .severity-high   { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+        .severity-medium { background: rgba(234,179,8,0.15);  color: #fde047; border: 1px solid rgba(234,179,8,0.3); }
+        .severity-low    { background: rgba(34,197,94,0.15);  color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .priority-high   { background: rgba(239,68,68,0.1);   color: #fca5a5; }
+        .priority-medium { background: rgba(99,102,241,0.1);  color: #a5b4fc; }
+        .priority-low    { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        .score-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+        .cat-bar { height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; }
+        .cat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+        .confidence-sufficient   { background: rgba(34,197,94,0.15);  color: #86efac; }
+        .confidence-partial      { background: rgba(234,179,8,0.15);  color: #fde047; }
+        .confidence-insufficient { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        .bundle-card { transition: border-color 0.15s, background 0.15s; cursor: pointer; border-radius: 12px; border: 2px solid; padding: 16px; text-align: center; }
+        .bundle-card.active { border-color: #6366f1; background: rgba(99,102,241,0.05); }
+        .bundle-card.inactive { border-color: rgba(255,255,255,0.1); background: transparent; }
+        .stage-indicator { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0; }
+        .stage-pending   { background: rgba(100,116,139,0.2); color: #64748b; }
+        .stage-active    { background: rgba(99,102,241,0.2);  color: #818cf8; }
+        .stage-completed { background: rgba(34,197,94,0.2);   color: #4ade80; }
+
+        @media print {
+            #auth-loader, #gen-modal, #buy-modal, #info-modal { display: none !important; }
+            .no-print { display: none !important; }
+            body { background: white !important; color: #111827 !important; overflow: visible !important; }
+            #page-content { overflow: visible !important; height: auto !important; }
+            .h-screen { height: auto !important; }
+            .overflow-hidden { overflow: visible !important; }
+            .w-72.shrink-0 { display: none !important; }
+            .flex-1.overflow-y-auto.bg-slate-950 { overflow: visible !important; }
+            #report-viewer { display: block !important; max-width: 100% !important; padding: 16px !important; }
+            .glass { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; backdrop-filter: none !important; }
+            .text-white { color: #111827 !important; }
+            .text-slate-300, .text-slate-400 { color: #4b5563 !important; }
+            .text-slate-500, .text-slate-600 { color: #6b7280 !important; }
+            .severity-high   { background: #fee2e2 !important; color: #b91c1c !important; }
+            .severity-medium { background: #fef9c3 !important; color: #92400e !important; }
+            .severity-low    { background: #dcfce7 !important; color: #166534 !important; }
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+<!-- ── AUTH LOADER ─────────────────────────────────────────────────────── -->
+<div id="auth-loader" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-50">
+    <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 text-4xl mb-4"></i>
+    <p class="text-slate-400 text-sm font-bold tracking-widest uppercase">Loading Revenue Doctor…</p>
+</div>
+
+<!-- ── GENERATE MODAL ──────────────────────────────────────────────────── -->
+<div id="gen-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-center justify-center p-4" onclick="if(event.target===this)closeGenModal()">
+    <div class="bg-slate-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div id="gen-idle">
+            <div class="flex items-center gap-3 mb-6">
+                <i class="fa-solid fa-stethoscope text-indigo-400 text-2xl"></i>
+                <h2 class="text-xl font-bold">Generate New Report</h2>
+            </div>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+                The Revenue Doctor will analyze your pipeline, conversations, funnel, and automation health for the selected window.
+                This uses <strong class="text-white">1 report credit</strong>.
+            </p>
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Analysis Window</label>
+                <select id="gen-window" class="w-full bg-slate-700 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                    <option value="weekly">Weekly (last 7 days)</option>
+                    <option value="monthly">Monthly (last 30 days)</option>
+                    <option value="daily">Daily (last 24 hours)</option>
+                </select>
+            </div>
+            <div class="bg-slate-700/50 rounded-lg px-4 py-3 mb-6 flex items-center justify-between">
+                <span class="text-sm text-slate-400">Reports remaining</span>
+                <span id="gen-quota-display" class="text-white font-bold">—</span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeGenModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-lg text-sm transition">Cancel</button>
+                <button id="gen-confirm-btn" onclick="confirmGenerate()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate
+                </button>
+            </div>
+            <p id="gen-error" class="hidden mt-4 text-red-400 text-sm text-center"></p>
+        </div>
+
+        <!-- Staged loading state -->
+        <div id="gen-running" class="hidden py-4">
+            <div class="text-center mb-6">
+                <p class="text-white font-bold mb-1">Generating Report…</p>
+                <p class="text-slate-500 text-xs">AI pipeline diagnosis in progress</p>
+            </div>
+            <!-- Progress bar -->
+            <div class="bg-slate-700 rounded-full h-1.5 mb-6 overflow-hidden">
+                <div id="gen-progress" class="h-full bg-indigo-500 rounded-full transition-all duration-700" style="width:5%"></div>
+            </div>
+            <!-- Stage indicators -->
+            <div class="space-y-3">
+                <div class="flex items-center gap-3" id="stage-0">
+                    <div class="stage-indicator stage-active"><i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i></div>
+                    <span class="text-sm text-slate-300">Analyzing lead response patterns…</span>
+                </div>
+                <div class="flex items-center gap-3" id="stage-1">
+                    <div class="stage-indicator stage-pending"><i class="fa-solid fa-circle text-[8px]"></i></div>
+                    <span class="text-sm text-slate-500">Reviewing conversations…</span>
+                </div>
+                <div class="flex items-center gap-3" id="stage-2">
+                    <div class="stage-indicator stage-pending"><i class="fa-solid fa-circle text-[8px]"></i></div>
+                    <span class="text-sm text-slate-500">Inspecting funnel leaks…</span>
+                </div>
+                <div class="flex items-center gap-3" id="stage-3">
+                    <div class="stage-indicator stage-pending"><i class="fa-solid fa-circle text-[8px]"></i></div>
+                    <span class="text-sm text-slate-500">Building revenue diagnosis…</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="gen-success" class="hidden text-center py-4">
+            <i class="fa-solid fa-circle-check text-green-400 text-3xl mb-4"></i>
+            <p class="text-white font-bold mb-2">Report Ready</p>
+            <p class="text-slate-400 text-sm mb-6">Your Revenue Doctor report has been generated.</p>
+            <button onclick="closeGenModal()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 rounded-lg text-sm transition">View Report</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── BUY MORE REPORTS MODAL ───────────────────────────────────────────── -->
+<div id="buy-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-center justify-center p-4" onclick="if(event.target===this)closeBuyModal()">
+    <div class="bg-slate-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-ticket text-indigo-400 text-xl"></i>
+                <h2 class="text-xl font-bold">Buy More Reports</h2>
+            </div>
+            <button onclick="closeBuyModal()" class="text-slate-500 hover:text-white transition text-lg leading-none">&times;</button>
+        </div>
+        <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+            Revenue Doctor credits never expire. Each report uses 1 credit regardless of analysis window.
+        </p>
+
+        <!-- Bundle cards -->
+        <div class="grid grid-cols-3 gap-3 mb-6">
+            <!-- 5 reports -->
+            <div class="bundle-card inactive" data-qty="5" onclick="selectBundle(5, 79)">
+                <div class="text-2xl font-black text-white mb-1">5</div>
+                <div class="text-xs text-slate-400 mb-3">reports</div>
+                <div class="text-lg font-bold text-white">$79</div>
+                <div class="text-[10px] text-slate-500 mt-1">$15.80 / report</div>
+            </div>
+            <!-- 10 reports (popular) -->
+            <div class="bundle-card active" data-qty="10" onclick="selectBundle(10, 149)">
+                <div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">Popular</div>
+                <div class="text-2xl font-black text-white mb-1">10</div>
+                <div class="text-xs text-slate-400 mb-3">reports</div>
+                <div class="text-lg font-bold text-white">$149</div>
+                <div class="text-[10px] text-slate-500 mt-1">$14.90 / report</div>
+            </div>
+            <!-- 20 reports (best value) -->
+            <div class="bundle-card inactive" data-qty="20" onclick="selectBundle(20, 249)">
+                <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">Best Value</div>
+                <div class="text-2xl font-black text-white mb-1">20</div>
+                <div class="text-xs text-slate-400 mb-3">reports</div>
+                <div class="text-lg font-bold text-white">$249</div>
+                <div class="text-[10px] text-slate-500 mt-1">$12.45 / report</div>
+            </div>
+        </div>
+
+        <div class="bg-slate-700/40 rounded-xl px-4 py-3 mb-6 text-xs text-slate-400 flex gap-2 items-start">
+            <i class="fa-solid fa-circle-info text-slate-500 mt-0.5 shrink-0"></i>
+            <span>Credits never expire and work across all analysis windows (daily, weekly, monthly). Reports include full pipeline diagnosis, root cause analysis, and prioritised fix recommendations.</span>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="closeBuyModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-lg text-sm transition">Cancel</button>
+            <button id="buy-confirm-btn" onclick="purchaseBundle()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+                <i class="fa-solid fa-credit-card mr-2"></i><span id="buy-btn-label">Buy 10 Reports — $149</span>
+            </button>
+        </div>
+        <p id="buy-error" class="hidden mt-4 text-red-400 text-sm text-center"></p>
+    </div>
+</div>
+
+<!-- ── INFO MODAL (Pricing explanation) ────────────────────────────────── -->
+<div id="info-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-center justify-center p-4" onclick="if(event.target===this)closeInfoModal()">
+    <div class="bg-slate-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8 max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-stethoscope text-indigo-400 text-xl"></i>
+                <h2 class="text-xl font-bold">About Revenue Doctor</h2>
+            </div>
+            <button onclick="closeInfoModal()" class="text-slate-500 hover:text-white transition text-lg leading-none">&times;</button>
+        </div>
+
+        <div class="space-y-6 text-sm">
+            <div>
+                <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass-chart text-indigo-400 text-xs"></i>
+                    What Revenue Doctor Analyzes
+                </h3>
+                <p class="text-slate-400 mb-3 leading-relaxed">Revenue Doctor analyzes your entire lead pipeline, conversation quality, response speed, and funnel leaks to identify exactly where revenue is being lost. Most teams discover 2–4 high-impact fixes within the first report.</p>
+                <ul class="space-y-1.5 text-slate-400">
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Lead response time patterns and first-touch conversion rates</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Conversation quality scores across all channels</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Funnel stage drop-off points and root causes</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>AI automation health and execution failures</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Channel performance comparison (SMS, WhatsApp, Voice, Messenger)</li>
+                </ul>
+            </div>
+
+            <div class="border-t border-white/5 pt-6">
+                <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-trend-up text-emerald-400 text-xs"></i>
+                    How It Improves Revenue
+                </h3>
+                <ul class="space-y-1.5 text-slate-400">
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Pinpoints the single highest-leverage fix for immediate action</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Provides root-cause analysis — not just surface-level metrics</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Generates prioritised action plans with effort vs. impact estimates</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Tracks improvement across report runs (weekly / monthly cadence)</li>
+                </ul>
+            </div>
+
+            <div class="border-t border-white/5 pt-6">
+                <h3 class="font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-yellow-400 text-xs"></i>
+                    Typical Results
+                </h3>
+                <ul class="space-y-1.5 text-slate-400">
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Teams using monthly reports see 20–35% improvement in lead-to-appointment rate within 60 days</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Average of 3 actionable findings per report</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Each report identifies the top revenue leak causing the most deal loss</li>
+                    <li class="flex gap-2"><i class="fa-solid fa-circle text-slate-600 mt-1.5 text-[4px] shrink-0"></i>Most teams recover the cost of their report bundle in the first week of implementing fixes</li>
+                </ul>
+            </div>
+
+            <div class="border-t border-white/5 pt-6 bg-slate-700/30 rounded-xl p-4">
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    <i class="fa-solid fa-lock text-slate-600 mr-1.5"></i>
+                    Reports are private to your organisation. Data is analyzed in-context and not stored by the AI model. Each report credit is non-transferable and non-refundable after generation begins.
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+            <button onclick="closeInfoModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-lg text-sm transition">Close</button>
+            <button onclick="closeInfoModal(); openBuyModal();" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+                <i class="fa-solid fa-ticket mr-2"></i>Buy Report Credits
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── PAGE CONTENT ────────────────────────────────────────────────────── -->
+<div id="page-content" class="hidden h-screen flex flex-col w-full">
+
+    <!-- Navbar -->
+    <div class="h-14 border-b border-white/5 bg-slate-900 flex items-center justify-between px-6 shrink-0 no-print">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-stethoscope text-indigo-400 text-lg"></i>
+            <h1 class="text-base font-bold tracking-tight">Revenue Doctor</h1>
+            <span id="nav-quota-badge" class="hidden text-xs bg-slate-800 border border-white/10 text-slate-400 px-2.5 py-0.5 rounded-full">
+                <i class="fa-solid fa-ticket text-indigo-400 mr-1"></i>
+                <span id="nav-quota-num">—</span> reports left
+            </span>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Buy more reports (shown when quota = 0) -->
+            <button id="buy-reports-btn" onclick="openBuyModal()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-ticket"></i> Buy More Reports
+            </button>
+            <button id="generate-btn" onclick="openGenModal()"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate New Report
+            </button>
+            <button onclick="openInfoModal()" class="text-slate-500 hover:text-slate-300 text-sm transition" title="About Revenue Doctor">
+                <i class="fa-solid fa-circle-question"></i>
+            </button>
+            <a href="dashboard.html" class="text-slate-500 hover:text-white text-xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Main split -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- ── LEFT: History Sidebar ─────────────────────────────────── -->
+        <div class="w-72 shrink-0 border-r border-white/5 bg-slate-900 flex flex-col no-print">
+            <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Report History</h2>
+                <button id="load-more-btn" onclick="loadMoreReports()" class="hidden text-xs text-indigo-400 hover:text-indigo-300 transition">
+                    Load more
+                </button>
+            </div>
+
+            <!-- Window filter -->
+            <div class="px-4 pt-3 pb-2">
+                <select id="filter-window" onchange="filterChanged()" class="w-full bg-slate-800 border border-white/8 text-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-indigo-500">
+                    <option value="">All Windows</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+
+            <!-- List states -->
+            <div id="list-loading" class="flex-1 flex flex-col items-center justify-center text-slate-600 gap-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl"></i>
+                <span class="text-xs">Loading history…</span>
+            </div>
+
+            <div id="list-empty" class="hidden flex-1 flex flex-col items-center justify-center text-slate-600 gap-3 px-6 text-center">
+                <i class="fa-solid fa-file-medical text-3xl opacity-40"></i>
+                <p class="text-sm font-medium text-slate-500">No reports yet</p>
+                <p class="text-xs text-slate-600">Click <strong class="text-slate-500">Generate New Report</strong> to run your first Revenue Doctor diagnosis.</p>
+            </div>
+
+            <div id="list-error" class="hidden flex-1 flex flex-col items-center justify-center text-slate-600 gap-3 px-6 text-center">
+                <i class="fa-solid fa-triangle-exclamation text-yellow-600 text-2xl"></i>
+                <p class="text-xs text-slate-500">Failed to load report history.</p>
+                <button onclick="loadReportList(true)" class="text-xs text-indigo-400 hover:text-indigo-300">Retry</button>
+            </div>
+
+            <div id="report-list" class="hidden flex-1 overflow-y-auto"></div>
+        </div>
+
+        <!-- ── RIGHT: Report Viewer ──────────────────────────────────── -->
+        <div class="flex-1 overflow-y-auto bg-slate-950 relative">
+
+            <!-- Empty / select prompt -->
+            <div id="viewer-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-4">
+                <i class="fa-solid fa-stethoscope text-5xl opacity-20"></i>
+                <p class="text-slate-500 text-sm">Select a report from the history to view the full diagnosis.</p>
+                <button onclick="openGenModal()" class="mt-2 text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-4 py-2 rounded-lg transition">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate First Report
+                </button>
+            </div>
+
+            <!-- Report loading -->
+            <div id="viewer-loading" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-indigo-400 text-3xl"></i>
+                <p class="text-xs text-slate-500">Loading report…</p>
+            </div>
+
+            <!-- Report error -->
+            <div id="viewer-error" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-3">
+                <i class="fa-solid fa-triangle-exclamation text-yellow-600 text-2xl"></i>
+                <p class="text-sm text-slate-500">Failed to load report.</p>
+                <button onclick="retryViewReport()" class="text-xs text-indigo-400 hover:text-indigo-300">Retry</button>
+            </div>
+
+            <!-- Report content -->
+            <div id="report-viewer" class="hidden max-w-4xl mx-auto px-8 py-8 space-y-8"></div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+// ── STATE ───────────────────────────────────────────────────────────────────
+let _sb           = null;
+let _user         = null;
+let _orgId        = null;
+let _jwt          = null;
+let _reports      = [];        // compact list rows
+let _cursor       = null;      // next_cursor for pagination
+let _hasMore      = false;
+let _activeId     = null;      // selected report_id
+let _quota        = null;      // reports remaining
+let _currentReport = null;     // full raw report object currently displayed
+let _selectedBundle = { qty: 10, price: 149 };  // default buy bundle
+let _stageIdx     = 0;
+let _stageInterval = null;
+
+const BASE_URL = "https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1";
+
+const STAGE_LABELS = [
+    "Analyzing lead response patterns…",
+    "Reviewing conversations…",
+    "Inspecting funnel leaks…",
+    "Building revenue diagnosis…",
+];
+const STAGE_PROGRESS = [20, 45, 65, 85];
+
+// ── BOOT ────────────────────────────────────────────────────────────────────
+requireAuth({
+    requireOnboarding: false,
+    onAuthenticated: async (profile, user, sb) => {
+        _sb   = sb;
+        _user = user;
+
+        const { data: mem } = await sb.from('org_members')
+            .select('org_id')
+            .eq('user_id', user.id)
+            .limit(1);
+
+        if (!mem || mem.length === 0) {
+            if (!profile.is_admin) {
+                showFatalError('No organisation membership found.');
+                return;
+            }
+        } else {
+            _orgId = mem[0].org_id;
+        }
+
+        const { data: { session } } = await sb.auth.getSession();
+        _jwt = session?.access_token ?? '';
+
+        document.getElementById('page-content').classList.remove('hidden');
+        await Promise.all([loadReportList(true), loadQuota()]);
+
+        // Deep-link: auto-select report from URL
+        const urlReportId = new URLSearchParams(window.location.search).get('report');
+        if (urlReportId) {
+            selectReport(urlReportId);
+        }
+    }
+});
+
+// ── JWT REFRESH HELPER ──────────────────────────────────────────────────────
+async function getFreshJwt() {
+    const { data: { session } } = await _sb.auth.getSession();
+    return session?.access_token ?? _jwt;
+}
+
+// ── QUOTA ───────────────────────────────────────────────────────────────────
+async function loadQuota() {
+    try {
+        const { data } = await _sb
+            .from('token_wallets')
+            .select('balance')
+            .eq('org_id', _orgId)
+            .eq('token_key', 'doctor_report')
+            .eq('scope', 'org')
+            .is('user_id', null)
+            .maybeSingle();
+
+        _quota = data ? Math.floor(Number(data.balance)) : 0;
+        renderQuota();
+    } catch (_) {
+        // Non-fatal — quota display is informational
+    }
+}
+
+function renderQuota() {
+    const badge  = document.getElementById('nav-quota-badge');
+    const num    = document.getElementById('nav-quota-num');
+    const genNum = document.getElementById('gen-quota-display');
+    const buyBtn = document.getElementById('buy-reports-btn');
+
+    if (_quota !== null) {
+        num.textContent    = _quota;
+        genNum.textContent = _quota;
+        badge.classList.remove('hidden');
+
+        if (_quota === 0) {
+            badge.className = 'text-xs bg-slate-800 border border-red-500/30 text-red-400 px-2.5 py-0.5 rounded-full';
+            num.textContent = '0 — quota exhausted';
+            if (buyBtn) buyBtn.classList.remove('hidden');
+        } else {
+            badge.className = 'text-xs bg-slate-800 border border-white/10 text-slate-400 px-2.5 py-0.5 rounded-full';
+            if (buyBtn) buyBtn.classList.add('hidden');
+        }
+    }
+}
+
+// ── REPORT LIST ─────────────────────────────────────────────────────────────
+async function loadReportList(reset = false) {
+    if (reset) {
+        _reports  = [];
+        _cursor   = null;
+        _hasMore  = false;
+        _activeId = null;
+        showListState('loading');
+        history.replaceState(null, '', window.location.pathname);
+    }
+
+    try {
+        const jwt   = await getFreshJwt();
+        const wf    = document.getElementById('filter-window').value;
+        const limit = 15;
+
+        let url = `${BASE_URL}/revenue-doctor-reports?org_id=${_orgId}&limit=${limit}`;
+        if (wf)      url += `&window_type=${wf}`;
+        if (_cursor) url += `&before=${encodeURIComponent(_cursor)}`;
+
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'List fetch failed');
+
+        _reports = reset ? data.reports : [..._reports, ...data.reports];
+        _cursor  = data.next_cursor;
+        _hasMore = data.has_more;
+
+        renderList();
+    } catch (e) {
+        console.error('[RD] List error:', e);
+        if (reset) showListState('error');
+    }
+}
+
+function filterChanged() {
+    loadReportList(true);
+}
+
+function loadMoreReports() {
+    if (_hasMore && _cursor) loadReportList(false);
+}
+
+function renderList() {
+    if (_reports.length === 0) {
+        showListState('empty');
+        document.getElementById('load-more-btn').classList.add('hidden');
+        return;
+    }
+
+    showListState('list');
+    document.getElementById('load-more-btn').classList.toggle('hidden', !_hasMore);
+
+    const container = document.getElementById('report-list');
+    container.innerHTML = _reports.map(r => {
+        const score      = r.overall_score !== null ? Math.round(r.overall_score) : '—';
+        const scoreColor = scoreToColor(r.overall_score);
+        const conf       = r.data_confidence ?? 'sufficient';
+        const date       = formatDate(r.generated_at);
+        const wl         = windowLabel(r.window_type);
+        const isActive   = r.id === _activeId;
+        const summary    = (r.executive_summary || '').slice(0, 90) + (r.executive_summary?.length > 90 ? '…' : '');
+
+        return `
+        <div class="report-row px-4 py-3.5 ${isActive ? 'active' : ''}" data-id="${r.id}" onclick="selectReport('${r.id}')">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+                <span class="text-xs font-bold ${scoreColor}">${score}</span>
+                <span class="text-xs text-slate-600">${wl}</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed mb-2 line-clamp-2">${escapeHtml(summary) || 'No summary.'}</p>
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-600">${date}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded confidence-${conf}">${conf}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function showListState(state) {
+    ['list-loading','list-empty','list-error','report-list'].forEach(id => {
+        document.getElementById(id).classList.toggle('hidden', !id.includes(state) && !(id === 'report-list' && state === 'list'));
+    });
+}
+
+// ── SINGLE REPORT ────────────────────────────────────────────────────────────
+let _lastSelectedId = null;
+
+async function selectReport(reportId) {
+    if (reportId === _activeId) return;
+    _activeId       = reportId;
+    _lastSelectedId = reportId;
+
+    // Update URL for shareability
+    history.replaceState(null, '', '?report=' + reportId);
+
+    document.querySelectorAll('.report-row').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === reportId);
+    });
+
+    showViewerState('loading');
+
+    try {
+        const jwt = await getFreshJwt();
+        const res = await fetch(
+            `${BASE_URL}/revenue-doctor-reports?org_id=${_orgId}&report_id=${reportId}`,
+            { headers: { Authorization: `Bearer ${jwt}` } }
+        );
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Fetch failed');
+
+        _currentReport = data;
+        renderReport(data);
+        showViewerState('report');
+    } catch (e) {
+        console.error('[RD] Report fetch error:', e);
+        showViewerState('error');
+    }
+}
+
+function retryViewReport() {
+    if (_lastSelectedId) selectReport(_lastSelectedId);
+}
+
+function showViewerState(state) {
+    document.getElementById('viewer-empty').classList.toggle('hidden', state !== 'empty');
+    document.getElementById('viewer-loading').classList.toggle('hidden', state !== 'loading');
+    document.getElementById('viewer-error').classList.toggle('hidden', state !== 'error');
+    document.getElementById('report-viewer').classList.toggle('hidden', state !== 'report');
+}
+
+// ── REPORT RENDERER ──────────────────────────────────────────────────────────
+function renderReport(r) {
+    _currentReport = r;
+    const rc   = r.report_content  || {};
+    const hs   = r.health_snapshot || {};
+    const cats = hs.category_scores || {};
+    const conf = hs.data_confidence || 'sufficient';
+    const score = r.overall_score !== null ? Math.round(Number(r.overall_score)) : null;
+    const scoreColor = scoreToColor(r.overall_score);
+
+    const viewer = document.getElementById('report-viewer');
+    viewer.innerHTML = `
+
+    <!-- Header -->
+    <div class="flex items-start justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <i class="fa-solid fa-stethoscope text-indigo-400"></i>
+                <h2 class="text-lg font-bold">Revenue Doctor Report</h2>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">${windowLabel(r.window_type)}</span>
+            </div>
+            <p class="text-xs text-slate-500">
+                ${formatDate(r.generated_at)} &nbsp;·&nbsp;
+                ${r.window_start ? r.window_start.split('T')[0] : ''} → ${r.window_end ? r.window_end.split('T')[0] : ''}
+                &nbsp;·&nbsp; <span class="text-slate-600">${r.model_used || 'gpt-4o'}</span>
+                &nbsp;·&nbsp; ${r.input_token_count || 0} in / ${r.output_token_count || 0} out tokens
+            </p>
+        </div>
+        <div class="flex items-center gap-2 no-print shrink-0">
+            <span class="text-xs px-2 py-1 rounded-full confidence-${conf}">${conf} data</span>
+            <button onclick="copyShareLink('${r.id}')" id="share-btn-${r.id}" class="text-xs text-slate-500 hover:text-indigo-400 transition px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/10 flex items-center gap-1.5">
+                <i class="fa-solid fa-link"></i> <span id="share-btn-label-${r.id}">Copy Link</span>
+            </button>
+            <button onclick="exportMarkdown()" class="text-xs text-slate-500 hover:text-white transition px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/10 flex items-center gap-1.5">
+                <i class="fa-solid fa-file-lines"></i> MD
+            </button>
+            <button onclick="exportPdf()" class="text-xs text-slate-500 hover:text-white transition px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/10 flex items-center gap-1.5">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- ① Health Snapshot -->
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5">
+            <i class="fa-solid fa-heart-pulse mr-2 text-rose-400"></i>Revenue Health Snapshot
+        </h3>
+        <div class="flex items-center gap-6 mb-6">
+            <div class="text-center shrink-0">
+                <div class="text-4xl font-black ${scoreColor}">${score ?? '—'}</div>
+                <div class="text-xs text-slate-500 mt-1">Overall Score</div>
+            </div>
+            <div class="flex-1 space-y-3">
+                ${renderCategoryBar('Lead Response',        cats.lead_response)}
+                ${renderCategoryBar('Conversation Quality', cats.conversation_quality)}
+                ${renderCategoryBar('Channel Health',       cats.channel_health)}
+                ${renderCategoryBar('Conversion Health',    cats.conversion_health)}
+            </div>
+        </div>
+    </div>
+
+    <!-- ① Executive Summary -->
+    ${renderSection('fa-align-left text-blue-400', 'Executive Summary',
+        `<p class="text-slate-300 leading-relaxed text-sm">${escapeHtml(rc.executive_summary || 'No summary generated.')}</p>`
+    )}
+
+    <!-- ② Key Problems -->
+    ${renderSection('fa-triangle-exclamation text-red-400', 'Key Problems',
+        renderProblems(rc.problems)
+    )}
+
+    <!-- ③ Root Causes -->
+    ${renderSection('fa-magnifying-glass-chart text-orange-400', 'Root Causes',
+        renderRootCauses(rc.root_causes)
+    )}
+
+    <!-- ④ Lead Psychology / Conversation Findings -->
+    ${renderSection('fa-comments text-purple-400', 'Lead Psychology Insights',
+        renderConversationFindings(rc.conversation_findings)
+    )}
+
+    <!-- ⑤ Funnel Analysis -->
+    ${renderSection('fa-filter text-cyan-400', 'Funnel Analysis',
+        renderFunnelAnalysis(rc.funnel_analysis)
+    )}
+
+    <!-- ⑥ Recommended Actions -->
+    ${renderSection('fa-list-check text-emerald-400', 'Recommended Actions',
+        renderRecommendations(rc.recommendations)
+    )}
+
+    <!-- ⑦ Top 3 Immediate Fixes -->
+    ${renderSection('fa-bolt text-yellow-400', 'Top 3 Immediate Fixes',
+        renderTop3(rc.top_3_actions)
+    )}
+
+    <!-- ⑧ Expected Revenue Impact -->
+    ${renderSection('fa-arrow-trend-up text-green-400', 'Expected Revenue Impact',
+        renderImpact(rc.expected_impact)
+    )}
+
+    <!-- Enterprise Team Intelligence (only rendered when present) -->
+    ${rc.team_overview ? renderSection('fa-users text-violet-400', 'Team Performance Overview',
+        renderTeamOverview(rc.team_overview)
+    ) : ''}
+
+    ${rc.users_requiring_attention?.length ? renderSection('fa-triangle-exclamation text-red-400', 'Agents Requiring Attention',
+        renderUsersRequiringAttention(rc.users_requiring_attention)
+    ) : ''}
+
+    ${rc.coaching_priorities?.length ? renderSection('fa-chalkboard-user text-indigo-400', 'Coaching Priorities',
+        renderCoachingPriorities(rc.coaching_priorities)
+    ) : ''}
+
+    <!-- Confidence Notes -->
+    ${rc.confidence_notes ? `
+    <div class="border border-white/5 rounded-xl p-4 flex gap-3 text-xs text-slate-500">
+        <i class="fa-solid fa-circle-info text-slate-600 mt-0.5 shrink-0"></i>
+        <p>${escapeHtml(rc.confidence_notes)}</p>
+    </div>` : ''}
+    `;
+}
+
+function renderSection(icon, title, body) {
+    return `
+    <div class="glass rounded-xl p-6">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5">
+            <i class="fa-solid ${icon} mr-2"></i>${title}
+        </h3>
+        ${body}
+    </div>`;
+}
+
+function renderCategoryBar(label, value) {
+    const v   = value !== undefined && value !== null ? Math.round(Number(value)) : null;
+    const pct = v !== null ? v : 0;
+    const col = pct >= 80 ? '#22c55e' : pct >= 60 ? '#eab308' : '#ef4444';
+    return `
+    <div>
+        <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-400">${label}</span>
+            <span class="font-bold" style="color:${col}">${v !== null ? v : '—'}</span>
+        </div>
+        <div class="cat-bar">
+            <div class="cat-bar-fill" style="width:${pct}%;background:${col}"></div>
+        </div>
+    </div>`;
+}
+
+function renderProblems(problems) {
+    if (!problems?.length) return '<p class="text-slate-600 text-sm">No problems identified.</p>';
+    return problems.map(p => `
+    <div class="mb-4 last:mb-0">
+        <div class="flex items-start gap-3">
+            <span class="severity-${p.severity || 'low'} text-xs font-bold px-2 py-0.5 rounded shrink-0 mt-0.5">${(p.severity || 'low').toUpperCase()}</span>
+            <div class="flex-1">
+                <p class="text-sm font-semibold text-white mb-1">${escapeHtml(p.title || '')}</p>
+                <p class="text-xs text-slate-400 mb-2">${escapeHtml(p.impact || '')}</p>
+                ${p.evidence?.length ? `<ul class="space-y-1">${p.evidence.map(e => `<li class="text-xs text-slate-500 flex gap-2"><i class="fa-solid fa-circle text-slate-700 mt-1.5 text-[4px] shrink-0"></i>${escapeHtml(e)}</li>`).join('')}</ul>` : ''}
+            </div>
+        </div>
+        ${problems.indexOf(p) < problems.length - 1 ? '<div class="border-t border-white/5 mt-4"></div>' : ''}
+    </div>`).join('');
+}
+
+function renderRootCauses(causes) {
+    if (!causes?.length) return '<p class="text-slate-600 text-sm">No root causes identified.</p>';
+    const catColors = {
+        messaging:     'text-purple-400 bg-purple-400/10',
+        timing:        'text-blue-400 bg-blue-400/10',
+        channel:       'text-cyan-400 bg-cyan-400/10',
+        'follow-up':   'text-orange-400 bg-orange-400/10',
+        qualification: 'text-yellow-400 bg-yellow-400/10',
+        automation:    'text-emerald-400 bg-emerald-400/10',
+    };
+    return `<div class="space-y-4">${causes.map(c => {
+        const cc = catColors[c.category] || 'text-slate-400 bg-slate-400/10';
+        return `
+        <div class="flex gap-3">
+            <span class="text-xs font-bold px-2 py-0.5 rounded ${cc} shrink-0 h-fit mt-0.5">${escapeHtml(c.category || '')}</span>
+            <div>
+                <p class="text-sm font-semibold text-white mb-0.5">${escapeHtml(c.cause || '')}</p>
+                <p class="text-xs text-slate-400 leading-relaxed">${escapeHtml(c.detail || '')}</p>
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+function renderConversationFindings(findings) {
+    if (!findings?.length) return '<p class="text-slate-600 text-sm">No conversation patterns found in the sampled data.</p>';
+    return `<div class="space-y-5">${findings.map(f => `
+    <div>
+        <p class="text-sm font-semibold text-white mb-1">${escapeHtml(f.finding || '')}</p>
+        <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-quote-left mr-1 text-slate-700"></i>${escapeHtml(f.supporting || '')}</p>
+        <div class="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-3 py-2">
+            <p class="text-xs text-indigo-300"><i class="fa-solid fa-arrow-right mr-1.5"></i>${escapeHtml(f.recommendation || '')}</p>
+        </div>
+    </div>`).join('<div class="border-t border-white/5"></div>')}</div>`;
+}
+
+function renderFunnelAnalysis(funnel) {
+    if (!funnel) return '<p class="text-slate-600 text-sm">No funnel data available.</p>';
+    return `
+    <div class="mb-4">
+        <p class="text-sm text-slate-300 mb-3">${escapeHtml(funnel.summary || '')}</p>
+        ${funnel.biggest_leak ? `<div class="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
+            <p class="text-xs text-red-400"><i class="fa-solid fa-arrow-down mr-1.5"></i>Biggest leak: ${escapeHtml(funnel.biggest_leak)}</p>
+        </div>` : ''}
+        ${funnel.stage_insights?.length ? `
+        <ul class="space-y-2">${funnel.stage_insights.map(i => `
+            <li class="flex gap-2 text-xs text-slate-400">
+                <i class="fa-solid fa-circle text-slate-700 mt-1.5 text-[4px] shrink-0"></i>
+                ${escapeHtml(i)}
+            </li>`).join('')}</ul>` : ''}
+    </div>`;
+}
+
+function renderRecommendations(recs) {
+    if (!recs?.length) return '<p class="text-slate-600 text-sm">No recommendations generated.</p>';
+    return `<div class="space-y-3">${recs.map((r, i) => `
+    <div class="flex gap-3 items-start">
+        <span class="text-xs font-bold text-slate-600 w-5 shrink-0 mt-0.5">${i + 1}.</span>
+        <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <p class="text-sm font-medium text-white">${escapeHtml(r.action || '')}</p>
+                <span class="text-xs px-1.5 py-0.5 rounded priority-${r.priority || 'low'} font-bold">${(r.priority || '').toUpperCase()}</span>
+                ${r.channel && r.channel !== 'all' ? `<span class="text-xs text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">${escapeHtml(r.channel)}</span>` : ''}
+            </div>
+            <p class="text-xs text-slate-500">${escapeHtml(r.rationale || '')}</p>
+        </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderTop3(actions) {
+    if (!actions?.length) return '<p class="text-slate-600 text-sm">No actions generated.</p>';
+    const colors = ['bg-yellow-500/10 border-yellow-500/30', 'bg-indigo-500/10 border-indigo-500/30', 'bg-slate-700/50 border-white/10'];
+    const nums   = ['1st', '2nd', '3rd'];
+    return `<div class="space-y-3">${actions.slice(0, 3).map((a, i) => `
+    <div class="border rounded-xl p-4 ${colors[i] || colors[2]}">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-black text-slate-400">${nums[i]}</span>
+            <span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">Effort: ${a.effort || '—'}</span>
+        </div>
+        <p class="text-sm font-semibold text-white mb-1.5">${escapeHtml(a.action || '')}</p>
+        <p class="text-xs text-slate-400"><i class="fa-solid fa-bullseye mr-1.5 text-slate-600"></i>${escapeHtml(a.expected_result || '')}</p>
+    </div>`).join('')}</div>`;
+}
+
+function renderImpact(impact) {
+    if (!impact) return '<p class="text-slate-600 text-sm">No impact projection available.</p>';
+    return `
+    <div class="space-y-4">
+        <p class="text-sm text-slate-300 leading-relaxed">${escapeHtml(impact.summary || '')}</p>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                <p class="text-xs text-slate-500 mb-1.5">Conversion Lift</p>
+                <p class="text-sm font-semibold text-green-400">${escapeHtml(impact.conversion_lift || '—')}</p>
+            </div>
+            <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                <p class="text-xs text-slate-500 mb-1.5">Revenue Impact</p>
+                <p class="text-sm font-semibold text-emerald-400">${escapeHtml(impact.revenue_impact || '—')}</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ── ENTERPRISE TEAM INTELLIGENCE RENDERERS ───────────────────────────────────
+
+function renderTeamOverview(overview) {
+    if (!overview) return '';
+    const attnCount = overview.requires_attention || 0;
+    const attnBadge = attnCount > 0
+        ? `<span class="text-xs font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 ml-2">${attnCount} require attention</span>`
+        : `<span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 ml-2">Team on track</span>`;
+    return `
+    <div class="space-y-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-slate-400 text-sm">${overview.agents_total} agent${overview.agents_total === 1 ? '' : 's'}</span>
+            ${attnBadge}
+            ${overview.top_performer_name ? `<span class="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20"><i class="fa-solid fa-star mr-1"></i>Top: ${escapeHtml(overview.top_performer_name)}</span>` : ''}
+        </div>
+        <p class="text-sm text-slate-300 leading-relaxed">${escapeHtml(overview.summary || '')}</p>
+    </div>`;
+}
+
+function renderUsersRequiringAttention(users) {
+    if (!users?.length) return '<p class="text-slate-600 text-sm">No agents flagged for immediate attention.</p>';
+    const flagLabels = {
+        slow_response:    'Slow Response',
+        no_response:      'No Response',
+        high_intent_loss: 'Intent Loss',
+        pricing_leak:     'Pricing Leak',
+        booking_weakness: 'Booking Weakness',
+        one_sided:        'One-Sided',
+    };
+    return `<div class="space-y-4">${users.map(u => `
+    <div class="border border-red-500/20 bg-red-500/5 rounded-xl p-4">
+        <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-exclamation text-red-400 text-sm"></i>
+                <span class="text-sm font-semibold text-white">${escapeHtml(u.display_name || '')}</span>
+            </div>
+            <div class="flex flex-wrap gap-1 shrink-0">
+                ${(u.flags || []).map(f => `<span class="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium">${escapeHtml(flagLabels[f] || f)}</span>`).join('')}
+            </div>
+        </div>
+        <p class="text-xs text-slate-400 mb-2">${escapeHtml(u.top_issue || '')}</p>
+        <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-2">
+            <p class="text-xs text-orange-300"><i class="fa-solid fa-bullhorn mr-1.5"></i>${escapeHtml(u.coaching_note || '')}</p>
+        </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderCoachingPriorities(priorities) {
+    if (!priorities?.length) return '<p class="text-slate-600 text-sm">No coaching priorities identified.</p>';
+    return `<div class="space-y-3">${priorities.map((p, i) => `
+    <div class="flex gap-3 items-start border-b border-white/5 pb-3 last:border-0 last:pb-0">
+        <span class="text-xs font-black text-slate-600 w-5 shrink-0 mt-0.5">${i + 1}.</span>
+        <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-sm font-semibold text-white">${escapeHtml(p.display_name || '')}</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-medium">${escapeHtml(p.priority_focus || '')}</span>
+            </div>
+            <p class="text-xs text-slate-400">${escapeHtml(p.specific_action || '')}</p>
+        </div>
+    </div>`).join('')}</div>`;
+}
+
+// ── GENERATE MODAL ───────────────────────────────────────────────────────────
+function openGenModal() {
+    const modal = document.getElementById('gen-modal');
+    showGenState('idle');
+    modal.classList.remove('hidden');
+    document.getElementById('gen-error').classList.add('hidden');
+    renderQuota();
+}
+
+function closeGenModal() {
+    stopStageProgress();
+    document.getElementById('gen-modal').classList.add('hidden');
+}
+
+function showGenState(state) {
+    document.getElementById('gen-idle').classList.toggle('hidden',    state !== 'idle');
+    document.getElementById('gen-running').classList.toggle('hidden', state !== 'running');
+    document.getElementById('gen-success').classList.toggle('hidden', state !== 'success');
+}
+
+// ── STAGED LOADING UX ───────────────────────────────────────────────────────
+function startStageProgress() {
+    _stageIdx = 0;
+    updateStageUI(0);
+    const bar = document.getElementById('gen-progress');
+    if (bar) bar.style.width = '5%';
+
+    _stageInterval = setInterval(() => {
+        _stageIdx++;
+        if (_stageIdx < STAGE_LABELS.length) {
+            updateStageUI(_stageIdx);
+        }
+    }, 9000);
+}
+
+function stopStageProgress() {
+    if (_stageInterval) {
+        clearInterval(_stageInterval);
+        _stageInterval = null;
+    }
+}
+
+function updateStageUI(idx) {
+    const bar = document.getElementById('gen-progress');
+    if (bar) bar.style.width = (STAGE_PROGRESS[idx] || 85) + '%';
+
+    for (let i = 0; i < STAGE_LABELS.length; i++) {
+        const el = document.getElementById('stage-' + i);
+        if (!el) continue;
+        const ind = el.querySelector('.stage-indicator');
+        const lbl = el.querySelector('span:last-child');
+        if (i < idx) {
+            // completed
+            ind.className = 'stage-indicator stage-completed';
+            ind.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>';
+            lbl.className = 'text-sm text-slate-400';
+        } else if (i === idx) {
+            // active
+            ind.className = 'stage-indicator stage-active';
+            ind.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>';
+            lbl.className = 'text-sm text-slate-300';
+        } else {
+            // pending
+            ind.className = 'stage-indicator stage-pending';
+            ind.innerHTML = '<i class="fa-solid fa-circle text-[8px]"></i>';
+            lbl.className = 'text-sm text-slate-500';
+        }
+    }
+}
+
+async function confirmGenerate() {
+    if (_quota !== null && _quota < 1) {
+        const errEl = document.getElementById('gen-error');
+        errEl.innerHTML = 'No report credits remaining. <button onclick="closeGenModal();openBuyModal()" class="underline text-indigo-400 hover:text-indigo-300">Buy more reports →</button>';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const windowType = document.getElementById('gen-window').value;
+    showGenState('running');
+    startStageProgress();
+
+    try {
+        const jwt = await getFreshJwt();
+        const res = await fetch(`${BASE_URL}/revenue-doctor-generate`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+            body:    JSON.stringify({ org_id: _orgId, window_type: windowType }),
+        });
+        const data = await res.json();
+
+        stopStageProgress();
+
+        if (!res.ok) {
+            showGenState('idle');
+            const errEl = document.getElementById('gen-error');
+            errEl.innerHTML = escapeHtml(data.error || 'Generation failed. Please try again.');
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        if (data.reports_remaining !== undefined) {
+            _quota = data.reports_remaining;
+            renderQuota();
+        }
+
+        if (data.report_id === null && data.save_error) {
+            showGenState('idle');
+            const errEl = document.getElementById('gen-error');
+            errEl.innerHTML = 'Report was generated but could not be saved. Please screenshot your results or try again. Credit was not refunded.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+
+        showGenState('success');
+
+        await loadReportList(true);
+        if (data.report_id) {
+            selectReport(data.report_id);
+        }
+
+    } catch (e) {
+        console.error('[RD] Generate error:', e);
+        stopStageProgress();
+        showGenState('idle');
+        const errEl = document.getElementById('gen-error');
+        errEl.innerHTML = 'Network error. Please try again.';
+        errEl.classList.remove('hidden');
+    }
+}
+
+// ── BUY MORE REPORTS MODAL ───────────────────────────────────────────────────
+function openBuyModal() {
+    document.getElementById('buy-modal').classList.remove('hidden');
+    document.getElementById('buy-error').classList.add('hidden');
+    // Default to 10-report bundle
+    _selectedBundle = { qty: 10, price: 149 };
+    // Highlight the correct card
+    document.querySelectorAll('.bundle-card').forEach(card => {
+        const q = parseInt(card.dataset.qty, 10);
+        card.classList.toggle('active',   q === _selectedBundle.qty);
+        card.classList.toggle('inactive', q !== _selectedBundle.qty);
+    });
+    document.getElementById('buy-btn-label').textContent = `Buy ${_selectedBundle.qty} Reports — $${_selectedBundle.price}`;
+}
+
+function closeBuyModal() {
+    document.getElementById('buy-modal').classList.add('hidden');
+}
+
+function selectBundle(qty, price) {
+    _selectedBundle = { qty, price };
+    document.querySelectorAll('.bundle-card').forEach(card => {
+        const q = parseInt(card.dataset.qty, 10);
+        card.classList.toggle('active',   q === qty);
+        card.classList.toggle('inactive', q !== qty);
+    });
+    document.getElementById('buy-btn-label').textContent = `Buy ${qty} Reports — $${price}`;
+}
+
+async function purchaseBundle() {
+    const btn   = document.getElementById('buy-confirm-btn');
+    const errEl = document.getElementById('buy-error');
+    errEl.classList.add('hidden');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Processing…';
+
+    try {
+        const jwt = await getFreshJwt();
+        const res = await fetch(`${BASE_URL}/create-credit-topup-order`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+            body:    JSON.stringify({ token_key: 'doctor_report', quantity: _selectedBundle.qty }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Order creation failed');
+
+        window.location.href = `payment.html?intent=${data.intent_id}`;
+    } catch (e) {
+        console.error('[RD] Purchase error:', e);
+        errEl.textContent = e.message || 'Failed to create order. Please try again.';
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-credit-card mr-2"></i><span id="buy-btn-label">Buy ' + _selectedBundle.qty + ' Reports — $' + _selectedBundle.price + '</span>';
+    }
+}
+
+// ── INFO MODAL ───────────────────────────────────────────────────────────────
+function openInfoModal() {
+    document.getElementById('info-modal').classList.remove('hidden');
+}
+
+function closeInfoModal() {
+    document.getElementById('info-modal').classList.add('hidden');
+}
+
+// ── SHARE & EXPORT ───────────────────────────────────────────────────────────
+function copyShareLink(reportId) {
+    const url  = window.location.origin + window.location.pathname + '?report=' + reportId;
+    const btn  = document.getElementById('share-btn-' + reportId);
+    const lbl  = document.getElementById('share-btn-label-' + reportId);
+
+    navigator.clipboard.writeText(url).then(() => {
+        if (lbl) lbl.textContent = 'Copied!';
+        if (btn) btn.classList.add('text-indigo-400');
+        setTimeout(() => {
+            if (lbl) lbl.textContent = 'Copy Link';
+            if (btn) btn.classList.remove('text-indigo-400');
+        }, 2000);
+    }).catch(() => {
+        // Fallback for older browsers
+        const el = document.createElement('textarea');
+        el.value = url;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        if (lbl) lbl.textContent = 'Copied!';
+        setTimeout(() => { if (lbl) lbl.textContent = 'Copy Link'; }, 2000);
+    });
+}
+
+function exportPdf() {
+    window.print();
+}
+
+function exportMarkdown() {
+    if (!_currentReport) return;
+    const r  = _currentReport;
+    const rc = r.report_content || {};
+    const hs = r.health_snapshot || {};
+    const cats = hs.category_scores || {};
+
+    const lines = [];
+    lines.push(`# Revenue Doctor Report — ${windowLabel(r.window_type)}`);
+    lines.push('');
+    lines.push(`**Generated:** ${formatDate(r.generated_at)}`);
+    lines.push(`**Window:** ${r.window_start ? r.window_start.split('T')[0] : '—'} → ${r.window_end ? r.window_end.split('T')[0] : '—'}`);
+    lines.push(`**Overall Score:** ${r.overall_score !== null ? Math.round(Number(r.overall_score)) : '—'}`);
+    lines.push(`**Data Confidence:** ${hs.data_confidence || 'sufficient'}`);
+    lines.push(`**Model:** ${r.model_used || 'gpt-4o'}`);
+    lines.push('');
+
+    // Category scores
+    lines.push('## Revenue Health Snapshot');
+    lines.push('');
+    const catNames = { lead_response: 'Lead Response', conversation_quality: 'Conversation Quality', channel_health: 'Channel Health', conversion_health: 'Conversion Health' };
+    for (const [key, label] of Object.entries(catNames)) {
+        const v = cats[key] !== undefined && cats[key] !== null ? Math.round(Number(cats[key])) : '—';
+        lines.push(`- **${label}:** ${v}`);
+    }
+    lines.push('');
+
+    // Executive Summary
+    lines.push('## Executive Summary');
+    lines.push('');
+    lines.push(rc.executive_summary || 'No summary generated.');
+    lines.push('');
+
+    // Key Problems
+    lines.push('## Key Problems');
+    lines.push('');
+    if (rc.problems?.length) {
+        for (const p of rc.problems) {
+            lines.push(`### [${(p.severity || 'low').toUpperCase()}] ${p.title || ''}`);
+            lines.push('');
+            if (p.impact) lines.push(`**Impact:** ${p.impact}`);
+            if (p.evidence?.length) {
+                lines.push('**Evidence:**');
+                for (const e of p.evidence) lines.push(`- ${e}`);
+            }
+            lines.push('');
+        }
+    } else {
+        lines.push('No problems identified.');
+        lines.push('');
+    }
+
+    // Root Causes
+    lines.push('## Root Causes');
+    lines.push('');
+    if (rc.root_causes?.length) {
+        for (const c of rc.root_causes) {
+            lines.push(`### [${c.category || ''}] ${c.cause || ''}`);
+            lines.push('');
+            if (c.detail) lines.push(c.detail);
+            lines.push('');
+        }
+    } else {
+        lines.push('No root causes identified.');
+        lines.push('');
+    }
+
+    // Conversation Findings
+    lines.push('## Lead Psychology Insights');
+    lines.push('');
+    if (rc.conversation_findings?.length) {
+        for (const f of rc.conversation_findings) {
+            lines.push(`### ${f.finding || ''}`);
+            lines.push('');
+            if (f.supporting) lines.push(`> ${f.supporting}`);
+            if (f.recommendation) lines.push(`**Recommendation:** ${f.recommendation}`);
+            lines.push('');
+        }
+    } else {
+        lines.push('No conversation patterns found.');
+        lines.push('');
+    }
+
+    // Funnel Analysis
+    lines.push('## Funnel Analysis');
+    lines.push('');
+    if (rc.funnel_analysis) {
+        const fn = rc.funnel_analysis;
+        if (fn.summary) lines.push(fn.summary);
+        if (fn.biggest_leak) lines.push(`\n**Biggest Leak:** ${fn.biggest_leak}`);
+        if (fn.stage_insights?.length) {
+            lines.push('\n**Stage Insights:**');
+            for (const i of fn.stage_insights) lines.push(`- ${i}`);
+        }
+    } else {
+        lines.push('No funnel data available.');
+    }
+    lines.push('');
+
+    // Recommendations
+    lines.push('## Recommended Actions');
+    lines.push('');
+    if (rc.recommendations?.length) {
+        rc.recommendations.forEach((rec, i) => {
+            lines.push(`${i + 1}. **[${(rec.priority || '').toUpperCase()}]** ${rec.action || ''}`);
+            if (rec.rationale) lines.push(`   - ${rec.rationale}`);
+        });
+    } else {
+        lines.push('No recommendations generated.');
+    }
+    lines.push('');
+
+    // Top 3
+    lines.push('## Top 3 Immediate Fixes');
+    lines.push('');
+    if (rc.top_3_actions?.length) {
+        const nums = ['1st', '2nd', '3rd'];
+        rc.top_3_actions.slice(0, 3).forEach((a, i) => {
+            lines.push(`### ${nums[i]} — ${a.action || ''}`);
+            lines.push('');
+            if (a.effort) lines.push(`**Effort:** ${a.effort}`);
+            if (a.expected_result) lines.push(`**Expected Result:** ${a.expected_result}`);
+            lines.push('');
+        });
+    } else {
+        lines.push('No actions generated.');
+        lines.push('');
+    }
+
+    // Impact
+    lines.push('## Expected Revenue Impact');
+    lines.push('');
+    if (rc.expected_impact) {
+        const imp = rc.expected_impact;
+        if (imp.summary) lines.push(imp.summary);
+        if (imp.conversion_lift) lines.push(`\n**Conversion Lift:** ${imp.conversion_lift}`);
+        if (imp.revenue_impact) lines.push(`**Revenue Impact:** ${imp.revenue_impact}`);
+    } else {
+        lines.push('No impact projection available.');
+    }
+    lines.push('');
+
+    // Confidence Notes
+    if (rc.confidence_notes) {
+        lines.push('---');
+        lines.push('');
+        lines.push(`*${rc.confidence_notes}*`);
+        lines.push('');
+    }
+
+    const md   = lines.join('\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    const dateStr = new Date(r.generated_at || Date.now()).toISOString().split('T')[0];
+    a.download = `revenue-doctor-${r.window_type || 'report'}-${dateStr}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function scoreToColor(score) {
+    if (score === null || score === undefined) return 'text-slate-400';
+    const n = Number(score);
+    if (n >= 80) return 'text-green-400';
+    if (n >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+}
+
+function windowLabel(wt) {
+    return { weekly: 'Weekly', monthly: 'Monthly', daily: 'Daily' }[wt] || wt || '—';
+}
+
+function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return iso; }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function showFatalError(msg) {
+    document.getElementById('auth-loader').innerHTML = `
+    <div class="text-center">
+        <i class="fa-solid fa-triangle-exclamation text-yellow-500 text-4xl mb-4"></i>
+        <p class="text-slate-300 text-sm">${msg}</p>
+    </div>`;
+}
+</script>
+</body>
+</html>
