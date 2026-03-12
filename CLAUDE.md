@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-12 (Revenue Doctor Session 9 — verified) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-13 (Session 28 — Growth Engine add-on + Founder Dashboard) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -24,20 +24,22 @@
 
 | File | Purpose | Status |
 |---|---|---|
-| `index.html` | Landing page, ROI calculator, dynamic pricing engine | ✅ |
+| `index.html` | Landing page, ROI calculator, dynamic pricing engine (GE toggle at $660/mo) | ✅ |
 | `login.html` | Auth (OTP + OAuth + Email/Password) + invitation claim + role routing | ✅ |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ |
-| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure | ✅ Session 21 |
+| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
 | `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, Credit Wallet, Channel Infrastructure | ✅ Session 21 |
-| `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, Credit Wallet, Channel Infrastructure | ✅ Session 21 |
+| `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, Credit Wallet, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
 | `agent_dashboard.html` | Agent view — leads, takeover/manual reply/resume AI, pending actions, Live Wire | ✅ Session 18 |
-| `admin.html` | Finance command — bank transfers, entitlements, prompt editor, deals, Channel Sender Mgmt, Provisioning Queue, Kill Switch, Rate Limits, Dead-Letter Queue, Webhook Store, Channel Health | ✅ Session 24 |
+| `admin.html` | Finance command — Founder Dashboard, bank transfers, entitlements, prompt editor, deals, Channel Sender Mgmt, Provisioning Queue, Kill Switch, Rate Limits, Dead-Letter Queue, Webhook Store, Channel Health, Growth Engine Beta Access | ✅ Session 28 |
+| `growth_dashboard.html` | Growth Engine — entitlement-gated; locked-preview overlay for non-entitled orgs | ✅ Session 28 |
+| `growth-config.js` | Platform feature flags config for Growth Engine | ✅ Session 28 |
 | `revenue_doctor.html` | Revenue Doctor — generate + view diagnostic reports, buy bundles, share/export | ✅ RD Session 9 |
 | `number_request_checkout.html` | $110 dedicated number bundle purchase flow | ✅ Session 20 |
 | `cancel.html` | 3-step subscription cancellation + Delete My Data | ✅ Session 25 |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + conversion probability | ✅ |
-| `pricing.html` | New user plan selector → `create_checkout_intent` | ✅ |
-| `billing.html` | Upgrade/manage plan for existing subscribers | ✅ |
+| `pricing.html` | New user plan selector → `create_checkout_intent` (GE toggle at $660/mo) | ✅ Session 28 |
+| `billing.html` | Upgrade/manage plan for existing subscribers (GE toggle, `?lock=growth_engine`) | ✅ Session 28 |
 | `payment.html` | Razorpay checkout + bank transfer | ✅ |
 | `success.html` | Post-payment verification (polls billing_intents) | ✅ |
 | `Voice Liaison.html` | Call logs + sentiment + Replay button | ✅ |
@@ -80,6 +82,8 @@
 | `fulfill-number-request` | Grants voice_min+sms_msg; creates provision_request; emails admin |
 | `revenue-doctor-generate` | GPT-4o diagnostic; 40s timeout; 3/min rate limit; enterprise team intelligence |
 | `revenue-doctor-reports` | List/fetch saved reports |
+| `revenue-health` | Revenue health scoring edge function |
+| `growth-flag-proxy` | Proxies Growth Engine feature flag reads |
 | `connect-facebook-page` | FB OAuth for per-org Messenger page token |
 | `org_channels_*` (5 fns) | Channel management |
 | `campaign_ticker`, `decision_engine`, `execution_planner`, `execution-dispatcher`, `task_sweeper` | Core automation pipeline |
@@ -127,7 +131,7 @@
 `id`, `plan_id` (NOT NULL), `lead_id`, `org_id`, `channel`, `status`, `attempt`, `max_attempts`, `scheduled_for`, `executed_at`, `last_error`, `metadata` (JSONB), `locked_by`, `locked_until`, `provider`, `provider_id`, `actor_user_id`, `ai_generation_locked`
 
 ### Key RPCs
-`consume_tokens_v1` · `grant_tokens_core_v1` · `credit_wallet_add_v1` · `settle_voice_call_tokens_v2` · `is_org_cancelled_v1` · `is_kill_switch_enabled_v1` · `enforce_rate_limit_v1` · `execution_policy_v1` · `resolve_inbound_org_channel_v1` · `approve_bank_transfer` · `mark_intent_awaiting_bank` · `create_agency_enterprise_deal` · `approve_agency_enterprise_deal` · `get_agent_leaderboard`
+`consume_tokens_v1` · `grant_tokens_core_v1` · `credit_wallet_add_v1` · `settle_voice_call_tokens_v2` · `is_org_cancelled_v1` · `is_kill_switch_enabled_v1` · `enforce_rate_limit_v1` · `execution_policy_v1` · `resolve_inbound_org_channel_v1` · `approve_bank_transfer` · `mark_intent_awaiting_bank` · `create_agency_enterprise_deal` · `approve_agency_enterprise_deal` · `get_agent_leaderboard` · `admin_grant_growth_engine` · `admin_revoke_growth_engine` · `admin_get_growth_metrics` · `admin_get_beta_prospects`
 
 ### pg_cron Jobs
 
@@ -162,7 +166,18 @@ const { data: svc } = await sb.from('org_services').select('status')
   .eq('org_id', membership.org_id).eq('service_key', 'sentinel').maybeSingle();
 if (svc?.status !== 'active') window.location.href = 'billing.html?lock=sentinel';
 ```
-Service keys: `sentinel` | `voice` | `brain` | `architect`
+Service keys: `sentinel` | `voice` | `brain` | `architect` | `growth_engine`
+
+### Growth Engine Entitlement (locked-preview pattern)
+Non-entitled orgs see a full-screen preview overlay on `growth_dashboard.html` instead of a hard redirect — do NOT change this to a redirect:
+```js
+if (svc?.status !== 'active') {
+    document.getElementById('auth-loader').classList.add('hidden');
+    document.getElementById('locked-preview').classList.remove('hidden');
+    return;
+}
+```
+CTA in locked-preview links to `billing.html?lock=growth_engine`.
 
 ### Token System
 - Voice: 5 tokens pre-debit → settled via `settle_voice_call_tokens_v2`
@@ -194,6 +209,43 @@ Service keys: `sentinel` | `voice` | `brain` | `architect`
 
 ---
 
+## Growth Engine — Current State
+
+**Service key:** `growth_engine` | **Price:** $660/mo add-on | **Badge:** Beta (emerald pill) everywhere
+
+**Files:** `growth_dashboard.html` · `growth-config.js` · `supabase/functions/growth-flag-proxy/index.ts`
+
+**Pricing surfaces (all updated):** `index.html` · `pricing.html` · `billing.html` (with `?lock=growth_engine` auto-scroll)
+
+**Admin RPCs (SECURITY DEFINER, live in DB):**
+- `admin_grant_growth_engine(p_org_id)` — upserts `org_services` to active
+- `admin_revoke_growth_engine(p_org_id)` — sets `org_services.status = inactive`
+- `admin_get_growth_metrics()` — returns JSONB with 5 metric groups (acquisition, activation, engagement, attribution, retention); growth schema queries wrapped in exception blocks
+- `admin_get_beta_prospects()` — returns top-50 paying orgs without GE sorted by lead count
+
+**Migrations deployed:**
+- `20260313_growth_engine_activation.sql`
+- `20260313_admin_growth_metrics.sql`
+
+**Founder Dashboard (admin.html — first section, auto-loads on page open):**
+- Row 1: 6 KPI pulse tiles — New Users Today, GE Active Orgs, MRR Est., Attach Rate, Engagements Today, Deals Influenced
+- Row 2: 4 health metrics with progress bars + targets — Activation Rate (target 40%), Avg TTFV (target <15min), Automation Trust Rate (target 50%), Lead Attribution Rate
+- Row 3: Retention cohorts (30d / 90d) + Engagement pipeline funnel
+- Row 4: Beta Prospect Pipeline table — paying orgs without GE, sorted by lead count, inline "Grant Beta" button per row
+- Shows "growth schema not ready" notice until Growth Engine FastAPI starts writing to `growth.*` tables
+
+**Growth Engine Beta Access panel (admin.html):**
+- Grant panel: filter + multi-select checkbox list of all paying orgs without GE → Grant Access button
+- Revoke panel: filter + multi-select checkbox list of orgs with GE active → Revoke Access button
+- No SQL needed for beta access management
+
+**What's NOT built yet:**
+- Growth Engine FastAPI (Railway) — the actual LinkedIn/content automation service that writes to `growth.*` schema
+- `growth.engagement_opportunities`, `growth.revenue_attributions` tables — created by FastAPI Alembic migrations
+- Until FastAPI is live, all growth schema metrics show 0 / "—" in the Founder Dashboard (graceful degradation working)
+
+---
+
 ## Revenue Doctor — Current State
 
 **Files:** `revenue_doctor.html` · `revenue-doctor-generate/index.ts` · `revenue-doctor-reports/index.ts`
@@ -203,7 +255,7 @@ Service keys: `sentinel` | `voice` | `brain` | `architect`
 |---|---|---|
 | RD 1–7 | DB + shared modules + edge fns + viewer + dashboard widgets + hardening | ✅ |
 | RD 8 | Buy bundles (5/$79, 10/$149, 20/$249), share link, export PDF/MD, staged loading, age indicator | ✅ |
-| RD 9 | Enterprise Team Intelligence — per-agent rollup, 6 flags, priority score, 3 new UI sections | ✅ Verified |
+| RD 9 | Enterprise Team Intelligence — per-agent rollup, 6 flags, priority score, 3 new UI sections | ✅ |
 | RD 10 | E2E testing of full Revenue Doctor flow end-to-end | ⬜ Next |
 
 **Key facts:**
@@ -211,7 +263,6 @@ Service keys: `sentinel` | `voice` | `brain` | `architect`
 - Quota reads `token_wallets` (NOT `credit_wallets`); enterprise shows "Unlimited" when balance ≥ 900
 - Enterprise team sections (`team_overview`, `users_requiring_attention`, `coaching_priorities`) present only when `org_type='enterprise'`; old reports without these keys render cleanly
 - Agent eligibility: `org_members WHERE role='enterprise_agent'` + `profiles(full_name, email)`; min 10 leads + 5 convs to rank
-- No new DB schema in RD Session 9 — pure code changes (4 files)
 
 ---
 
@@ -229,8 +280,18 @@ Service keys: `sentinel` | `voice` | `brain` | `architect`
 | C — Email | ⚠️ BLOCKED | Test after A |
 | F — Automations | ⚠️ BLOCKED | Test after A |
 | RD — Revenue Doctor | ⬜ Next | Session RD 10 — E2E full flow |
+| GE — Growth Engine | ⬜ Future | After FastAPI (Railway) is live and writing to growth.* schema |
 
 **When Twilio USA approval arrives:** test Groups A → B → C → F in order.
+
+---
+
+## What's Next (priority order)
+
+1. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+2. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+3. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
+4. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
 
 ---
 
@@ -259,3 +320,5 @@ curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/datab
 10. **Supabase JS v2 `.catch()`**: not a function on `PostgrestBuilder` — use `.then(undefined, handler)` instead
 11. **`consume_tokens_v1` params**: `p_scope`, `p_user_id`, `p_amount` (not `p_quantity`); returns `{status:'ok'}` on success
 12. **`grant_tokens_core_v1` params**: `p_scope`, `p_user_id`, `p_amount`, `p_metadata` (not `p_note`)
+13. **`admin_get_beta_prospects` JOIN order**: `LEFT JOIN leads` must appear before `WHERE` clause — SQL syntax error otherwise (already fixed in migration)
+14. **Growth Engine Founder Dashboard**: calls `admin_get_growth_metrics` + `admin_get_beta_prospects` in `Promise.all` — both require `profiles.is_admin = true` on the caller; will silently return empty if called as non-admin
