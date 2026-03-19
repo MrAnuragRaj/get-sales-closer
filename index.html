@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/jpeg" href="favicon.jpg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GetSalesCloser | Lock Your Lead Leak.</title>
-    
+    <title>GetSalesCloser | AI Revenue Infrastructure for Inbound Sales Teams</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -18,12 +18,10 @@
         .cyber-glow { box-shadow: 0 0 20px 2px rgba(57, 255, 20, 0.6); }
         .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
         .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
-        .tooltip-box { visibility: hidden; opacity: 0; transition: opacity 0.3s; z-index: 100; pointer-events: none; }
-        .tooltip-trigger:hover + .tooltip-box { visibility: visible; opacity: 1; }
-        
+
         /* FUNNEL & PARTICLE ANIMATIONS */
         .funnel-container { position: relative; width: 150px; height: 180px; margin: 0 auto; }
-        .funnel-shape { 
+        .funnel-shape {
             width: 100%; height: 100%; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
             clip-path: polygon(0% 0%, 100% 0%, 65% 100%, 35% 100%);
             border-top: 2px solid #00D1FF;
@@ -50,9 +48,57 @@
         .iti__country-list { background-color: #0f172a; border: 1px solid #1e293b; color: white; }
         @keyframes scan { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
         .scanning { animation: scan 1.5s infinite; }
+
+        /* COOKIE BANNER */
+        #cookieBanner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: rgba(2,6,23,0.97); border-top: 1px solid rgba(0,209,255,0.2); backdrop-filter: blur(10px); }
+
+        /* PLAN TABS */
+        .plan-tab { padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 700; color: #94a3b8; cursor: pointer; transition: all 0.2s; border: none; background: transparent; }
+        .plan-tab.tab-active { background: #1e293b; color: white; }
+
+        /* PIPELINE */
+        .pipeline-node { cursor: pointer; }
+        .pipeline-node .pipeline-node-inner { transition: all 0.25s; }
+        .pipeline-node:hover .pipeline-node-inner { border-color: rgba(0,209,255,0.5) !important; background: rgba(0,209,255,0.04) !important; }
+        .pipeline-node.active .pipeline-node-inner { border-color: #39FF14 !important; background: rgba(57,255,20,0.05) !important; }
+        .pipeline-desc { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s; opacity: 0; }
+        .pipeline-desc.open { max-height: 160px; opacity: 1; }
     </style>
 </head>
 <body class="text-slate-200">
+
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="hidden">
+        <div class="max-w-7xl mx-auto px-8 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <p class="flex-1 text-sm text-slate-300 leading-relaxed">We use cookies to improve your experience and analyze site usage. <a href="privacy.html" class="text-[#00D1FF] hover:underline">Privacy Policy</a></p>
+            <div class="flex gap-3 shrink-0 flex-wrap">
+                <button onclick="rejectCookies()" class="text-xs px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 transition font-bold">Reject Non-Essential</button>
+                <button onclick="manageCookies()" class="text-xs px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition font-bold">Manage Preferences</button>
+                <button onclick="acceptCookies()" class="text-xs px-4 py-2 rounded-lg btn-dopamine text-white font-bold">Accept All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cookie Preferences Modal -->
+    <div id="cookieModal" class="fixed inset-0 z-[10000] hidden flex items-end sm:items-center justify-center p-4 bg-slate-950/80">
+        <div class="glass-card max-w-md w-full p-8 rounded-[2rem]">
+            <h3 class="text-white font-bold mb-4">Cookie Preferences</h3>
+            <div class="space-y-3 mb-6">
+                <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
+                    <div><p class="text-sm text-white font-bold">Essential</p><p class="text-[10px] text-slate-500">Required for the site to function</p></div>
+                    <span class="text-[10px] text-slate-500 font-bold">Always on</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
+                    <div><p class="text-sm text-white font-bold">Analytics</p><p class="text-[10px] text-slate-500">Help us understand how visitors use the site</p></div>
+                    <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="analyticsConsent" class="sr-only peer" checked><div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div></label>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeCookieModal()" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl font-bold text-sm hover:bg-slate-700 transition">Cancel</button>
+                <button onclick="saveCookiePrefs()" class="flex-1 btn-dopamine text-white py-3 rounded-xl font-bold text-sm">Save Preferences</button>
+            </div>
+        </div>
+    </div>
 
     <div id="deploymentOverlay" class="deployment-overlay">
         <div id="animNode" class="h-16 w-16 bg-[#39FF14] rotate-45 mb-8"></div>
@@ -71,84 +117,778 @@
         </div>
         <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400">
             <button onclick="toggleROIPopup()" class="hover:text-[#00D1FF] transition">How it Works</button>
-            <a href="#pricing" class="hover:text-[#00D1FF] transition">Pricing</a>
+            <a href="#plans" class="hover:text-[#00D1FF] transition">Plans</a>
+            <a href="#guarantee" class="hover:text-[#00D1FF] transition">Guarantee</a>
         </div>
         <a href="login.html" class="bg-slate-800 hover:bg-slate-700 px-6 py-2 rounded-lg font-bold text-sm border border-slate-700 transition">Login</a>
     </nav>
 
-    <section class="relative pt-20 pb-32 px-8 text-center max-w-5xl mx-auto">
-        <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-4">Elite Sales Infrastructure</p>
-        <h1 class="text-5xl md:text-7xl gilroy text-white mb-6 leading-tight">Stop Leaking Leads. <br><span class="text-[#00D1FF]">Start Locking Appointments.</span></h1>
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+    <!-- HERO -->
+    <section class="relative pt-20 pb-14 px-8 text-center max-w-5xl mx-auto">
+        <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-4">AI Revenue Infrastructure</p>
+        <h1 class="text-5xl md:text-7xl gilroy text-white mb-4 leading-tight">Stop Leaking Leads. <br><span class="text-[#00D1FF]">Start Locking Appointments.</span></h1>
+        <p class="text-slate-400 text-base md:text-lg mb-2">AI-powered Revenue Infrastructure for Inbound Lead Teams</p>
+        <p class="text-slate-600 text-xs mb-8">Trusted by inbound teams across real estate, legal, solar, and agency verticals</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <button onclick="toggleAuditPopup()" class="btn-dopamine w-full sm:w-auto text-white px-10 py-5 rounded-xl font-extrabold text-lg shadow-xl uppercase">Get My Free Speed-to-Lead Audit</button>
             <button onclick="openDemoSelector()" class="bg-slate-900 text-slate-300 px-10 py-5 rounded-xl font-bold text-lg border border-slate-800 hover:bg-slate-800 transition">Watch Demo</button>
         </div>
+        <!-- Integration strip -->
+        <div class="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-6 py-3 rounded-full bg-slate-900/60 border border-slate-800 text-[11px] font-medium">
+            <span class="text-slate-500">Connects with</span>
+            <span class="text-slate-300 font-bold">GHL</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">HubSpot</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">Apollo</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">Zapier</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">Make</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">Facebook Lead Ads</span><span class="text-slate-700">·</span>
+            <span class="text-slate-300 font-bold">Custom Webhooks</span>
+        </div>
     </section>
 
+    <!-- WHY BUYERS CHOOSE THIS -->
+    <section class="pb-20 px-8 max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div class="glass-card p-6 rounded-2xl text-center">
+                <div class="w-8 h-0.5 bg-[#00D1FF] mb-4 mx-auto"></div>
+                <h3 class="text-white font-bold mb-2">Respond in Seconds</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">AI engages every inbound lead the moment they arrive — before they move on.</p>
+            </div>
+            <div class="glass-card p-6 rounded-2xl text-center">
+                <div class="w-8 h-0.5 bg-[#39FF14] mb-4 mx-auto"></div>
+                <h3 class="text-white font-bold mb-2">Book More Appointments</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">From first contact to confirmed booking — automated, structured, conversion-optimized.</p>
+            </div>
+            <div class="glass-card p-6 rounded-2xl text-center">
+                <div class="w-8 h-0.5 bg-[#00D1FF] mb-4 mx-auto"></div>
+                <h3 class="text-white font-bold mb-2">Operate Across Channels</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">SMS, email, WhatsApp, Messenger, voice — one unified system across every lead channel.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TRUST & COMPLIANCE -->
+    <section class="py-20 px-8 border-t border-slate-900 bg-slate-950">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">Built for Regulated Industries</p>
+                <h2 class="text-3xl gilroy text-white mb-3">Trust. Compliance. Accountability.</h2>
+                <p class="text-slate-400 text-sm max-w-xl mx-auto">Built for TCPA-compliant, consent-based communication workflows. Every action logged. Every interaction traceable.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">TCPA</p>
+                    <h3 class="text-white font-bold text-sm mb-2">TCPA-Aware Messaging</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Consent-based communication by design. Every outbound message requires explicit opt-in — no exceptions.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">OPT-OUT</p>
+                    <h3 class="text-white font-bold text-sm mb-2">Automatic Opt-Out Enforcement</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">STOP requests are processed immediately and propagated across all active channels. No manual intervention required.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">AUDIT</p>
+                    <h3 class="text-white font-bold text-sm mb-2">Full Audit Logging</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Every automation decision, intake response, and message delivery is logged with timestamps. Full traceability for compliance review.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">GUARDRAILS</p>
+                    <h3 class="text-white font-bold text-sm mb-2">High-Stakes Vertical Guardrails</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Specialized AI handling for legal, medical, and financial use cases — with configurable guardrails that prevent non-compliant responses.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">QUEUE</p>
+                    <h3 class="text-white font-bold text-sm mb-2">Queue-Based Delivery Infrastructure</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Messages route through a fault-tolerant delivery queue with retry logic, dead-letter capture, and provider failover built in.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-3">ENCRYPTION</p>
+                    <h3 class="text-white font-bold text-sm mb-2">Encryption & Data Residency</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">All data is encrypted in transit and at rest. PII scrubbing on AI-generated content. GDPR-aware architecture throughout.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- INTEGRATION ECOSYSTEM -->
+    <section class="py-16 px-8 bg-slate-950/50">
+        <div class="max-w-5xl mx-auto text-center">
+            <p class="text-slate-500 text-sm mb-2">Plugs into your existing stack in minutes</p>
+            <h3 class="text-white font-bold text-lg mb-8">Works With Every Tool You Already Use</h3>
+            <div class="flex flex-wrap justify-center gap-3 mb-6">
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">GoHighLevel</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">HubSpot</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">Salesforce</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">Zapier</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">Make</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">Apollo</span>
+                <span class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-full text-sm font-bold text-slate-300">Facebook Lead Ads</span>
+                <span class="px-4 py-2 bg-[#00D1FF]/10 border border-[#00D1FF]/30 rounded-full text-sm font-bold text-[#00D1FF]">+ Any System via Webhooks</span>
+            </div>
+            <p class="text-slate-600 text-xs">No code required for standard integrations. REST API + Webhooks for custom setups.</p>
+        </div>
+    </section>
+
+    <!-- COST OF INACTION -->
+    <section class="py-20 px-8 border-t border-slate-900">
+        <div class="max-w-3xl mx-auto text-center">
+            <p class="text-red-400 font-bold tracking-[0.2em] uppercase text-[10px] mb-3">The Hidden Cost of Doing Nothing</p>
+            <h2 class="text-3xl gilroy text-white mb-4">Every Day Without This System<br>Is Revenue You're Handing To Competitors</h2>
+            <div class="glass-card p-8 rounded-3xl mt-10">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+                    <div class="text-center">
+                        <p class="text-5xl font-black text-red-500 gilroy">78%</p>
+                        <p class="text-slate-400 text-xs mt-2 leading-tight">of leads go to the vendor who responds first</p>
+                        <p class="text-slate-600 text-[10px] mt-1">Source: HBR</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-5xl font-black text-red-500 gilroy">5 min</p>
+                        <p class="text-slate-400 text-xs mt-2 leading-tight">Response after 5 minutes reduces conversion by 80%</p>
+                        <p class="text-slate-600 text-[10px] mt-1">Source: MIT / InsideSales</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-5xl font-black text-red-500 gilroy">90%</p>
+                        <p class="text-slate-400 text-xs mt-2 leading-tight">of sales go to teams that follow up within the hour</p>
+                        <p class="text-slate-600 text-[10px] mt-1">Source: Forbes</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/60 rounded-2xl p-6 border border-slate-800">
+                    <p class="text-slate-300 text-sm leading-relaxed">If your team receives <span class="text-white font-bold">100 leads/month</span> and converts <span class="text-red-400 font-bold">10%</span> manually — you're leaving <span class="text-red-400 font-bold">90 potential customers</span> behind every single month.</p>
+                    <p class="text-slate-400 text-xs mt-3">Teams using GetSalesCloser average <span class="text-[#39FF14] font-bold">25–35% booking rates</span> within 60 days of deployment.</p>
+                </div>
+                <button onclick="toggleROIPopup()" class="mt-6 text-[#00D1FF] text-sm font-bold hover:underline transition">Calculate your exact revenue leak →</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- PLANS -->
+    <section id="plans" class="py-24 px-8 border-t border-slate-900 bg-slate-950/50">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">Revenue Infrastructure Plans</p>
+                <h2 class="text-4xl gilroy text-white mb-3">Built for Every Team Size</h2>
+                <p class="text-slate-500 text-sm">Select a pre-built stack or customise your own below</p>
+            </div>
+
+            <!-- Tab selector -->
+            <div class="flex justify-center mb-10">
+                <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex">
+                    <button onclick="switchPlanTab('solo')" id="tab-solo" class="plan-tab tab-active">Solo / Team</button>
+                    <button onclick="switchPlanTab('agency')" id="tab-agency" class="plan-tab">Agency</button>
+                    <button onclick="switchPlanTab('enterprise')" id="tab-enterprise" class="plan-tab">Enterprise</button>
+                </div>
+            </div>
+
+            <!-- ── SOLO TAB ── -->
+            <div id="plan-solo">
+                <!-- Billing cycle toggle -->
+                <div class="flex justify-center mb-4">
+                    <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center">
+                        <button id="stackBtnMonthly" onclick="setStackCycle('monthly')" class="px-5 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 transition-all">Monthly</button>
+                        <button id="stackBtnYearly" onclick="setStackCycle('yearly')" class="px-5 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all flex items-center gap-2">
+                            Yearly <span class="bg-[#39FF14] text-black text-[10px] font-black px-1.5 py-0.5 rounded">2 months free</span>
+                        </button>
+                    </div>
+                </div>
+                <p id="stackBillingNote" class="text-center text-slate-600 text-xs mb-8">Billed monthly</p>
+
+                <!-- Stack cards grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+
+                    <!-- Starter Stack -->
+                    <div class="glass-card p-6 rounded-2xl flex flex-col">
+                        <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Starter Stack</p>
+                        <p class="text-slate-500 text-[10px] mb-4 leading-tight">Best for solo closers starting out</p>
+                        <div class="mb-4">
+                            <span class="text-3xl font-black text-white">$<span class="stack-price" data-monthly="249" data-yearly="208">249</span></span>
+                            <span class="text-slate-500 text-sm font-bold">/mo</span>
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2 mb-6 flex-1">
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Instant Sentinel (Email + WhatsApp)</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Knowledge Brain</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Appointment Architect</li>
+                        </ul>
+                        <button onclick="startWithStack('starter')" class="w-full py-3 rounded-xl btn-dopamine text-white font-bold text-sm mb-2">Start with this setup</button>
+                        <button onclick="customiseStack('starter')" class="w-full py-2 text-slate-400 text-xs hover:text-[#00D1FF] transition">Customise your stack ↓</button>
+                    </div>
+
+                    <!-- Growth Stack -->
+                    <div class="glass-card p-6 rounded-2xl flex flex-col">
+                        <p class="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Growth Stack</p>
+                        <p class="text-slate-500 text-[10px] mb-4 leading-tight">Best for active inbound teams</p>
+                        <div class="mb-4">
+                            <span class="text-3xl font-black text-white">$<span class="stack-price" data-monthly="497" data-yearly="414">497</span></span>
+                            <span class="text-slate-500 text-sm font-bold">/mo</span>
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2 mb-6 flex-1">
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Instant Sentinel (Email + FB + WhatsApp)</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Knowledge Brain</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Professional Intake</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Priority Routing</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Appointment Architect</li>
+                        </ul>
+                        <button onclick="startWithStack('growth')" class="w-full py-3 rounded-xl btn-dopamine text-white font-bold text-sm mb-2">Start with this setup</button>
+                        <button onclick="customiseStack('growth')" class="w-full py-2 text-slate-400 text-xs hover:text-[#00D1FF] transition">Customise your stack ↓</button>
+                    </div>
+
+                    <!-- Revenue Engine Stack — HIGHLIGHTED -->
+                    <div class="glass-card p-6 rounded-2xl flex flex-col relative" style="border-color: rgba(0,209,255,0.35);">
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#00D1FF] text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">Most Popular</div>
+                        <p class="text-[#00D1FF] text-[10px] uppercase font-bold tracking-wider mb-1">Revenue Engine</p>
+                        <p class="text-slate-500 text-[10px] mb-4 leading-tight">Best for teams scaling aggressively</p>
+                        <div class="mb-4">
+                            <span class="text-3xl font-black text-white">$<span class="stack-price" data-monthly="1555" data-yearly="1296">1,555</span></span>
+                            <span class="text-slate-500 text-sm font-bold">/mo</span>
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2 mb-6 flex-1">
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Instant Sentinel (All 4 channels)</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Knowledge Brain</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Professional Intake + Priority Routing</li>
+                            <li class="flex items-start gap-2"><span class="text-[#00D1FF] mt-0.5 shrink-0">✓</span>Appointment Architect</li>
+                            <li class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">✓</span><span>AI Social Growth System <span class="bg-purple-900/40 text-purple-400 text-[9px] px-1.5 py-0.5 rounded font-bold ml-1">Beta</span></span></li>
+                            <li class="flex items-start gap-2 ml-4 text-[10px] text-slate-500">Content · Posting · Engagement · Strategy</li>
+                        </ul>
+                        <button onclick="startWithStack('revenue')" class="w-full py-3 rounded-xl btn-dopamine text-white font-bold text-sm mb-2">Start with this setup</button>
+                        <button onclick="customiseStack('revenue')" class="w-full py-2 text-slate-400 text-xs hover:text-[#00D1FF] transition">Customise your stack ↓</button>
+                    </div>
+
+                    <!-- Full Stack Pro — ANCHOR -->
+                    <div class="glass-card p-6 rounded-2xl flex flex-col" style="background: rgba(10,15,30,0.95); border-color: rgba(57,255,20,0.15);">
+                        <p class="text-[#39FF14] text-[10px] uppercase font-bold tracking-wider mb-1">Full Stack Pro</p>
+                        <p class="text-slate-500 text-[10px] mb-4 leading-tight">Voice AI + White-Glove Support</p>
+                        <div class="mb-4">
+                            <span class="text-3xl font-black text-white">$<span class="stack-price" data-monthly="1999" data-yearly="1666">1,999</span></span>
+                            <span class="text-slate-500 text-sm font-bold">/mo</span>
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2 mb-6 flex-1">
+                            <li class="flex items-start gap-2"><span class="text-[#39FF14] mt-0.5 shrink-0">✓</span>Everything in Revenue Engine</li>
+                            <li class="flex items-start gap-2"><span class="text-[#39FF14] mt-0.5 shrink-0">✓</span>Voice AI (Inbound + Outbound)</li>
+                            <li class="flex items-start gap-2"><span class="text-[#39FF14] mt-0.5 shrink-0">✓</span>White-Glove Onboarding</li>
+                            <li class="flex items-start gap-2"><span class="text-[#39FF14] mt-0.5 shrink-0">✓</span>Priority Support Channel</li>
+                        </ul>
+                        <button onclick="openContactForm()" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm mb-2 transition border border-slate-700">Talk to Sales →</button>
+                        <p class="text-slate-600 text-[10px] text-center">Custom onboarding included</p>
+                    </div>
+
+                </div>
+
+                <!-- Chatbot CTA -->
+                <p class="text-center text-slate-500 text-sm">Not sure which plan is right for you? <button onclick="(document.getElementById('gsc-bubble')||{click:()=>{}}).click()" class="text-[#00D1FF] font-bold hover:underline transition">Ask our AI →</button></p>
+            </div>
+
+            <!-- ── AGENCY TAB ── -->
+            <div id="plan-agency" class="hidden">
+                <div class="max-w-2xl mx-auto">
+                    <div class="text-center mb-10">
+                        <p class="text-3xl font-black text-white">Volume pricing based on <span class="text-[#00D1FF]">your team size</span></p>
+                        <p class="text-slate-400 text-sm mt-2">For teams managing 5–50 users. Volume discount applied per seat — more seats, lower effective rate.</p>
+                    </div>
+                    <div class="glass-card p-8 rounded-3xl mb-8">
+                        <h3 class="text-white font-bold mb-6 text-sm uppercase tracking-wider">Estimate Your Price</h3>
+                        <div class="mb-6">
+                            <div class="flex justify-between mb-2">
+                                <label class="text-slate-400 text-xs uppercase tracking-wider">Number of Users</label>
+                                <span id="agencySeatDisplay" class="text-[#00D1FF] font-bold text-sm">10</span>
+                            </div>
+                            <input type="range" id="agencySeats" min="5" max="50" step="1" value="10" oninput="calculateAgencyPrice()" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#00D1FF]">
+                            <div class="flex justify-between mt-1 text-slate-600 text-[10px]"><span>5</span><span>50</span></div>
+                        </div>
+                        <div class="mb-6 space-y-2">
+                            <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Optional Add-ons</p>
+                            <p class="text-slate-600 text-[10px] mb-3">Solo-equivalent rates shown. Volume discount applied to the full selected bundle.</p>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="agVoice" onchange="calculateAgencyPrice()" class="accent-[#00D1FF]"> Voice AI <span class="text-slate-500 text-xs">$199 solo rate</span></label>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="agIntake" onchange="calculateAgencyPrice()" class="accent-[#00D1FF]"> Professional Intake <span class="text-slate-500 text-xs">$149 solo rate</span></label>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="agPriority" onchange="calculateAgencyPrice()" class="accent-[#00D1FF]"> Priority Routing <span class="text-slate-500 text-xs">$99 solo rate</span></label>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="agGE" onchange="calculateAgencyPrice()" class="accent-[#00D1FF]"> Growth Engine <span class="text-slate-500 text-xs">$660 solo rate</span></label>
+                            <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="agSocial" onchange="calculateAgencyPrice()" class="accent-[#00D1FF]"> AI Social Growth System <span class="text-slate-500 text-xs">$899 solo rate</span></label>
+                        </div>
+                        <div class="bg-slate-900/60 rounded-2xl p-5 text-center">
+                            <p class="text-slate-500 text-xs uppercase tracking-wider mb-1">Estimated Monthly</p>
+                            <p id="agencyPriceDisplay" class="text-4xl font-black text-white gilroy">—</p>
+                            <p id="agencyBaseNote" class="text-[#39FF14] text-xs mt-1 h-4"></p>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-slate-400 text-sm mb-4">For a more customised deal, contact our sales team.</p>
+                        <button onclick="openContactForm()" class="btn-dopamine px-10 py-4 rounded-xl text-white font-black uppercase">Book a Strategy Call →</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── ENTERPRISE TAB ── -->
+            <div id="plan-enterprise" class="hidden">
+                <div class="max-w-3xl mx-auto">
+                    <div class="space-y-4 mb-8">
+                        <div class="glass-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <p class="text-white font-bold mb-1">Enterprise — 200–500 users</p>
+                                <p class="text-slate-400 text-sm">Full infrastructure deployment for mid-market revenue teams</p>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="text-2xl font-black text-white">$30K–$80K</p>
+                                <p class="text-slate-500 text-xs">/month</p>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style="border-color: rgba(57,255,20,0.2);">
+                            <div>
+                                <p class="text-white font-bold mb-1">Enterprise OS — 500+ users</p>
+                                <p class="text-slate-400 text-sm">GetSalesCloser Revenue OS — the complete operating system for enterprise inbound</p>
+                                <div class="flex gap-2 mt-2 flex-wrap">
+                                    <span class="text-[10px] bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/20 px-2 py-0.5 rounded">AI Voice Agent Training +$15K</span>
+                                    <span class="text-[10px] bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/20 px-2 py-0.5 rounded">Dedicated AI Training +$20K</span>
+                                    <span class="text-[10px] bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/20 px-2 py-0.5 rounded">Enterprise Data Integration +$35K</span>
+                                </div>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="text-2xl font-black text-white">$80K–$150K</p>
+                                <p class="text-slate-500 text-xs">/month</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-2xl p-5 mb-8 border border-slate-800">
+                        <p class="text-[#00D1FF] text-xs font-bold uppercase tracking-wider mb-2">Revenue Share Option</p>
+                        <p class="text-slate-400 text-sm">For enterprise clients seeking performance-aligned pricing, we offer a revenue share model. <span class="text-white font-bold">Ask us about this during your strategy call.</span></p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-slate-400 text-sm mb-4">For a more customised deal, contact our sales team.</p>
+                        <button onclick="openContactForm()" class="btn-dopamine px-10 py-4 rounded-xl text-white font-black uppercase">Book a Strategy Call →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PIPELINE DIAGRAM -->
+    <section class="py-20 px-8 border-t border-slate-900 bg-slate-950">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">How It Works</p>
+                <h2 class="text-3xl gilroy text-white mb-3">Your Revenue Pipeline, Automated</h2>
+                <p class="text-slate-500 text-sm">Click any stage to understand its role in your revenue system</p>
+            </div>
+
+            <!-- Core Engine Pipeline -->
+            <p class="text-slate-500 font-bold text-[9px] uppercase tracking-widest mb-3">Core Revenue Engine</p>
+            <div class="flex flex-col md:flex-row items-stretch justify-center mb-1">
+
+                <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-lead" onclick="togglePipelineNode('lead')">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                        <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">01</div>
+                        <p class="text-white font-bold text-[11px] uppercase">Lead Arrives</p>
+                    </div>
+                    <div id="pipeline-desc-lead" class="pipeline-desc mx-1">
+                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
+                            <p class="text-[10px] text-slate-300 leading-relaxed">A prospect submits a form, calls, messages, or clicks — from any CRM, social platform, or direct channel. GetSalesCloser captures it the instant it arrives.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+
+                <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-sentinel" onclick="togglePipelineNode('sentinel')">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                        <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">02</div>
+                        <p class="text-white font-bold text-[11px] uppercase">Instant Sentinel</p>
+                    </div>
+                    <div id="pipeline-desc-sentinel" class="pipeline-desc mx-1">
+                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
+                            <p class="text-[10px] text-slate-300 leading-relaxed">The AI responds within 30 seconds across the lead's preferred channel — SMS, email, WhatsApp, or Messenger. Speed-to-lead is the single biggest conversion driver.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+
+                <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-brain" onclick="togglePipelineNode('brain')">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                        <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">03</div>
+                        <p class="text-white font-bold text-[11px] uppercase">Knowledge Brain</p>
+                    </div>
+                    <div id="pipeline-desc-brain" class="pipeline-desc mx-1">
+                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
+                            <p class="text-[10px] text-slate-300 leading-relaxed">The AI answers complex questions using your uploaded docs. Legal and medical verticals use GPT-4o for compliance-safe, high-accuracy responses.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+
+                <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-architect" onclick="togglePipelineNode('architect')">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                        <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">04</div>
+                        <p class="text-white font-bold text-[11px] uppercase">Apt. Architect</p>
+                    </div>
+                    <div id="pipeline-desc-architect" class="pipeline-desc mx-1">
+                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
+                            <p class="text-[10px] text-slate-300 leading-relaxed">Once intent is confirmed, the Architect negotiates time slots, coordinates booking, and sends confirmations — no manual scheduling required.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+
+                <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-rep" onclick="togglePipelineNode('rep')">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-[#39FF14]/30 text-center mx-1 h-full">
+                        <div class="text-[10px] font-black text-[#39FF14] uppercase tracking-widest mb-2">05</div>
+                        <p class="text-white font-bold text-[11px] uppercase">Sales Rep</p>
+                    </div>
+                    <div id="pipeline-desc-rep" class="pipeline-desc mx-1">
+                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
+                            <p class="text-[10px] text-slate-300 leading-relaxed">A fully qualified, pre-briefed lead lands in your closer's hands. AI has done the legwork. Your team focuses exclusively on closing.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <p class="text-center text-slate-600 text-[10px] mt-1 mb-12 italic">↑ Click any stage to expand</p>
+
+            <!-- Secondary pipelines -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-blue-400 font-bold text-[9px] uppercase tracking-widest mb-3">Premium Compliance Suite — How it integrates</p>
+                    <div class="flex items-center gap-2 flex-wrap text-[10px] text-slate-400">
+                        <span class="bg-blue-900/30 border border-blue-500/20 px-2 py-1 rounded">Lead Arrives</span><span>→</span>
+                        <span class="bg-blue-900/30 border border-blue-500/20 px-2 py-1 rounded">Pro Intake</span><span>→</span>
+                        <span class="bg-blue-900/30 border border-blue-500/20 px-2 py-1 rounded">Priority Routing</span><span>→</span>
+                        <span class="bg-blue-900/30 border border-blue-500/20 px-2 py-1 rounded">Safe Voice</span><span>→</span>
+                        <span class="bg-blue-900/30 border border-blue-500/20 px-2 py-1 rounded text-blue-300">Audited Handoff</span>
+                    </div>
+                    <p class="text-slate-500 text-[10px] mt-3">Wraps every stage with structured qualification, risk-aware routing, and compliant voice interaction — essential for legal, medical, and financial verticals.</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-purple-400 font-bold text-[9px] uppercase tracking-widest mb-3">AI Social Growth System — How it integrates</p>
+                    <div class="flex items-center gap-2 flex-wrap text-[10px] text-slate-400">
+                        <span class="bg-purple-900/30 border border-purple-500/20 px-2 py-1 rounded">Strategy</span><span>→</span>
+                        <span class="bg-purple-900/30 border border-purple-500/20 px-2 py-1 rounded">Content Engine</span><span>→</span>
+                        <span class="bg-purple-900/30 border border-purple-500/20 px-2 py-1 rounded">Auto-Post</span><span>→</span>
+                        <span class="bg-purple-900/30 border border-purple-500/20 px-2 py-1 rounded">Engagement Bot</span><span>→</span>
+                        <span class="bg-purple-900/30 border border-purple-500/20 px-2 py-1 rounded text-purple-300">Inbound Lead</span>
+                    </div>
+                    <p class="text-slate-500 text-[10px] mt-3">Drives new inbound leads from social into the Core Engine. Creates content, posts it, engages comments, converts DMs into pipeline.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
     <section id="pricing" class="py-24 px-8 border-t border-slate-900 bg-slate-950/50">
         <div class="max-w-3xl mx-auto text-center">
-            <h2 class="text-4xl gilroy text-white mb-4">Configure Your Engine</h2>
+            <h2 class="text-4xl gilroy text-white mb-2">Build Your Custom Engine</h2>
+            <p class="text-slate-500 text-sm mb-2">Modular infrastructure — activate only what your team needs</p>
+            <p class="text-slate-600 text-xs mb-10">or <button onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})" class="text-[#00D1FF] hover:underline transition">choose a pre-built plan ↑</button></p>
             <div class="glass-card p-10 rounded-[3rem] inline-block w-full relative">
                 <div class="flex justify-center mb-8"><div id="centralNode" class="h-10 w-10 bg-[#39FF14] rotate-45 cyber-glow transition-transform duration-500"></div></div>
                 <div class="flex items-center justify-center gap-1 text-white mb-10"><span class="text-3xl font-bold mt-2">$</span><span id="priceDisplay" class="text-7xl font-black gilroy">0</span><span class="text-slate-500 font-bold ml-2">/mo</span></div>
-                
+
                 <div class="space-y-4 mb-10 text-left">
+
+                    <!-- CORE ENGINE -->
+                    <p class="text-slate-500 font-bold text-[9px] uppercase tracking-widest pt-2">Core Engine</p>
+
+                    <!-- THE INSTANT SENTINEL -->
                     <div class="relative flex flex-col p-4 rounded-xl bg-slate-900/50 border border-slate-800">
                         <div class="flex items-center justify-between">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                                <div class="group relative">
+                                    <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                    <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                        <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                        <p class="text-[10px] text-slate-300 mb-3">Responds instantly to new inbound leads across your selected channels.</p>
+                                        <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                        <p class="text-[10px] text-slate-300">Stops speed-to-lead loss and captures more appointments before leads go cold.</p>
+                                    </div>
+                                </div>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleS" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
-                        <div id="channelMenu" class="hidden mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                            <label class="flex items-center gap-2"><input type="checkbox" checked class="chan-box accent-[#00D1FF]"> SMS Channel (Base)</label>
-                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> WhatsApp Business</label>
-                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> FB Messenger</label>
-                            <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]"> RCS Android</label>
+                        <p class="text-[10px] text-slate-500 mt-1.5">Includes Email + 1 live messaging channel · +$10 per additional channel</p>
+                        <div id="channelMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                            <div class="flex items-center gap-2 mb-3 py-2 px-3 bg-slate-800/60 rounded-lg">
+                                <span class="text-[#39FF14] text-xs font-bold">✓</span>
+                                <span class="text-[10px] text-slate-300 font-bold">Email — Included automatically</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Select live messaging channels ($10 each after first)</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-700 hover:border-[#00D1FF]/50 cursor-pointer"><input type="checkbox" class="chan-box accent-[#00D1FF]" checked> SMS</label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-700 hover:border-[#00D1FF]/50 cursor-pointer"><input type="checkbox" class="chan-box accent-[#00D1FF]"> WhatsApp Business</label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-700 hover:border-[#00D1FF]/50 cursor-pointer"><input type="checkbox" class="chan-box accent-[#00D1FF]"> FB Messenger</label>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- THE KNOWLEDGE BRAIN -->
                     <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span>
+                            <div class="group relative">
+                                <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                    <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                    <p class="text-[10px] text-slate-300 mb-3">Answers lead questions using your business knowledge and approved messaging.</p>
+                                    <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                    <p class="text-[10px] text-slate-300">Improves response accuracy and reduces manual agent dependency.</p>
+                                </div>
+                            </div>
+                        </div>
                         <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                     </div>
 
+                    <!-- APPOINTMENT ARCHITECT -->
                     <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                        <span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span>
+                            <div class="group relative">
+                                <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                    <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                    <p class="text-[10px] text-slate-300 mb-3">Handles booking logic, scheduling flow, and appointment coordination.</p>
+                                    <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                    <p class="text-[10px] text-slate-300">Converts more conversations into actual booked calls.</p>
+                                </div>
+                            </div>
+                        </div>
                         <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleA" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                     </div>
 
-                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span>
-                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    <!-- THE VOICE LIAISON -->
+                    <div class="relative flex flex-col p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span>
+                                <div class="group relative">
+                                    <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                    <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                        <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                        <p class="text-[10px] text-slate-300 mb-3">Uses AI voice to handle inbound missed-call or phone-based lead interactions.</p>
+                                        <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                        <p class="text-[10px] text-slate-300">Captures leads who would otherwise be lost when no one answers.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="voiceComplianceNotice" class="hidden mt-3 p-3 bg-amber-900/20 border border-amber-500/30 rounded-lg">
+                            <p class="text-[10px] text-amber-400 leading-relaxed">⚠️ Voice workflows may be subject to call-consent, recording, and jurisdiction-specific telecommunication laws. Customer is responsible for lawful configuration and use. Voice interactions may be AI-assisted.</p>
+                        </div>
                     </div>
 
+                    <!-- COMPLIANCE SUITE -->
                     <div class="pt-8 space-y-4">
                         <p class="text-blue-400 font-bold text-[9px] uppercase tracking-widest">Premium High-Stakes Compliance Suite</p>
+
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake ($149)</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake ($149)</span>
+                                <div class="group relative">
+                                    <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                    <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                        <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                        <p class="text-[10px] text-slate-300 mb-3">Collects structured pre-qualification details before handoff.</p>
+                                        <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                        <p class="text-[10px] text-slate-300">Improves lead quality and reduces wasted sales time.</p>
+                                    </div>
+                                </div>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
+
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Safe Voice Handling ($199)</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Safe Voice Handling ($199)</span>
+                                <div class="group relative">
+                                    <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                    <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                        <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                        <p class="text-[10px] text-slate-300 mb-3">Applies stricter safeguards and compliant handling for voice workflows.</p>
+                                        <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                        <p class="text-[10px] text-slate-300">Reduces operational risk in phone-based automation.</p>
+                                    </div>
+                                </div>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
+
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing ($99)</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing ($99)</span>
+                                <div class="group relative">
+                                    <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                    <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                        <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                        <p class="text-[10px] text-slate-300 mb-3">Routes high-intent leads faster and more intelligently.</p>
+                                        <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                        <p class="text-[10px] text-slate-300">Helps your best opportunities reach the right closer sooner.</p>
+                                    </div>
+                                </div>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                     </div>
+
+                    <!-- AI SOCIAL MEDIA ENGINE -->
                     <div class="pt-8 space-y-4">
-                        <p class="text-emerald-400 font-bold text-[9px] uppercase tracking-widest">Growth Engine — Add-On</p>
-                        <div class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
-                            <div class="text-left">
+                        <p class="text-purple-400 font-bold text-[9px] uppercase tracking-widest">AI Social Media Engine</p>
+
+                        <!-- AI Social Content Engine -->
+                        <div class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                            <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
-                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine ($660)</span>
-                                    <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">AI Social Content Engine</span>
+                                    <div class="group relative">
+                                        <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                        <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                            <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                            <p class="text-[10px] text-slate-300 mb-3">Generates, adapts, schedules, and posts AI content across connected platforms.</p>
+                                            <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                            <p class="text-[10px] text-slate-300">Maintains brand presence without manual daily content work.</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="text-[10px] text-slate-400 mt-0.5">AI content · engagement automation · revenue attribution</p>
+                                <label class="relative inline-flex items-center cursor-pointer ml-4"><input type="checkbox" id="toggleSCE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer ml-4"><input type="checkbox" id="toggleGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            <div id="scePlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                                <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your posting tier</p>
+                                <div class="grid grid-cols-3 gap-2 text-[10px]">
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="199" class="accent-purple-500 sce-plan">
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <span class="font-bold text-white">Starter</span>
+                                            <div class="group relative">
+                                                <span class="text-slate-500 hover:text-purple-400 cursor-help select-none">ⓘ</span>
+                                                <div class="absolute bottom-5 left-1/2 -translate-x-1/2 w-52 bg-slate-900 border border-slate-700 rounded-xl p-3 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                                    <p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Starter — $199/mo</p>
+                                                    <ul class="text-[10px] text-slate-300 space-y-1">
+                                                        <li>• AI post generation</li>
+                                                        <li>• Content scheduling</li>
+                                                        <li>• Posting analytics</li>
+                                                        <li>• Up to 2 social accounts</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-purple-400 font-bold">$199/mo</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="299" class="accent-purple-500 sce-plan" checked>
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <span class="font-bold text-white">Growth</span>
+                                            <div class="group relative">
+                                                <span class="text-slate-500 hover:text-purple-400 cursor-help select-none">ⓘ</span>
+                                                <div class="absolute bottom-5 left-1/2 -translate-x-1/2 w-52 bg-slate-900 border border-slate-700 rounded-xl p-3 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                                    <p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Growth — $299/mo</p>
+                                                    <ul class="text-[10px] text-slate-300 space-y-1">
+                                                        <li>• Everything in Starter</li>
+                                                        <li>• AI image generation</li>
+                                                        <li>• Advanced analytics</li>
+                                                        <li>• Up to 5 social accounts</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-purple-400 font-bold">$299/mo</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="399" class="accent-purple-500 sce-plan">
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <span class="font-bold text-white">Scale</span>
+                                            <div class="group relative">
+                                                <span class="text-slate-500 hover:text-purple-400 cursor-help select-none">ⓘ</span>
+                                                <div class="absolute bottom-5 left-1/2 -translate-x-1/2 w-52 bg-slate-900 border border-slate-700 rounded-xl p-3 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                                    <p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Scale — $399/mo</p>
+                                                    <ul class="text-[10px] text-slate-300 space-y-1">
+                                                        <li>• Everything in Growth</li>
+                                                        <li>• Approval workflow</li>
+                                                        <li>• Auto-posting</li>
+                                                        <li>• Unlimited accounts</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-purple-400 font-bold">$399/mo</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Engagement Bot -->
+                        <div class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Engagement Bot</span>
+                                    <div class="group relative">
+                                        <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                        <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                            <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                            <p class="text-[10px] text-slate-300 mb-3">Automates safe comment and reply interactions across connected platforms.</p>
+                                            <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                            <p class="text-[10px] text-slate-300">Increases engagement without requiring constant manual monitoring.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer ml-4"><input type="checkbox" id="toggleEB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            </div>
+                            <div id="ebPlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                                <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your engagement tier</p>
+                                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                        <input type="radio" name="ebPlan" value="99" class="accent-purple-500 eb-plan" checked>
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <span class="font-bold text-white">Starter</span>
+                                            <div class="group relative">
+                                                <span class="text-slate-500 hover:text-purple-400 cursor-help select-none">ⓘ</span>
+                                                <div class="absolute bottom-5 left-1/2 -translate-x-1/2 w-52 bg-slate-900 border border-slate-700 rounded-xl p-3 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                                    <p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Starter — $99/mo</p>
+                                                    <ul class="text-[10px] text-slate-300 space-y-1">
+                                                        <li>• AI comment replies</li>
+                                                        <li>• Post interaction management</li>
+                                                        <li>• Basic engagement analytics</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-purple-400 font-bold">$99/mo</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="ebPlan" value="199" class="accent-purple-500 eb-plan">
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <span class="font-bold text-white">Pro</span>
+                                            <div class="group relative">
+                                                <span class="text-slate-500 hover:text-purple-400 cursor-help select-none">ⓘ</span>
+                                                <div class="absolute bottom-5 left-1/2 -translate-x-1/2 w-52 bg-slate-900 border border-slate-700 rounded-xl p-3 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                                    <p class="text-[10px] text-purple-400 font-bold uppercase mb-2">Pro — $199/mo</p>
+                                                    <ul class="text-[10px] text-slate-300 space-y-1">
+                                                        <li>• Everything in Starter</li>
+                                                        <li>• Full engagement automation</li>
+                                                        <li>• Interaction analytics</li>
+                                                        <li>• Multi-platform management</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-purple-400 font-bold">$199/mo</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Growth Engine -->
+                        <div class="relative flex items-start justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
+                            <div class="text-left flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine ($660)</span>
+                                    <div class="group relative">
+                                        <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                        <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                            <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                            <p class="text-[10px] text-slate-300 mb-3">Analyzes engagement, attribution, and performance patterns to improve growth decisions.</p>
+                                            <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                            <p class="text-[10px] text-slate-300">Turns social and funnel activity into actionable revenue intelligence.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">Independent premium add-on — can be activated separately from posting tools</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-4 mt-0.5"><input type="checkbox" id="toggleGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                     </div>
+
                 </div>
 
                 <button id="deployBtn" onclick="handleDeployment()" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300">Deploy My Closer</button>
@@ -156,9 +896,136 @@
         </div>
     </section>
 
+    <!-- CONVERSION GUARANTEE -->
+    <section id="guarantee" class="py-20 px-8 border-t border-slate-900">
+        <div class="max-w-3xl mx-auto">
+            <div class="glass-card p-10 rounded-3xl text-center" style="border-color: rgba(57,255,20,0.25);">
+                <p class="text-[#39FF14] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">Our Conversion Commitment</p>
+                <h2 class="text-3xl gilroy text-white mb-6">Increase Booked Appointments<br>by 20% in Your First Year</h2>
+                <p class="text-slate-300 text-lg leading-relaxed mb-6">— or we extend your annual subscription <span class="text-[#39FF14] font-bold">free of charge</span> until you do,<br class="hidden sm:block">up to 90 additional days beyond your renewal date.</p>
+                <div class="bg-slate-900/60 rounded-2xl p-6 mb-6 text-left">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">Eligibility Conditions</p>
+                    <ul class="space-y-2 text-sm text-slate-400">
+                        <li class="flex items-start gap-2"><span class="text-[#39FF14] shrink-0">&#10003;</span>Full suite deployment required (minimum: Sentinel + Brain + Architect)</li>
+                        <li class="flex items-start gap-2"><span class="text-[#39FF14] shrink-0">&#10003;</span>Minimum lead volume of 200 inbound leads per month</li>
+                        <li class="flex items-start gap-2"><span class="text-[#39FF14] shrink-0">&#10003;</span>System must handle first response on all qualifying leads</li>
+                        <li class="flex items-start gap-2"><span class="text-[#39FF14] shrink-0">&#10003;</span>Sales team cooperation clause — reasonable response practices must be maintained</li>
+                    </ul>
+                </div>
+                <p class="text-slate-600 text-xs italic">Applies to annual plans with full suite deployment. Conversion rate measured over your first 12 months of deployment.</p>
+                <p class="text-slate-600 text-xs mt-1">Maximum free extension: 90 days beyond your annual renewal date.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CASE STUDIES -->
+    <section class="py-20 px-8 bg-slate-950/50">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-12">
+                <p class="text-[#00D1FF] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">Results From The Field</p>
+                <h2 class="text-3xl gilroy text-white mb-3">What Deployment Looks Like in Practice</h2>
+                <p class="text-slate-500 text-xs italic">Illustrative examples based on typical deployment outcomes. Actual results vary.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-bold uppercase tracking-widest mb-2">Real Estate</p>
+                    <p class="text-slate-400 text-xs mb-4 leading-relaxed">Missed first-response window consistently losing buyers to faster competitors</p>
+                    <div class="flex items-end gap-3 mb-4">
+                        <div class="text-center"><p class="text-2xl font-black text-red-400">9%</p><p class="text-[10px] text-slate-500">Before</p></div>
+                        <div class="text-[#39FF14] font-black text-xl mb-1">→</div>
+                        <div class="text-center"><p class="text-2xl font-black text-[#39FF14]">28%</p><p class="text-[10px] text-slate-500">After</p></div>
+                    </div>
+                    <p class="text-slate-400 text-xs">Booking rate improvement in <span class="text-white font-bold">45 days</span></p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-bold uppercase tracking-widest mb-2">Legal</p>
+                    <p class="text-slate-400 text-xs mb-4 leading-relaxed">Manual intake process creating consultation scheduling delays and drop-off</p>
+                    <div class="flex items-end gap-3 mb-4">
+                        <div class="text-center"><p class="text-2xl font-black text-red-400">12%</p><p class="text-[10px] text-slate-500">Before</p></div>
+                        <div class="text-[#39FF14] font-black text-xl mb-1">→</div>
+                        <div class="text-center"><p class="text-2xl font-black text-[#39FF14]">34%</p><p class="text-[10px] text-slate-500">After</p></div>
+                    </div>
+                    <p class="text-slate-400 text-xs">Consultation booking rate in <span class="text-white font-bold">60 days</span></p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <p class="text-[#00D1FF] text-[9px] font-bold uppercase tracking-widest mb-2">Solar</p>
+                    <p class="text-slate-400 text-xs mb-4 leading-relaxed">Multi-channel lead chaos with no structured qualification or routing flow</p>
+                    <div class="flex items-end gap-3 mb-4">
+                        <div class="text-center"><p class="text-2xl font-black text-red-400">8%</p><p class="text-[10px] text-slate-500">Before</p></div>
+                        <div class="text-[#39FF14] font-black text-xl mb-1">→</div>
+                        <div class="text-center"><p class="text-2xl font-black text-[#39FF14]">24%</p><p class="text-[10px] text-slate-500">After</p></div>
+                    </div>
+                    <p class="text-slate-400 text-xs">Qualified appointment rate in <span class="text-white font-bold">30 days</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOUNDING CUSTOMER PROGRAM -->
+    <section id="founding" class="py-20 px-8 border-t border-slate-900">
+        <div class="max-w-2xl mx-auto text-center">
+            <div class="glass-card p-10 rounded-3xl" style="background: linear-gradient(135deg, rgba(10,25,47,0.97), rgba(5,15,30,0.97)); border-color: rgba(0,209,255,0.2);">
+                <div class="inline-flex items-center gap-2 bg-[#00D1FF]/10 border border-[#00D1FF]/20 rounded-full px-4 py-1 mb-6">
+                    <span class="text-[#00D1FF] text-xs font-black uppercase tracking-wider">Founding Member Program</span>
+                </div>
+                <div class="mb-6">
+                    <p class="text-6xl font-black text-white gilroy" id="foundingCounter">7<span class="text-slate-700">/20</span></p>
+                    <p class="text-slate-400 text-sm mt-2">founding member seats remaining</p>
+                </div>
+                <p class="text-slate-300 text-sm leading-relaxed mb-8">We're offering the first 20 companies a founding member rate that will <span class="text-white font-bold">never be offered again</span> after the program closes.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 text-left">
+                    <div class="flex items-start gap-2 bg-slate-900/50 rounded-xl p-3">
+                        <span class="text-[#39FF14] shrink-0 mt-0.5">&#10003;</span>
+                        <div><p class="text-white text-xs font-bold">Lifetime 25% Discount</p><p class="text-slate-500 text-[10px]">Locked in forever, no matter how pricing changes</p></div>
+                    </div>
+                    <div class="flex items-start gap-2 bg-slate-900/50 rounded-xl p-3">
+                        <span class="text-[#39FF14] shrink-0 mt-0.5">&#10003;</span>
+                        <div><p class="text-white text-xs font-bold">Priority Feature Requests</p><p class="text-slate-500 text-[10px]">Your roadmap input gets first consideration</p></div>
+                    </div>
+                    <div class="flex items-start gap-2 bg-slate-900/50 rounded-xl p-3">
+                        <span class="text-[#39FF14] shrink-0 mt-0.5">&#10003;</span>
+                        <div><p class="text-white text-xs font-bold">Direct Founder Access</p><p class="text-slate-500 text-[10px]">Dedicated support line, not a ticket queue</p></div>
+                    </div>
+                    <div class="flex items-start gap-2 bg-slate-900/50 rounded-xl p-3">
+                        <span class="text-[#39FF14] shrink-0 mt-0.5">&#10003;</span>
+                        <div><p class="text-white text-xs font-bold">Conversion Guarantee Eligible</p><p class="text-slate-500 text-[10px]">Priority access to the annual booking commitment</p></div>
+                    </div>
+                    <div class="flex items-start gap-2 bg-slate-900/50 rounded-xl p-3 sm:col-span-2">
+                        <span class="text-[#39FF14] shrink-0 mt-0.5">&#10003;</span>
+                        <div><p class="text-white text-xs font-bold">Early Feature Access</p><p class="text-slate-500 text-[10px]">Every new capability ships to you first, before general release</p></div>
+                    </div>
+                </div>
+                <button onclick="claimFoundingSeat()" class="btn-dopamine w-full py-4 rounded-xl text-white font-black uppercase tracking-widest mb-4">Claim Your Founding Seat</button>
+                <p class="text-slate-600 text-[10px] italic">Founding pricing will never be offered again after the first 20 customers.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- RELIABILITY BLOCK -->
+    <section class="py-12 px-8 border-t border-slate-900 bg-slate-950/50">
+        <div class="max-w-3xl mx-auto">
+            <p class="text-center text-slate-600 text-[9px] uppercase tracking-widest mb-6">Designed for Reliability</p>
+            <div class="flex flex-wrap justify-center gap-8 md:gap-16">
+                <div class="text-center">
+                    <p class="text-[#00D1FF] text-xs font-bold uppercase tracking-wider mb-1">High Availability</p>
+                    <p class="text-slate-500 text-[11px]">Infrastructure built for 99.9% uptime</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-[#00D1FF] text-xs font-bold uppercase tracking-wider mb-1">Scalable Automation</p>
+                    <p class="text-slate-500 text-[11px]">Pipelines that handle 10 or 10,000 leads/month</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-[#00D1FF] text-xs font-bold uppercase tracking-wider mb-1">Enterprise-Grade Routing</p>
+                    <p class="text-slate-500 text-[11px]">Multi-channel fallback, rate limits, dead-letter queue</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI POPUP -->
     <div id="roiPopup" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 md:p-10 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
         <div class="glass-card max-w-6xl w-full p-8 md:p-12 rounded-[3rem] relative shadow-2xl">
-            <button onclick="toggleROIPopup()" class="absolute top-8 right-8 text-slate-500 hover:text-white transition text-2xl">✕</button>
+            <button onclick="toggleROIPopup()" class="absolute top-8 right-8 text-slate-500 hover:text-white transition text-2xl">&#x2715;</button>
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
                 <div class="lg:col-span-5 space-y-8">
                     <div>
@@ -200,11 +1067,12 @@
                     <div><p class="roi-stat-label">ROI Multiplier</p><p id="roiMultiplier" class="text-2xl font-bold text-white">0x</p></div>
                     <div><p class="roi-stat-label">Annual Recovery</p><p id="annualRoi" class="text-2xl font-bold text-[#00D1FF]">$0</p></div>
                 </div>
-                <button onclick="window.location.href='pricing.html'" class="btn-dopamine px-12 py-5 rounded-xl text-white font-black uppercase tracking-widest shadow-2xl">Secure My Revenue Now</button>
+                <button onclick="handleDeployment()" class="btn-dopamine px-12 py-5 rounded-xl text-white font-black uppercase tracking-widest shadow-2xl">Secure My Revenue Now</button>
             </div>
         </div>
     </div>
 
+    <!-- DEMO SELECTOR -->
     <div id="demoSelector" class="fixed inset-0 z-[101] hidden flex items-center justify-center p-6 bg-slate-950/95">
         <div class="glass-card max-w-md w-full p-8 rounded-[2rem] text-center">
             <h3 class="text-xl gilroy text-white mb-6">How would you describe your business?</h3>
@@ -223,6 +1091,7 @@
         </div>
     </div>
 
+    <!-- VIDEO POPUP -->
     <div id="videoPopup" class="fixed inset-0 z-[102] hidden flex items-center justify-center p-4 bg-black/90">
         <div class="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
             <button onclick="closeVideoDemo()" class="absolute top-4 right-4 z-[103] bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md">✕</button>
@@ -230,43 +1099,100 @@
         </div>
     </div>
 
+    <!-- AUDIT POPUP -->
     <div id="auditPopup" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/90">
         <div class="glass-card max-w-lg w-full p-8 rounded-[2.5rem] relative">
-            <button onclick="toggleAuditPopup()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition">✕</button>
-            <h3 class="text-2xl gilroy text-white mb-6 text-center italic">Run Your Speed-to-Lead Audit</h3>
-            <form id="auditForm" class="space-y-4">
-                <input type="text" id="fullNameInput" placeholder="Full Name" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition">
+            <button onclick="toggleAuditPopup()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition text-lg leading-none">&#x2715;</button>
+            <h3 class="text-2xl gilroy text-white mb-2 text-center italic">Run Your Speed-to-Lead Audit</h3>
+            <p class="text-[10px] text-slate-500 text-center mb-6">Audit review and follow-up may involve AI-assisted analysis and communications.</p>
+            <div id="auditFormWrap">
+            <form id="auditForm" class="space-y-4" onsubmit="submitAuditForm(event)">
+                <input type="text" id="fullNameInput" placeholder="Full Name" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition text-white">
+                <input type="email" id="auditEmail" placeholder="Work Email" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition text-white">
                 <div class="w-full"><input id="phone" type="tel" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none text-white focus:border-[#00D1FF] transition"></div>
-                <div class="relative"><input type="url" id="auditUrl" placeholder="Business Website URL" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition"><div id="scanMsg" class="absolute right-4 top-4 hidden"><span class="text-[10px] text-[#39FF14] scanning font-bold uppercase">Scanning DNA...</span></div></div>
+                <div class="relative"><input type="url" id="auditUrl" placeholder="Business Website URL" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] transition text-white"><div id="scanMsg" class="absolute right-4 top-4 hidden"><span class="text-[10px] text-[#39FF14] scanning font-bold uppercase">Scanning DNA...</span></div></div>
                 <div id="dnaTag" class="hidden py-3 px-4 bg-[#00D1FF]/10 border border-[#00D1FF]/30 rounded-xl flex items-center justify-between">
                     <div><p class="text-[10px] text-slate-500 uppercase font-bold mb-1">Detected Industry</p><span id="dnaLabel" class="text-xs font-bold text-[#00D1FF]">ANALYZING...</span></div>
                     <button type="button" onclick="resetDNA()" class="text-[10px] underline text-slate-500 hover:text-white">Correction?</button>
                 </div>
-                <div class="flex items-start gap-3 py-2 text-left"><input type="checkbox" required class="mt-1 accent-[#00D1FF]"><label class="text-[10px] text-slate-500 leading-tight">I consent to receive automated audit results via SMS/Call. I understand these calls are powered by AI. [TCPA/GDPR Compliant]</label></div>
-                <button type="submit" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest">Start Relentless Audit</button>
+                <!-- Required consent -->
+                <div class="flex items-start gap-3 py-2 text-left">
+                    <input type="checkbox" required class="mt-1 accent-[#00D1FF] shrink-0">
+                    <label class="text-[10px] text-slate-400 leading-tight">I agree to receive AI-assisted SMS or calls from GetSalesCloser regarding my audit request at the number provided. Consent is not a condition of purchase. I agree to the <a href="terms.html" class="text-[#00D1FF] hover:underline">Terms</a>, <a href="privacy.html" class="text-[#00D1FF] hover:underline">Privacy Policy</a>, and <a href="aup.html" class="text-[#00D1FF] hover:underline">Acceptable Use Policy</a>.</label>
+                </div>
+                <!-- Optional marketing consent -->
+                <div class="flex items-start gap-3 pb-2 text-left">
+                    <input type="checkbox" id="marketingConsent" class="mt-1 accent-[#00D1FF] shrink-0">
+                    <label class="text-[10px] text-slate-500 leading-tight">I also agree to receive future marketing updates and product news from GetSalesCloser (optional).</label>
+                </div>
+                <button type="submit" id="auditSubmitBtn" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest">Start Relentless Audit</button>
+                <p id="auditErrorMsg" class="hidden text-red-400 text-xs text-center mt-2"></p>
             </form>
+            </div>
+            <!-- Success state -->
+            <div id="auditSuccessState" class="hidden text-center py-4">
+                <div class="w-12 h-0.5 bg-[#39FF14] mx-auto mb-6"></div>
+                <h4 class="text-xl gilroy text-white mb-3">Your Audit Is Underway</h4>
+                <p class="text-slate-400 text-sm leading-relaxed mb-2">Your Speed-to-Lead audit report will be delivered to <span id="auditConfirmEmail" class="text-white font-bold"></span> within 6 hours.</p>
+                <p class="text-slate-500 text-xs">We are analysing your site and testing your lead response infrastructure now.</p>
+            </div>
         </div>
     </div>
 
+    <!-- PRICE NOTICE -->
     <div id="priceNotice" class="hidden fixed bottom-10 right-10 z-[200] glass-card p-6 rounded-2xl border-l-4 border-[#39FF14] max-w-sm animate-bounce">
         <p id="noticeText" class="text-xs font-bold text-white leading-tight uppercase tracking-wider"></p>
     </div>
 
+    <!-- CONTACT SALES MODAL -->
+    <div id="contactModal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-sm">
+        <div class="glass-card max-w-lg w-full p-8 rounded-[2.5rem] relative max-h-[92vh] overflow-y-auto">
+            <button onclick="closeContactForm()" class="absolute top-6 right-6 text-slate-500 hover:text-white transition text-xl leading-none">&#x2715;</button>
+            <div id="contactFormStep">
+                <h3 class="text-2xl gilroy text-white mb-2 text-center">Let's Talk Revenue</h3>
+                <p class="text-slate-400 text-sm text-center mb-6">Tell us about your team and requirements</p>
+                <form id="salesContactForm" onsubmit="submitContactForm(event)" class="space-y-4">
+                    <input type="text" name="name" required placeholder="Full Name" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] text-white transition">
+                    <input type="url" name="website" required placeholder="Company Website URL" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] text-white transition">
+                    <input type="email" name="email" required placeholder="Work Email" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] text-white transition">
+                    <input type="tel" name="phone" required placeholder="Phone Number" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] text-white transition">
+                    <textarea name="message" required placeholder="Describe your requirements — team size, use case, channels needed..." rows="3" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-xl outline-none focus:border-[#00D1FF] text-white transition resize-none"></textarea>
+                    <div class="flex items-start gap-3 text-left">
+                        <input type="checkbox" id="contactWaConsent" class="mt-1 accent-[#00D1FF] shrink-0">
+                        <label for="contactWaConsent" class="text-[10px] text-slate-400 leading-tight">I consent to receiving a WhatsApp confirmation of my meeting booking at the number provided.</label>
+                    </div>
+                    <button type="submit" class="btn-dopamine w-full py-4 rounded-xl text-white font-black uppercase tracking-widest">Book My Strategy Call →</button>
+                </form>
+            </div>
+            <div id="contactSuccessStep" class="hidden text-center py-8">
+                <div class="text-[#39FF14] text-5xl mb-4">✓</div>
+                <h3 class="text-xl font-bold text-white mb-2">Request Received</h3>
+                <p class="text-slate-400 text-sm mb-8">We'll review your requirements and reach out within 24 hours. Lock in your strategy call slot now:</p>
+                <a href="https://calendly.com/anurag-getsalescloser/30min" target="_blank" rel="noopener" class="btn-dopamine px-10 py-4 rounded-xl text-white font-black uppercase inline-block mb-4">Book Strategy Call →</a>
+                <p class="text-slate-600 text-xs">Can't find a slot? Email us at <span class="text-slate-400">support@getsalescloser.com</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
     <footer class="bg-[#020617] border-t border-slate-900 py-16 px-8 mt-20">
         <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
             <div>
                 <div class="flex items-center gap-2 mb-4 text-white"><div class="h-4 w-4 bg-[#39FF14] rotate-45 cyber-glow"></div><span class="font-bold text-xl italic">GetSalesCloser</span></div>
-                <p class="text-slate-500 text-sm leading-relaxed">Elite AI infrastructure engineered for high-ticket closing precision. A product of YogMaya Industries.</p>
+                <p class="text-slate-500 text-sm leading-relaxed">AI Revenue Infrastructure for inbound sales teams. Built for speed, compliance, and conversion. A product of YogMaya Industries.</p>
             </div>
             <div>
                 <h4 class="text-white font-bold mb-6">Support</h4>
-                <ul class="text-slate-500 text-sm space-y-3"><li>Merchant: Anurag Raj</li><li>Email: anurag@getsalescloser.com</li></ul>
+                <ul class="text-slate-500 text-sm space-y-3"><li>Merchant: Anurag Raj</li><li>Email: support@getsalescloser.com</li></ul>
             </div>
             <div>
                 <h4 class="text-white font-bold mb-6">Legal</h4>
                 <ul class="text-slate-500 text-sm space-y-3">
                     <li><a href="privacy.html" class="hover:text-[#00D1FF]">Privacy Policy</a></li>
-                    <li><a href="terms.html" class="hover:text-[#00D1FF]">Terms</a></li>
+                    <li><a href="terms.html" class="hover:text-[#00D1FF]">Terms of Service</a></li>
+                    <li><a href="aup.html" class="hover:text-[#00D1FF]">Acceptable Use Policy</a></li>
+                    <li><a href="subprocessors.html" class="hover:text-[#00D1FF]">Sub-processors</a></li>
+                    <li><button onclick="showCookieBanner()" class="hover:text-[#00D1FF] text-left">Cookie Settings</button></li>
                 </ul>
             </div>
         </div>
@@ -277,16 +1203,42 @@
         // CORE UI LOGIC
         function handleDeployment() {
             const btn = document.getElementById('deployBtn');
-            if (btn.disabled) return; 
-            
+            if (btn.disabled) return;
+            // Save current selections so pricing.html can pre-apply them
+            const sceSelected = document.querySelector('.sce-plan:checked');
+            const ebSelected = document.querySelector('.eb-plan:checked');
+            const config = {
+                services: {
+                    sentinel: toggles.S?.checked || false,
+                    brain: toggles.B?.checked || false,
+                    architect: toggles.A?.checked || false,
+                    voice: toggles.L?.checked || false
+                },
+                addons: {
+                    intake: toggles.Intake?.checked || false,
+                    safe_voice: toggles.SafeVoice?.checked || false,
+                    priority: toggles.Priority?.checked || false,
+                    growth_engine: toggles.GE?.checked || false,
+                    sce: toggles.SCE?.checked || false,
+                    sce_plan: toggles.SCE?.checked && sceSelected ? sceSelected.value : null,
+                    eb: toggles.EB?.checked || false,
+                    eb_plan: toggles.EB?.checked && ebSelected ? ebSelected.value : null
+                },
+                channels: {
+                    sms: document.querySelector('.chan-box[data-id="sms"]')?.checked || false,
+                    whatsapp: document.querySelector('.chan-box[data-id="whatsapp"]')?.checked || false,
+                    fb: document.querySelector('.chan-box[data-id="fb"]')?.checked || false
+                }
+            };
+            localStorage.setItem('gsc_pricing_config', JSON.stringify(config));
             document.getElementById('deploymentOverlay').style.display = 'flex';
             document.getElementById('animNode').classList.add('lock-impact');
             setTimeout(() => { window.location.href = "pricing.html"; }, 2000);
         }
-    
+
         const phoneInput = document.querySelector("#phone");
         const iti = window.intlTelInput(phoneInput, { initialCountry: "us", separateDialCode: true, utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js" });
-    
+
         // DNA Detection
         const auditUrl = document.getElementById('auditUrl');
         auditUrl.addEventListener('blur', () => {
@@ -305,13 +1257,67 @@
             }
         });
         function resetDNA() { document.getElementById('dnaTag').classList.add('hidden'); auditUrl.value = ""; auditUrl.focus(); }
-    
+
         function toggleAuditPopup() { document.getElementById('auditPopup').classList.toggle('hidden'); }
+
+        // ── FOUNDING SEAT CLAIM ──────────────────────────────────────────────────
+        function claimFoundingSeat() {
+            localStorage.setItem('gsc_pricing_config', JSON.stringify({
+                billing_cycle: 'yearly',
+                services: { sentinel: true, brain: true, architect: true, voice: true },
+                sce: '399',
+                eb: '199',
+                ge: true,
+                is_founding_member: true
+            }));
+            window.location.href = 'pricing.html?founding=1';
+        }
+
+        // ── AUDIT FORM SUBMISSION ────────────────────────────────────────────────
+        async function submitAuditForm(e) {
+            e.preventDefault();
+            const btn = document.getElementById('auditSubmitBtn');
+            const errMsg = document.getElementById('auditErrorMsg');
+            btn.disabled = true;
+            btn.innerText = 'Submitting...';
+            errMsg.classList.add('hidden');
+
+            const name    = document.getElementById('fullNameInput').value.trim();
+            const email   = document.getElementById('auditEmail').value.trim();
+            const phone   = (window.auditIti ? window.auditIti.getNumber() : document.getElementById('phone').value.trim());
+            const website = document.getElementById('auditUrl').value.trim();
+            const industry = document.getElementById('dnaLabel')?.innerText || 'Unknown';
+            const marketing = document.getElementById('marketingConsent')?.checked || false;
+
+            try {
+                const res = await fetch(
+                    'https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/speed-to-lead-audit',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, phone, website, industry, marketing_consent: marketing })
+                    }
+                );
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    throw new Error(body.error || 'Submission failed. Please try again.');
+                }
+                // Show success state
+                document.getElementById('auditFormWrap').classList.add('hidden');
+                document.getElementById('auditConfirmEmail').innerText = email;
+                document.getElementById('auditSuccessState').classList.remove('hidden');
+            } catch (err) {
+                errMsg.innerText = err.message;
+                errMsg.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerText = 'Start Relentless Audit';
+            }
+        }
         function openDemoSelector() { document.getElementById('demoSelector').classList.remove('hidden'); }
         function closeDemoSelector() { document.getElementById('demoSelector').classList.add('hidden'); }
         function launchVideoDemo() { document.getElementById('demoIframe').src = "https://www.youtube.com/embed/HEGQOuo66jY?autoplay=1"; closeDemoSelector(); document.getElementById('videoPopup').classList.remove('hidden'); }
         function closeVideoDemo() { document.getElementById('demoIframe').src = ""; document.getElementById('videoPopup').classList.add('hidden'); }
-        
+
         // ROI Logic
         let roiChart;
         function toggleROIPopup() {
@@ -319,7 +1325,7 @@
             popup.classList.toggle('hidden');
             if (!popup.classList.contains('hidden')) { setTimeout(initROIChart, 100); calculateROI(); }
         }
-    
+
         function initROIChart() {
             const ctx = document.getElementById('roiChart').getContext('2d');
             if (roiChart) roiChart.destroy();
@@ -328,7 +1334,7 @@
                 options: { cutout: '80%', plugins: { legend: { display: false } } }
             });
         }
-    
+
         function calculateROI() {
             const val = parseFloat(document.getElementById('inputLeadValue').value);
             const count = parseInt(document.getElementById('inputLeadCount').value);
@@ -338,7 +1344,7 @@
             document.getElementById('valTime').innerText = `${time} min`;
             document.getElementById('valTime').className = time > 5 ? 'text-red-500 font-bold' : 'text-[#39FF14] font-bold';
             document.getElementById('hbrAlert').classList.toggle('hidden', time <= 5);
-    
+
             const leakRate = time <= 5 ? 0.05 : 0.71;
             const lostRev = (count * leakRate * val * 0.20);
             const recoveredRev = lostRev * 0.90;
@@ -347,46 +1353,55 @@
             document.getElementById('roiTotal').innerText = `$${Math.round(netMonthly).toLocaleString()}`;
             document.getElementById('annualRoi').innerText = `$${Math.round(netMonthly * 12).toLocaleString()}`;
             document.getElementById('roiMultiplier').innerText = `${Math.max(0, (netMonthly / 249)).toFixed(1)}x`;
-    
+
             const leakContainer = document.getElementById('leakContainer');
             leakContainer.innerHTML = '';
             if (time > 5) { for (let i = 0; i < 15; i++) { const p = document.createElement('div'); p.className = 'leak-particle'; p.style.left = Math.random() * 100 + '%'; p.style.animationDelay = Math.random() * 1 + 's'; leakContainer.appendChild(p); } }
             if (roiChart) { roiChart.data.datasets[0].data = [lostRev, recoveredRev, 249]; roiChart.update(); }
         }
-    
-        // --- STRICT PRICING & VALIDATION LOGIC ---
+
+        // --- PRICING & VALIDATION LOGIC ---
         const toggles = {
             S: document.getElementById('toggleS'), B: document.getElementById('toggleB'),
             A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
             Priority: document.getElementById('togglePriority'),
-            GE: document.getElementById('toggleGE')
+            GE: document.getElementById('toggleGE'),
+            SCE: document.getElementById('toggleSCE'),
+            EB: document.getElementById('toggleEB')
         };
         const priceDisp = document.getElementById('priceDisplay');
-        const chanBoxes = document.querySelectorAll('.chan-box');
         const noticeBox = document.getElementById('priceNotice');
         const noticeText = document.getElementById('noticeText');
         const deployBtn = document.getElementById('deployBtn');
-    
+
         function showNotice(msg) {
             noticeText.innerText = msg;
             noticeBox.classList.remove('hidden');
             setTimeout(() => noticeBox.classList.add('hidden'), 6000);
         }
-    
+
         function calculate(event) {
-            const { S, B, A, L, Intake, SafeVoice, Priority, GE } = Object.fromEntries(
+            const { S, B, A, L, Intake, SafeVoice, Priority, GE, SCE, EB } = Object.fromEntries(
                 Object.entries(toggles).map(([k, v]) => [k, v ? v.checked : false])
             );
-            
+
+            // Channel menu visibility
             document.getElementById('channelMenu').classList.toggle('hidden', !S);
-            let base = 0;
-            let count = Array.from(chanBoxes).filter(x => x.checked).length;
-    
-            // --- 1. VALIDATION & BUTTON STATE ---
+
+            // Voice compliance notice
+            document.getElementById('voiceComplianceNotice').classList.toggle('hidden', !L);
+
+            // SCE plan menu visibility
+            document.getElementById('scePlanMenu').classList.toggle('hidden', !SCE);
+
+            // EB plan menu visibility
+            document.getElementById('ebPlanMenu').classList.toggle('hidden', !EB);
+
+            // Validation
             const isInvalidAddon = (B || A) && !S && !L;
             const hasBaseService = S || L;
-    
+
             if (isInvalidAddon) {
                 deployBtn.disabled = true;
                 deployBtn.classList.remove('btn-dopamine');
@@ -401,8 +1416,9 @@
                 deployBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
                 deployBtn.classList.add('btn-dopamine');
             }
-    
-            // --- 2. PRICING HIERARCHY ---
+
+            // Base pricing
+            let base = 0;
             if (L) {
                 if (S && B && A) {
                     base = 349;
@@ -415,25 +1431,29 @@
                 else if (B) { base = 249; }
                 else if (A) { base = 199; }
                 else { base = 149; }
-            }
-            else if (S) {
+            } else if (S) {
                 if (B && A) { base = 249; }
                 else if (B) { base = 199; }
                 else if (A) { base = 149; }
                 else {
-                    base = 49;
-                    base += Math.max(0, (count - 2) * 10);
-                    if (event && event.target.id === 'toggleS' && S) { showNotice("💎 DUO DEAL: CHOOSE ANY TWO CHANNELS FOR $49"); }
+                    const chanCount = document.querySelectorAll('.chan-box:checked').length;
+                    base = 49 + Math.max(0, (chanCount - 1) * 10);
+                    if (event && event.target.id === 'toggleS' && S) showNotice("💎 EMAIL + 1 LIVE CHANNEL FOR $49 · ADD MORE AT $10 EACH");
                 }
-            }
-            else {
+            } else {
                 if (B) base += 99;
                 if (A) base += 99;
             }
-    
-            let premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0) + (GE ? 660 : 0);
+
+            // Social pricing
+            const sceSelected = document.querySelector('.sce-plan:checked');
+            const ebSelected = document.querySelector('.eb-plan:checked');
+            const scePremium = SCE && sceSelected ? parseInt(sceSelected.value) : 0;
+            const ebPremium = EB && ebSelected ? parseInt(ebSelected.value) : 0;
+
+            const premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0) + scePremium + ebPremium + (GE ? 660 : 0);
             const total = base + premium;
-    
+
             let start = parseInt(priceDisp.innerText) || 0;
             function animate(t) {
                 if(!window.startTimeAnimate) window.startTimeAnimate = t;
@@ -442,12 +1462,205 @@
                 if(progress < 1) requestAnimationFrame(animate); else window.startTimeAnimate = null;
             }
             requestAnimationFrame(animate);
-            if(document.getElementById('centralNode')) { document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${1 + (total > 0 ? (total/600) : 0)})`; }
+            if(document.getElementById('centralNode')) { document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${Math.min(1.35, 1 + (total > 0 ? (total/2000) : 0))})`; }
         }
-    
-        // FIX: Added closing parenthesis here
+
         Object.values(toggles).forEach(t => { if(t) t.addEventListener('change', (e) => calculate(e)); });
-        chanBoxes.forEach(b => b.addEventListener('change', (e) => calculate(e)));
+        // Recalculate when social plan radios or channel checkboxes change
+        document.querySelectorAll('.sce-plan, .eb-plan').forEach(r => r.addEventListener('change', () => calculate(null)));
+        document.querySelectorAll('.chan-box').forEach(b => b.addEventListener('change', () => calculate(null)));
+
+        // COOKIE BANNER
+        function showCookieBanner() {
+            document.getElementById('cookieBanner').classList.remove('hidden');
+        }
+        function acceptCookies() {
+            localStorage.setItem('cookieConsent', 'accepted');
+            document.getElementById('cookieBanner').classList.add('hidden');
+        }
+        function rejectCookies() {
+            localStorage.setItem('cookieConsent', 'rejected');
+            document.getElementById('cookieBanner').classList.add('hidden');
+        }
+        function manageCookies() {
+            document.getElementById('cookieBanner').classList.add('hidden');
+            document.getElementById('cookieModal').classList.remove('hidden');
+        }
+        function closeCookieModal() {
+            document.getElementById('cookieModal').classList.add('hidden');
+        }
+        function saveCookiePrefs() {
+            const analytics = document.getElementById('analyticsConsent').checked;
+            localStorage.setItem('cookieConsent', analytics ? 'accepted' : 'essential');
+            closeCookieModal();
+        }
+        // Show banner on first visit
+        if (!localStorage.getItem('cookieConsent')) {
+            setTimeout(() => document.getElementById('cookieBanner').classList.remove('hidden'), 1200);
+        }
+    </script>
+
+    <script>
+        // ── FOUNDING COUNTER (live from Supabase) ────────────────────────────────
+        (async function loadFoundingCounter() {
+            try {
+                const res = await fetch(
+                    'https://klbwigcvrdfeeeeotehu.supabase.co/rest/v1/founding_program?select=seats_total,seats_claimed&limit=1',
+                    { headers: {
+                        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8'
+                    }}
+                );
+                if (!res.ok) return;
+                const [row] = await res.json();
+                if (!row) return;
+                const el = document.getElementById('foundingCounter');
+                if (el) {
+                    const remaining = row.seats_total - row.seats_claimed;
+                    el.innerHTML = remaining + '<span class="text-slate-700">/' + row.seats_total + '</span>';
+                }
+            } catch (e) { /* fail silently — hardcoded 7/20 remains */ }
+        })();
+
+        // ── PLAN TABS ────────────────────────────────────────────────────────────
+        function switchPlanTab(tab) {
+            ['solo', 'agency', 'enterprise'].forEach(t => {
+                const tabEl = document.getElementById('tab-' + t);
+                const planEl = document.getElementById('plan-' + t);
+                if (tabEl) tabEl.classList.toggle('tab-active', t === tab);
+                if (planEl) planEl.classList.toggle('hidden', t !== tab);
+            });
+            if (tab === 'agency') calculateAgencyPrice();
+        }
+
+        // ── STACK BILLING CYCLE ──────────────────────────────────────────────────
+        let stackCycle = 'monthly';
+        function setStackCycle(cycle) {
+            stackCycle = cycle;
+            const btnM = document.getElementById('stackBtnMonthly');
+            const btnY = document.getElementById('stackBtnYearly');
+            if (btnM) btnM.className = cycle === 'monthly'
+                ? 'px-5 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 transition-all'
+                : 'px-5 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all';
+            if (btnY) btnY.className = cycle === 'yearly'
+                ? 'px-5 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 transition-all flex items-center gap-2'
+                : 'px-5 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all flex items-center gap-2';
+            document.querySelectorAll('.stack-price').forEach(el => {
+                const val = cycle === 'yearly' ? el.dataset.yearly : el.dataset.monthly;
+                el.innerText = parseInt(val).toLocaleString();
+            });
+            const note = document.getElementById('stackBillingNote');
+            if (note) note.innerText = cycle === 'yearly' ? 'Billed annually — 2 months free' : 'Billed monthly';
+        }
+
+        // ── STACK CONFIGS ────────────────────────────────────────────────────────
+        const stackConfigs = {
+            starter: {
+                services: { sentinel: true, brain: true, architect: true, voice: false },
+                addons: { intake: false, safe_voice: false, priority: false, growth_engine: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
+                channels: { sms: false, whatsapp: true, fb: false }
+            },
+            growth: {
+                services: { sentinel: true, brain: true, architect: true, voice: false },
+                addons: { intake: true, safe_voice: false, priority: true, growth_engine: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
+                channels: { sms: false, whatsapp: true, fb: true }
+            },
+            revenue: {
+                services: { sentinel: true, brain: true, architect: true, voice: false },
+                addons: { intake: true, safe_voice: false, priority: true, growth_engine: true, sce: true, sce_plan: '299', eb: true, eb_plan: '99' },
+                channels: { sms: true, whatsapp: true, fb: true }
+            }
+        };
+
+        function startWithStack(stackName) {
+            const cfg = stackConfigs[stackName];
+            if (!cfg) return;
+            const payload = JSON.parse(JSON.stringify(cfg));
+            payload.billing_cycle = stackCycle;
+            localStorage.setItem('gsc_pricing_config', JSON.stringify(payload));
+            document.getElementById('deploymentOverlay').style.display = 'flex';
+            document.getElementById('animNode').classList.add('lock-impact');
+            setTimeout(() => { window.location.href = 'pricing.html'; }, 1500);
+        }
+
+        function customiseStack(stackName) {
+            const cfg = stackConfigs[stackName];
+            if (!cfg) return;
+            if (toggles.S) toggles.S.checked = cfg.services.sentinel;
+            if (toggles.B) toggles.B.checked = cfg.services.brain;
+            if (toggles.A) toggles.A.checked = cfg.services.architect;
+            if (toggles.L) toggles.L.checked = cfg.services.voice;
+            if (toggles.Intake) toggles.Intake.checked = cfg.addons.intake;
+            if (toggles.SafeVoice) toggles.SafeVoice.checked = cfg.addons.safe_voice;
+            if (toggles.Priority) toggles.Priority.checked = cfg.addons.priority;
+            if (toggles.GE) toggles.GE.checked = cfg.addons.growth_engine;
+            if (toggles.SCE) toggles.SCE.checked = cfg.addons.sce;
+            if (toggles.EB) toggles.EB.checked = cfg.addons.eb;
+            ['sms', 'whatsapp', 'fb'].forEach(id => {
+                const el = document.querySelector(`.chan-box[data-id="${id}"]`);
+                if (el) el.checked = cfg.channels[id] || false;
+            });
+            if (cfg.addons.sce_plan) { const r = document.querySelector(`.sce-plan[value="${cfg.addons.sce_plan}"]`); if (r) r.checked = true; }
+            if (cfg.addons.eb_plan) { const r = document.querySelector(`.eb-plan[value="${cfg.addons.eb_plan}"]`); if (r) r.checked = true; }
+            calculate(null);
+            document.getElementById('pricing').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ── AGENCY CALCULATOR ────────────────────────────────────────────────────
+        // Formula: total = soloEquivalentPrice × seats × (75 − seats) / 100
+        // Discount = (25 + seats)% — starts at 30% for 5 seats, scales to 75% at 50 seats
+        function calculateAgencyPrice() {
+            const seats = parseInt(document.getElementById('agencySeats')?.value) || 10;
+            const seatDisp = document.getElementById('agencySeatDisplay');
+            if (seatDisp) seatDisp.innerText = seats;
+
+            // Solo-equivalent price for the selected service bundle
+            let soloPrice = 249; // base platform
+            if (document.getElementById('agVoice')?.checked)   soloPrice += 199;
+            if (document.getElementById('agIntake')?.checked)  soloPrice += 149;
+            if (document.getElementById('agPriority')?.checked) soloPrice += 99;
+            if (document.getElementById('agGE')?.checked)      soloPrice += 660;
+            if (document.getElementById('agSocial')?.checked)  soloPrice += 899;
+
+            // Volume discount: 30% at 5 seats, +1% per additional seat (max 75% at 50 seats)
+            const discountPct = 25 + seats;
+            const multiplier = (100 - discountPct) / 100;
+            const total = Math.round(soloPrice * seats * multiplier);
+
+            const priceEl = document.getElementById('agencyPriceDisplay');
+            if (priceEl) priceEl.innerText = '$' + total.toLocaleString() + '/month';
+            const noteEl = document.getElementById('agencyBaseNote');
+            if (noteEl) noteEl.innerText = discountPct + '% volume discount applied (' + seats + ' seats)';
+        }
+
+        // ── PIPELINE DIAGRAM ─────────────────────────────────────────────────────
+        function togglePipelineNode(nodeId) {
+            const clickedDesc = document.getElementById('pipeline-desc-' + nodeId);
+            const clickedNode = document.getElementById('pipeline-node-' + nodeId);
+            if (!clickedDesc) return;
+            const isOpen = clickedDesc.classList.contains('open');
+            document.querySelectorAll('.pipeline-desc').forEach(d => d.classList.remove('open'));
+            document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('active'));
+            if (!isOpen) {
+                clickedDesc.classList.add('open');
+                if (clickedNode) clickedNode.classList.add('active');
+            }
+        }
+
+        // ── CONTACT FORM ─────────────────────────────────────────────────────────
+        function openContactForm() {
+            document.getElementById('contactFormStep').classList.remove('hidden');
+            document.getElementById('contactSuccessStep').classList.add('hidden');
+            document.getElementById('contactModal').classList.remove('hidden');
+        }
+        function closeContactForm() {
+            document.getElementById('contactModal').classList.add('hidden');
+        }
+        function submitContactForm(e) {
+            e.preventDefault();
+            document.getElementById('contactFormStep').classList.add('hidden');
+            document.getElementById('contactSuccessStep').classList.remove('hidden');
+        }
     </script>
 
     <!-- GetSalesCloser AI Widget -->

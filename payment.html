@@ -35,14 +35,14 @@
             <button onclick="closeBankOverlay()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-xl">✕</button>
             
             <div class="text-center mb-6">
-                <div class="inline-block bg-[#39FF14]/10 text-[#39FF14] text-xs font-bold px-3 py-1 rounded-full mb-2 animate-pulse">⏳ Action Required</div>
+                <div class="inline-block bg-[#39FF14]/10 text-[#39FF14] text-xs font-bold px-3 py-1 rounded-full mb-2">Action Required</div>
                 <h2 class="text-2xl gilroy text-white">Bank Transfer Instructions</h2>
                 <p class="text-slate-400 text-sm mt-2">Please transfer the exact amount below. Please Note: Activation might take Upto 72 hours to complete.</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="bg-slate-900 rounded-xl p-4 border border-slate-800">
-                    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Payable Amount (8% OFF)</div>
+                    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Payable Amount</div>
                     <div class="text-2xl font-bold text-white" id="modalAmount">...</div>
                 </div>
                 <div class="bg-slate-900 rounded-xl p-4 border border-[#39FF14] relative">
@@ -141,6 +141,7 @@
         let baseAmount = 0;
         let payableAmount = 0;
         let currentAttemptId = null;
+        let isFoundingMember = false;
 
         const INR_CONVERSION_RATE = 100; 
 
@@ -192,17 +193,29 @@
             }
 
             baseAmount = Number(rawAmount);
-            
+            isFoundingMember = snap.is_founding_member === true;
+
             // 3. Render UI Safely
             document.getElementById('summaryCycle').innerText = intent.billing_cycle || 'Monthly';
             document.getElementById('summaryRef').innerText = intent.reference_id || '---';
             document.getElementById('modalRef').innerText = intent.reference_id || '---';
             document.getElementById('summaryBase').innerText = `$${baseAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
-            console.log("UI RENDERED. BASE AMOUNT:", baseAmount);
+            // Founding member: lock to bank transfer, hide card option
+            if (isFoundingMember) {
+                const cardEl = document.getElementById('methodCard');
+                if (cardEl) cardEl.style.display = 'none';
+                const foundingNote = document.createElement('div');
+                foundingNote.className = 'mb-4 px-4 py-3 bg-[#39FF14]/10 border border-[#39FF14]/20 rounded-xl';
+                foundingNote.innerHTML = '<p class="text-[#39FF14] text-xs font-bold uppercase tracking-wider">Founding Member — 25% Lifetime Discount</p><p class="text-slate-400 text-[10px] mt-1">Payment via bank transfer only. Discount locked in for all future renewals.</p>';
+                const methodContainer = document.getElementById('methodCard')?.parentNode;
+                if (methodContainer) methodContainer.insertBefore(foundingNote, methodContainer.firstChild);
+            }
+
+            console.log("UI RENDERED. BASE AMOUNT:", baseAmount, "FOUNDING:", isFoundingMember);
 
             // 4. Trigger Initial Selection
-            selectMethod('card');
+            selectMethod(isFoundingMember ? 'bank' : 'card');
 
             // 5. Reveal page
             document.getElementById('auth-loader').style.display = 'none';
@@ -223,8 +236,14 @@
             } else {
                 bankEl.classList.add('selected'); document.getElementById('dotBank').style.opacity = '1';
                 cardEl.classList.remove('selected'); document.getElementById('dotCard').style.opacity = '0';
-                payableAmount = Math.round(baseAmount * 0.92 * 100) / 100;
-                document.getElementById('discountTag').innerText = "⚡ 8% Discount Applied";
+                if (isFoundingMember) {
+                    // Annual (12%) + Bank (8%) + Founding extra (7.36%) = 25% total off original
+                    payableAmount = Math.round(baseAmount * 0.92 * 0.9264 * 100) / 100;
+                    document.getElementById('discountTag').innerText = "25% Founding Member Lifetime Discount Applied";
+                } else {
+                    payableAmount = Math.round(baseAmount * 0.92 * 100) / 100;
+                    document.getElementById('discountTag').innerText = "8% Discount Applied";
+                }
                 document.getElementById('payBtn').innerText = "View Bank Instructions";
             }
             
@@ -247,7 +266,7 @@
                         intent_id: intent.id,
                         method: selectedMethod === 'bank' ? 'bank_transfer' : 'card',
                         base_amount: baseAmount,
-                        discount_pct: selectedMethod === 'bank' ? 8 : 0,
+                        discount_pct: selectedMethod === 'bank' ? (isFoundingMember ? 25 : 8) : 0,
                         payable_amount: payableAmount
                     })
                     .select()

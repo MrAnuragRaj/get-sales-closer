@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-13 (Session 28 — Growth Engine add-on + Founder Dashboard) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-19 (Session 32 — Agency repricing, conversion guarantee 1yr, founding member flow, speed-to-lead audit, emoji purge) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -24,10 +24,10 @@
 
 | File | Purpose | Status |
 |---|---|---|
-| `index.html` | Landing page, ROI calculator, dynamic pricing engine (GE toggle at $660/mo) | ✅ |
+| `index.html` | Landing page, ROI calculator, dynamic pricing engine — SCE/EB/GE toggles, Email+1 live channel model, tooltips, cookie banner, AUP/sub-processors links, state saved to localStorage on Deploy. Session 30/31: full redesign — Trust/Compliance, Integration Ecosystem, Cost of Inaction, Plans section (Solo/Agency/Enterprise tabs), Pipeline Diagram, Guarantee, Case Studies, Founding Program (live counter), Reliability block, Contact modal | ✅ Session 31 |
 | `login.html` | Auth (OTP + OAuth + Email/Password) + invitation claim + role routing | ✅ |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ |
-| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
+| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ⬜ Next |
 | `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, Credit Wallet, Channel Infrastructure | ✅ Session 21 |
 | `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, Credit Wallet, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
 | `agent_dashboard.html` | Agent view — leads, takeover/manual reply/resume AI, pending actions, Live Wire | ✅ Session 18 |
@@ -38,8 +38,8 @@
 | `number_request_checkout.html` | $110 dedicated number bundle purchase flow | ✅ Session 20 |
 | `cancel.html` | 3-step subscription cancellation + Delete My Data | ✅ Session 25 |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + conversion probability | ✅ |
-| `pricing.html` | New user plan selector → `create_checkout_intent` (GE toggle at $660/mo) | ✅ Session 28 |
-| `billing.html` | Upgrade/manage plan for existing subscribers (GE toggle, `?lock=growth_engine`) | ✅ Session 28 |
+| `pricing.html` | New user plan selector — Email+1 live channel model, SCE/EB plan selectors, GE $660, corrected addon prices, loads localStorage config from index.html. Session 31: yearly badge updated to "2 months free", GE renamed to "AI Social Growth System — Strategy Layer (Beta)" | ✅ Session 31 |
+| `billing.html` | Upgrade/manage plan for existing subscribers (GE toggle, `?lock=growth_engine`) — needs SCE/EB add-ons added | ⬜ Next |
 | `payment.html` | Razorpay checkout + bank transfer | ✅ |
 | `success.html` | Post-payment verification (polls billing_intents) | ✅ |
 | `Voice Liaison.html` | Call logs + sentiment + Replay button | ✅ |
@@ -96,7 +96,7 @@
 ## Database — Reference Schema
 
 ### All Tables
-**Core:** `profiles`, `leads`, `interactions`, `appointments`, `voice_usage`, `lead_timeline_events`, `lead_actions`, `org_members`, `org_services`, `org_settings`, `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`, `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`, `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts` (VIEW), `decision_plans`, `organizations`, `org_invitations`, `manual_action_requests`, `org_billing_profiles`, `org_prompts`, `api_keys`, `beta_interest`, `app_admins`, `members` (legacy), `platform_channels`
+**Core:** `profiles`, `leads`, `interactions`, `appointments`, `voice_usage`, `lead_timeline_events`, `lead_actions`, `org_members`, `org_services`, `org_settings`, `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`, `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`, `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts` (VIEW), `decision_plans`, `organizations`, `org_invitations`, `manual_action_requests`, `org_billing_profiles`, `org_prompts`, `api_keys`, `beta_interest`, `app_admins`, `members` (legacy), `platform_channels`, `founding_program`
 
 **Credits:** `credit_wallets`, `credit_ledger`, `credit_alert_state`, `orders`, `order_lines`, `idempotency_keys`, `usage_rating_events`, `usage_settlements`
 
@@ -286,12 +286,36 @@ CTA in locked-preview links to `billing.html?lock=growth_engine`.
 
 ---
 
+## Session 30/31 — Landing Page Redesign (COMPLETE)
+
+All phases shipped and live at https://www.getsalescloser.com:
+- **Phase 1** Trust & Compliance section (6 glass cards: TCPA, Opt-Out, Audit, Guardrails, Queue, Encryption)
+- **Phase 2** Plans section — Solo (4 stack cards + annual toggle "2 months free"), Agency (seat slider + add-ons calculator), Enterprise (tier table)
+- **Phase 2.5** Conversion Guarantee section (20% in 60 days, +90 day cap, 4 conditions)
+- **Phase 3** Agency/Enterprise contact form modal → Calendly `https://calendly.com/anurag-getsalescloser/30min`
+- **Phase 4** Founding Customer Program — live counter via `founding_program` Supabase table (RLS public-read)
+- **Phase 5** Pipeline Diagram (5 clickable nodes) + Case Studies (3 illustrative examples labeled)
+- Plus: Cost of Inaction, Integration Ecosystem, Reliability block, hero repositioned as "AI Revenue Infrastructure"
+
+**Founding counter management:** `UPDATE founding_program SET seats_claimed = N;` (current: 7 claimed / 20 total)
+
+**Stack prices used (real bundled rates):**
+- Starter Stack: $249/mo | Annual $208/mo
+- Growth Stack: $497/mo | Annual $414/mo
+- Revenue Engine Stack: $1,555/mo | Annual $1,296/mo
+- Full Stack Pro (anchor): $1,999/mo | Annual $1,666/mo
+
+---
+
 ## What's Next (priority order)
 
-1. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
-2. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-3. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
-4. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
+1. **dashboard.html + billing.html updates**
+   - `dashboard.html`: reflect new pricing model (SCE/EB/GE entitlement gates, channel infrastructure alignment)
+   - `billing.html`: add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
+2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+4. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
+5. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
 
 ---
 
@@ -322,3 +346,5 @@ curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/datab
 12. **`grant_tokens_core_v1` params**: `p_scope`, `p_user_id`, `p_amount`, `p_metadata` (not `p_note`)
 13. **`admin_get_beta_prospects` JOIN order**: `LEFT JOIN leads` must appear before `WHERE` clause — SQL syntax error otherwise (already fixed in migration)
 14. **Growth Engine Founder Dashboard**: calls `admin_get_growth_metrics` + `admin_get_beta_prospects` in `Promise.all` — both require `profiles.is_admin = true` on the caller; will silently return empty if called as non-admin
+15. **`create_checkout_intent` pricing (version 4)**: Two DB overloads — 2-param (old, `intent_source` in `'checkout'|'upgrade'`) and 3-param (current, `intent_source` in `'pricing'|'billing'`). pricing.html and billing.html use the 3-param version. Correct prices: intake=$149, safe_voice=$199, priority=$99, chatbot=$149, install=$99 (one-time), growth_engine=$660. Channel model for S-alone: `base = 49 + max(0, (sms+wa+fb count - 1) * 10)`. SCE: parse `addons.sce_plan` text ('199'/'299'/'399'). EB: parse `addons.eb_plan` text ('99'/'199'). payment.html reads amount from `billing_intents.pricing_snapshot.final_invoice_amount`.
+16. **index.html → pricing.html state passing**: `handleDeployment()` saves selections to `localStorage['gsc_pricing_config']` (JSON). pricing.html's `applyStoredConfig()` reads and applies it on load, then removes the key (consumed once).

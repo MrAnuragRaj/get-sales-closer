@@ -43,6 +43,13 @@
 
     <div class="max-w-4xl mx-auto px-8 py-20">
         <div class="text-center mb-12">
+            <div id="foundingBadge" class="hidden inline-flex items-center gap-3 bg-[#39FF14]/10 border border-[#39FF14]/30 rounded-xl px-5 py-3 mb-6">
+                <div class="w-2 h-2 rounded-full bg-[#39FF14]"></div>
+                <div class="text-left">
+                    <p class="text-[#39FF14] text-xs font-black uppercase tracking-wider">Founding Member Pricing</p>
+                    <p class="text-slate-400 text-[10px] mt-0.5">25% lifetime discount applied — annual plan locked in at checkout</p>
+                </div>
+            </div>
             <h1 class="text-5xl gilroy text-white mb-4 uppercase">Configure Your Engine</h1>
             <p class="text-slate-400 italic">Lock your lead leak with elite sales infrastructure.</p>
         </div>
@@ -58,7 +65,7 @@
                         Monthly
                     </button>
                     <button id="btnYearly" class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-300 flex items-center gap-2">
-                        Yearly <span class="text-[10px] bg-[#39FF14] text-black px-1.5 rounded font-black">-12%</span>
+                        Yearly <span class="text-[10px] bg-[#39FF14] text-black px-1.5 py-0.5 rounded font-black">2 months free</span>
                     </button>
                 </div>
             </div>
@@ -82,12 +89,12 @@
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleS" checked class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                     </div>
-                    <div id="channelMenu" class="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] text-left">
-                        <label class="flex items-center gap-2"><input type="checkbox" checked disabled class="chan-box accent-[#00D1FF] text-slate-500" data-id="sms"> SMS Channel (Base)</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="whatsapp"> WhatsApp Business (+$10)</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="fb"> FB Messenger (+$10)</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="apple"> Apple iMessage (+$10)</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="rcs"> RCS Android (+$10)</label>
+                    <div id="channelMenu" class="mt-4 pt-4 border-t border-slate-800 text-[10px] text-left space-y-2">
+                        <div class="flex items-center gap-2 text-slate-400"><span class="text-[#00D1FF]">✓</span> Email — Always included</div>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="sms"> SMS Channel</label>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="whatsapp"> WhatsApp Business</label>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="fb"> Facebook Messenger</label>
+                        <p class="text-slate-600 mt-1">First live channel included · Additional channels +$10 each</p>
                     </div>
                 </div>
 
@@ -110,15 +117,24 @@
                     <p class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4">Premium Add-ons</p>
                     <div class="space-y-4">
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake Assurance</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake Assurance</span>
+                                <span class="text-[10px] text-slate-400">+$149/mo</span>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Compliance-Safe Voice Handling™</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Compliance-Safe Voice Handling™</span>
+                                <span class="text-[10px] text-slate-400">+$199/mo</span>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                         <div class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
-                            <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing™</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing™</span>
+                                <span class="text-[10px] text-slate-400">+$99/mo</span>
+                            </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
 
@@ -146,16 +162,86 @@
                     </div>
                 </div>
 
+                <!-- AI Social Media Engine -->
+                <div class="pt-8 pb-4 text-left">
+                    <p class="text-purple-400 font-bold text-xs uppercase tracking-widest mb-4">AI Social Media Engine</p>
+                    <div class="space-y-4">
+                        <!-- SCE -->
+                        <div class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                            <div class="flex items-center justify-between">
+                                <div class="text-left flex items-center gap-2">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">AI Social Content Engine</span>
+                                    <div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">Generates, adapts, schedules, and posts AI content. Includes image generation, approval workflow, and posting analytics.</div></div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSCE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            </div>
+                            <div id="scePlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                                <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your posting tier</p>
+                                <div class="grid grid-cols-3 gap-2 text-[10px]">
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="199" class="accent-purple-500 sce-plan">
+                                        <span class="font-bold text-white mt-1">Starter</span>
+                                        <span class="text-purple-400 font-bold">$199/mo</span>
+                                        <span class="text-slate-500 text-[9px]">AI posts · scheduling · analytics · 2 accounts</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="299" class="accent-purple-500 sce-plan" checked>
+                                        <span class="font-bold text-white mt-1">Growth</span>
+                                        <span class="text-purple-400 font-bold">$299/mo</span>
+                                        <span class="text-slate-500 text-[9px]">+ AI images · advanced analytics · 5 accounts</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="scePlan" value="399" class="accent-purple-500 sce-plan">
+                                        <span class="font-bold text-white mt-1">Scale</span>
+                                        <span class="text-purple-400 font-bold">$399/mo</span>
+                                        <span class="text-slate-500 text-[9px]">+ approval workflow · auto-posting · unlimited</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- EB -->
+                        <div class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                            <div class="flex items-center justify-between">
+                                <div class="text-left flex items-center gap-2">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Engagement Bot</span>
+                                    <div class="relative"><button class="tooltip-trigger text-slate-600 hover:text-[#00D1FF]">ⓘ</button><div class="tooltip-box absolute bottom-full left-0 mb-2 w-64 p-4 bg-slate-800 border border-slate-700 rounded-xl text-[11px] text-slate-300">Automates AI replies, comments, and engagement interactions across connected platforms. Includes interaction analytics.</div></div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleEB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                            </div>
+                            <div id="ebPlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                                <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your engagement tier</p>
+                                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                        <input type="radio" name="ebPlan" value="99" class="accent-purple-500 eb-plan" checked>
+                                        <span class="font-bold text-white mt-1">Starter</span>
+                                        <span class="text-purple-400 font-bold">$99/mo</span>
+                                        <span class="text-slate-500 text-[9px]">AI replies · post interactions · basic analytics</span>
+                                    </label>
+                                    <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                        <input type="radio" name="ebPlan" value="199" class="accent-purple-500 eb-plan">
+                                        <span class="font-bold text-white mt-1">Pro</span>
+                                        <span class="text-purple-400 font-bold">$199/mo</span>
+                                        <span class="text-slate-500 text-[9px]">Full automation · interaction analytics · multi-platform</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Growth Engine standalone add-on -->
                 <div class="pt-8 pb-4 text-left">
-                    <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3">Growth Engine — Add-On</p>
+                    <div class="flex items-center gap-2 mb-3">
+                        <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest">AI Social Growth System — Strategy Layer</p>
+                        <span class="bg-emerald-900/40 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded font-black">Beta</span>
+                    </div>
                     <div class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
                         <div class="text-left flex-1 mr-4">
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine</span>
-                                <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
                             </div>
-                            <p class="text-[10px] text-slate-400">AI content · engagement automation · relationship intelligence · revenue attribution</p>
+                            <p class="text-[10px] text-slate-400">Strategy · engagement attribution · growth analytics · revenue optimization</p>
+                            <p class="text-[10px] text-emerald-600 mt-1">Pairs with AI Social Content Engine + Engagement Bot above for complete social automation</p>
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             <span class="text-[10px] text-emerald-400 font-bold whitespace-nowrap">+$660/mo</span>
@@ -165,9 +251,7 @@
                 </div>
             </div>
 
-            <div id="voiceBonus" class="hidden p-4 rounded-xl bg-[#39FF14]/10 border border-[#39FF14]/30 mb-6 text-left">
-                <p class="text-[10px] font-bold text-[#39FF14]">ELITE PERK ACTIVATED: Voice suite includes 3 free channels! ⚡</p>
-            </div>
+            <p class="text-center text-slate-600 text-xs mb-6">Modular infrastructure — activate only what your team needs</p>
 
             <button onclick="handleDeployment()" id="deployBtn" class="btn-dopamine w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300">Deploy My Closer</button>
         </div>
@@ -182,7 +266,7 @@
         });
 
         // --- 2. STATE ---
-        let billingCycle = 'monthly'; // Default
+        let billingCycle = 'monthly';
 
         // --- 3. DOM ELEMENTS ---
         const toggles = {
@@ -192,12 +276,13 @@
             Priority: document.getElementById('togglePriority'),
             Chatbot: document.getElementById('toggleChatbot'),
             Install: document.getElementById('toggleInstall'),
-            GE: document.getElementById('toggleGE')
+            GE: document.getElementById('toggleGE'),
+            SCE: document.getElementById('toggleSCE'),
+            EB: document.getElementById('toggleEB')
         };
         const priceDisp = document.getElementById('priceDisplay');
         const channelMenu = document.getElementById('channelMenu');
-        const chanBoxes = document.querySelectorAll('.chan-box');
-        
+
         // Cycle Buttons
         const btnMonthly = document.getElementById('btnMonthly');
         const btnYearly = document.getElementById('btnYearly');
@@ -212,7 +297,7 @@
                 btnYearly.className = "px-6 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 shadow-lg transition-all flex items-center gap-2";
                 btnMonthly.className = "px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all";
             }
-            calculate(); // Recalculate price display
+            calculate();
         }
 
         btnMonthly.addEventListener('click', () => setCycle('monthly'));
@@ -224,10 +309,14 @@
             const B = toggles.B.checked;
             const A = toggles.A.checked;
             const L = toggles.L.checked;
-            
+
             channelMenu.classList.toggle('hidden', !S && !L);
-            
-            // Base Matrix
+            document.getElementById('scePlanMenu').classList.toggle('hidden', !toggles.SCE.checked);
+            document.getElementById('ebPlanMenu').classList.toggle('hidden', !toggles.EB.checked);
+
+            const liveChannels = document.querySelectorAll('.chan-box:checked').length;
+
+            // Base Matrix (aligned with index.html)
             let base = 0;
             if (L) {
                 if (S && B && A) base = 349;
@@ -242,62 +331,119 @@
                 if (B && A) base = 249;
                 else if (B) base = 199;
                 else if (A) base = 149;
-                else base = 49; 
+                else base = 49 + Math.max(0, (liveChannels - 1) * 10); // Email + 1 live free, +$10 each extra
             }
 
-            // Channels
-            let count = Array.from(chanBoxes).filter(x => x.checked).length;
-            let freeChannels = 0;
-            if (L) freeChannels = 3; 
-            else if (S) freeChannels = 2;
-            
-            const extraChannels = Math.max(0, count - freeChannels);
-            const channelCost = extraChannels * 10;
+            // Social add-ons
+            const sceSelected = document.querySelector('.sce-plan:checked');
+            const ebSelected = document.querySelector('.eb-plan:checked');
+            const scePremium = toggles.SCE.checked && sceSelected ? parseInt(sceSelected.value) : 0;
+            const ebPremium = toggles.EB.checked && ebSelected ? parseInt(ebSelected.value) : 0;
 
-            // Addons
+            // Addons (prices aligned with index.html)
             let premium = 0;
-            if (toggles.Intake.checked)    premium += 99;
+            if (toggles.Intake.checked)    premium += 149;
             if (toggles.SafeVoice.checked) premium += 199;
-            if (toggles.Priority.checked)  premium += 149;
+            if (toggles.Priority.checked)  premium += 99;
             if (toggles.Chatbot.checked)   premium += 149;
             if (toggles.GE?.checked)       premium += 660;
-            
-            // Setup Fee (Always one-time, never discounted)
-            let oneTime = 0;
-            if (toggles.Install.checked) oneTime += 99;
+            premium += scePremium + ebPremium;
 
-            // Visual Display Logic
-            let monthlyRecurring = base + channelCost + premium;
-            
+            // Setup fee (one-time, never discounted)
+            const oneTime = toggles.Install.checked ? 99 : 0;
+
+            const monthlyRecurring = base + premium;
             const subtextField = document.getElementById('billingSubtext');
 
             if (billingCycle === 'yearly') {
-                // 1. Calculate Discounted Monthly View (12% off)
-                let discountedMonthly = Math.round(monthlyRecurring * 0.88);
+                const discountedMonthly = Math.round(monthlyRecurring * 0.88);
                 priceDisp.innerText = discountedMonthly;
-
-                // 2. Calculate Actual Charge (What hits the credit card)
-                // Note: We add oneTime fee to the description so they know what "Total" means
-                let totalYearlyCharge = Math.round(monthlyRecurring * 12 * 0.88) + oneTime;
-                
-                // 3. Explicit Text
+                const totalYearlyCharge = Math.round(monthlyRecurring * 12 * 0.88) + oneTime;
                 subtextField.innerText = `Billed as $${totalYearlyCharge} yearly` + (oneTime > 0 ? ` (includes setup)` : ``);
-                subtextField.className = "text-center text-[#39FF14] text-sm font-medium mb-10 h-6"; // Green text for savings context
+                subtextField.className = "text-center text-[#39FF14] text-sm font-medium mb-10 h-6";
             } else {
                 priceDisp.innerText = monthlyRecurring;
-                let totalFirstBill = monthlyRecurring + oneTime;
-                
+                const totalFirstBill = monthlyRecurring + oneTime;
                 subtextField.innerText = oneTime > 0 ? `First bill: $${totalFirstBill} (includes setup)` : `Billed monthly`;
                 subtextField.className = "text-center text-slate-400 text-sm font-medium mb-10 h-6";
             }
 
-            // Scale Animation
-            document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${1 + (monthlyRecurring/600)})`;
+            // Scale animation (capped like index.html)
+            document.getElementById('centralNode').style.transform = `rotate(45deg) scale(${Math.min(1.35, 1 + (monthlyRecurring > 0 ? monthlyRecurring / 2000 : 0))})`;
         }
 
         // Add Listeners
-        Object.values(toggles).forEach(t => t.addEventListener('change', calculate));
-        chanBoxes.forEach(b => b.addEventListener('change', calculate));
+        Object.values(toggles).forEach(t => { if (t) t.addEventListener('change', calculate); });
+        document.querySelectorAll('.chan-box').forEach(b => b.addEventListener('change', calculate));
+        document.querySelectorAll('.sce-plan, .eb-plan').forEach(r => r.addEventListener('change', calculate));
+
+        // --- 6. LOAD STATE FROM INDEX.HTML (localStorage) ---
+        function applyStoredConfig() {
+            try {
+                const raw = localStorage.getItem('gsc_pricing_config');
+                if (!raw) return;
+                const cfg = JSON.parse(raw);
+                localStorage.removeItem('gsc_pricing_config'); // consume once
+                if (cfg.services) {
+                    if (cfg.services.sentinel !== undefined) toggles.S.checked = cfg.services.sentinel;
+                    if (cfg.services.brain !== undefined) toggles.B.checked = cfg.services.brain;
+                    if (cfg.services.architect !== undefined) toggles.A.checked = cfg.services.architect;
+                    if (cfg.services.voice !== undefined) toggles.L.checked = cfg.services.voice;
+                }
+                if (cfg.addons) {
+                    if (cfg.addons.intake !== undefined) toggles.Intake.checked = cfg.addons.intake;
+                    if (cfg.addons.safe_voice !== undefined) toggles.SafeVoice.checked = cfg.addons.safe_voice;
+                    if (cfg.addons.priority !== undefined) toggles.Priority.checked = cfg.addons.priority;
+                    if (cfg.addons.chatbot !== undefined) toggles.Chatbot.checked = cfg.addons.chatbot;
+                    if (cfg.addons.installation !== undefined) toggles.Install.checked = cfg.addons.installation;
+                    if (cfg.addons.growth_engine !== undefined) toggles.GE.checked = cfg.addons.growth_engine;
+                    if (cfg.addons.sce !== undefined) toggles.SCE.checked = cfg.addons.sce;
+                    if (cfg.addons.eb !== undefined) toggles.EB.checked = cfg.addons.eb;
+                    if (cfg.addons.sce_plan) {
+                        const r = document.querySelector(`.sce-plan[value="${cfg.addons.sce_plan}"]`);
+                        if (r) r.checked = true;
+                    }
+                    if (cfg.addons.eb_plan) {
+                        const r = document.querySelector(`.eb-plan[value="${cfg.addons.eb_plan}"]`);
+                        if (r) r.checked = true;
+                    }
+                }
+                if (cfg.channels) {
+                    ['sms', 'whatsapp', 'fb'].forEach(id => {
+                        const el = document.querySelector(`.chan-box[data-id="${id}"]`);
+                        if (el && cfg.channels[id] !== undefined) el.checked = cfg.channels[id];
+                    });
+                }
+                if (cfg.billing_cycle) setCycle(cfg.billing_cycle);
+                // SCE / EB plan radios (top-level keys from founding seat config)
+                if (cfg.sce) {
+                    const sceToggle = document.getElementById('toggleSCE');
+                    if (sceToggle) sceToggle.checked = true;
+                    const r = document.querySelector(`.sce-plan[value="${cfg.sce}"]`);
+                    if (r) r.checked = true;
+                }
+                if (cfg.eb) {
+                    const ebToggle = document.getElementById('toggleEB');
+                    if (ebToggle) ebToggle.checked = true;
+                    const r = document.querySelector(`.eb-plan[value="${cfg.eb}"]`);
+                    if (r) r.checked = true;
+                }
+                if (cfg.ge) {
+                    const geToggle = document.getElementById('toggleGE');
+                    if (geToggle) geToggle.checked = true;
+                }
+                // Founding member: force yearly, show badge, store flag for checkout
+                if (cfg.is_founding_member) {
+                    setCycle('yearly');
+                    document.getElementById('foundingBadge').classList.remove('hidden');
+                    // Lock yearly toggle — founding members must be on annual
+                    const btnMonthly = document.getElementById('btnMonthly');
+                    if (btnMonthly) btnMonthly.disabled = true;
+                    sessionStorage.setItem('gsc_founding_member', '1');
+                }
+            } catch (e) { /* ignore parse errors */ }
+        }
+        applyStoredConfig();
 
         // --- 6. DEPLOYMENT HANDLER ---
         async function handleDeployment() {
@@ -340,6 +486,8 @@
                 }
 
                 overlayText.innerText = "Configuring Infrastructure...";
+                const sceSelected = document.querySelector('.sce-plan:checked');
+                const ebSelected = document.querySelector('.eb-plan:checked');
                 const payload = {
                     services: {
                         sentinel: toggles.S.checked,
@@ -353,21 +501,25 @@
                         priority: toggles.Priority.checked,
                         chatbot: toggles.Chatbot.checked,
                         installation: toggles.Install.checked,
-                        growth_engine: toggles.GE?.checked || false
+                        growth_engine: toggles.GE?.checked || false,
+                        sce: toggles.SCE.checked,
+                        sce_plan: toggles.SCE.checked && sceSelected ? sceSelected.value : null,
+                        eb: toggles.EB.checked,
+                        eb_plan: toggles.EB.checked && ebSelected ? ebSelected.value : null
                     },
                     channels: {
-                        whatsapp: document.querySelector('input[data-id="whatsapp"]').checked,
-                        fb: document.querySelector('input[data-id="fb"]').checked,
-                        apple: document.querySelector('input[data-id="apple"]').checked,
-                        rcs: document.querySelector('input[data-id="rcs"]').checked
-                    }
+                        sms: document.querySelector('input[data-id="sms"]')?.checked || false,
+                        whatsapp: document.querySelector('input[data-id="whatsapp"]')?.checked || false,
+                        fb: document.querySelector('input[data-id="fb"]')?.checked || false
+                    },
+                    is_founding_member: sessionStorage.getItem('gsc_founding_member') === '1'
                 };
 
                 // --- THE FINAL FIX: intent_source: 'pricing' ---
-                const { data, error } = await supabaseClient.rpc('create_checkout_intent', { 
+                const { data, error } = await supabaseClient.rpc('create_checkout_intent', {
                     payload: payload,
                     intent_source: 'pricing', // <--- CHANGED FROM 'checkout' TO 'pricing'
-                    billing_cycle: billingCycle 
+                    billing_cycle: billingCycle
                 });
 
                 if (error) throw error;
@@ -381,7 +533,7 @@
             }
         }
         
-        // Initial Calc
+        // Initial Calc (runs after applyStoredConfig above)
         calculate();
     </script>
 </body>
