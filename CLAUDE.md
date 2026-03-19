@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-19 (Session 32 — Agency repricing, conversion guarantee 1yr, founding member flow, speed-to-lead audit, emoji purge) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-19 (Session 33 — index.html fully complete; pipeline shared panel, mobile responsiveness, guarantee text fixes) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -24,10 +24,10 @@
 
 | File | Purpose | Status |
 |---|---|---|
-| `index.html` | Landing page, ROI calculator, dynamic pricing engine — SCE/EB/GE toggles, Email+1 live channel model, tooltips, cookie banner, AUP/sub-processors links, state saved to localStorage on Deploy. Session 30/31: full redesign — Trust/Compliance, Integration Ecosystem, Cost of Inaction, Plans section (Solo/Agency/Enterprise tabs), Pipeline Diagram, Guarantee, Case Studies, Founding Program (live counter), Reliability block, Contact modal | ✅ Session 31 |
+| `index.html` | Landing page — **FULLY COMPLETE**. ROI calculator, dynamic pricing engine (SCE/EB/GE), Email+1 channel model, tooltips, cookie banner, AUP/sub-processors links. Trust/Compliance, Integration Ecosystem, Cost of Inaction, Plans (Solo/Agency/Enterprise tabs), Pipeline Diagram (shared panel, mobile-safe), Guarantee (1yr), Case Studies, Founding Program (live counter + claimFoundingSeat flow), Reliability, Contact modal, Speed-to-Lead Audit form (wired to edge function). Session 33: pipeline overlap fix, mobile overflow-x fix, guarantee text cleanup. | ✅ Session 33 |
 | `login.html` | Auth (OTP + OAuth + Email/Password) + invitation claim + role routing | ✅ |
 | `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ |
-| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ⬜ Next |
+| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ⬜ Next — redesign to match new pricing model |
 | `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, Credit Wallet, Channel Infrastructure | ✅ Session 21 |
 | `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, Credit Wallet, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
 | `agent_dashboard.html` | Agent view — leads, takeover/manual reply/resume AI, pending actions, Live Wire | ✅ Session 18 |
@@ -309,13 +309,15 @@ All phases shipped and live at https://www.getsalescloser.com:
 
 ## What's Next (priority order)
 
-1. **dashboard.html + billing.html updates**
-   - `dashboard.html`: reflect new pricing model (SCE/EB/GE entitlement gates, channel infrastructure alignment)
-   - `billing.html`: add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
-2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
-3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-4. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
-5. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
+1. **Dashboard redesigns (3 files)** — align all post-login dashboards with the new pricing model and brand style established in index.html
+   - `dashboard.html` (Solo): SCE/EB/GE entitlement gates, channel infrastructure alignment, updated Credit Wallet, consistent visual language
+   - `agency_admin.html`: seat management UI, agency-specific add-ons (SCE/EB/GE), updated pricing display
+   - `enterprise_admin.html`: tier table alignment, leaderboard, overseer — visual consistency with new design system
+2. **billing.html updates** — add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
+3. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+4. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+5. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
+6. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
 
 ---
 
