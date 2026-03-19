@@ -61,8 +61,9 @@
         .pipeline-node .pipeline-node-inner { transition: all 0.25s; }
         .pipeline-node:hover .pipeline-node-inner { border-color: rgba(0,209,255,0.5) !important; background: rgba(0,209,255,0.04) !important; }
         .pipeline-node.active .pipeline-node-inner { border-color: #39FF14 !important; background: rgba(57,255,20,0.05) !important; }
-        .pipeline-desc { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s; opacity: 0; }
-        .pipeline-desc.open { max-height: 160px; opacity: 1; }
+
+        /* MOBILE */
+        html, body { overflow-x: hidden; }
     </style>
 </head>
 <body class="text-slate-200">
@@ -469,74 +470,57 @@
 
             <!-- Core Engine Pipeline -->
             <p class="text-slate-500 font-bold text-[9px] uppercase tracking-widest mb-3">Core Revenue Engine</p>
-            <div class="flex flex-col md:flex-row items-stretch justify-center mb-1">
+            <div class="flex flex-col md:flex-row items-stretch justify-center mb-4">
 
                 <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-lead" onclick="togglePipelineNode('lead')">
-                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1">
                         <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">01</div>
                         <p class="text-white font-bold text-[11px] uppercase">Lead Arrives</p>
                     </div>
-                    <div id="pipeline-desc-lead" class="pipeline-desc mx-1">
-                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
-                            <p class="text-[10px] text-slate-300 leading-relaxed">A prospect submits a form, calls, messages, or clicks — from any CRM, social platform, or direct channel. GetSalesCloser captures it the instant it arrives.</p>
-                        </div>
-                    </div>
                 </div>
-                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+                <div class="hidden md:flex items-center justify-center text-slate-600 text-lg flex-shrink-0 px-1">→</div>
 
                 <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-sentinel" onclick="togglePipelineNode('sentinel')">
-                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1">
                         <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">02</div>
                         <p class="text-white font-bold text-[11px] uppercase">Instant Sentinel</p>
                     </div>
-                    <div id="pipeline-desc-sentinel" class="pipeline-desc mx-1">
-                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
-                            <p class="text-[10px] text-slate-300 leading-relaxed">The AI responds within 30 seconds across the lead's preferred channel — SMS, email, WhatsApp, or Messenger. Speed-to-lead is the single biggest conversion driver.</p>
-                        </div>
-                    </div>
                 </div>
-                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+                <div class="hidden md:flex items-center justify-center text-slate-600 text-lg flex-shrink-0 px-1">→</div>
 
                 <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-brain" onclick="togglePipelineNode('brain')">
-                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1">
                         <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">03</div>
                         <p class="text-white font-bold text-[11px] uppercase">Knowledge Brain</p>
                     </div>
-                    <div id="pipeline-desc-brain" class="pipeline-desc mx-1">
-                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
-                            <p class="text-[10px] text-slate-300 leading-relaxed">The AI answers complex questions using your uploaded docs. Legal and medical verticals use GPT-4o for compliance-safe, high-accuracy responses.</p>
-                        </div>
-                    </div>
                 </div>
-                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+                <div class="hidden md:flex items-center justify-center text-slate-600 text-lg flex-shrink-0 px-1">→</div>
 
                 <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-architect" onclick="togglePipelineNode('architect')">
-                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1 h-full">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-center mx-1">
                         <div class="text-[10px] font-black text-[#00D1FF] uppercase tracking-widest mb-2">04</div>
                         <p class="text-white font-bold text-[11px] uppercase">Apt. Architect</p>
                     </div>
-                    <div id="pipeline-desc-architect" class="pipeline-desc mx-1">
-                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
-                            <p class="text-[10px] text-slate-300 leading-relaxed">Once intent is confirmed, the Architect negotiates time slots, coordinates booking, and sends confirmations — no manual scheduling required.</p>
-                        </div>
-                    </div>
                 </div>
-                <div class="hidden md:flex items-start justify-center pt-5 text-slate-600 text-lg flex-shrink-0 px-1">→</div>
+                <div class="hidden md:flex items-center justify-center text-slate-600 text-lg flex-shrink-0 px-1">→</div>
 
                 <div class="flex-1 min-w-0 pipeline-node" id="pipeline-node-rep" onclick="togglePipelineNode('rep')">
-                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-[#39FF14]/30 text-center mx-1 h-full">
+                    <div class="pipeline-node-inner p-4 rounded-xl bg-slate-900/50 border border-[#39FF14]/30 text-center mx-1">
                         <div class="text-[10px] font-black text-[#39FF14] uppercase tracking-widest mb-2">05</div>
                         <p class="text-white font-bold text-[11px] uppercase">Sales Rep</p>
-                    </div>
-                    <div id="pipeline-desc-rep" class="pipeline-desc mx-1">
-                        <div class="p-3 bg-slate-900 rounded-b-xl border border-t-0 border-slate-700 text-left">
-                            <p class="text-[10px] text-slate-300 leading-relaxed">A fully qualified, pre-briefed lead lands in your closer's hands. AI has done the legwork. Your team focuses exclusively on closing.</p>
-                        </div>
                     </div>
                 </div>
 
             </div>
-            <p class="text-center text-slate-600 text-[10px] mt-1 mb-12 italic">↑ Click any stage to expand</p>
+
+            <!-- Shared description panel — appears below the entire node row -->
+            <div id="pipeline-desc-panel" class="hidden mb-8 mx-1">
+                <div class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-left">
+                    <p id="pipeline-desc-label" class="text-[#00D1FF] text-[9px] font-black uppercase tracking-widest mb-2"></p>
+                    <p id="pipeline-desc-text" class="text-sm text-slate-300 leading-relaxed"></p>
+                </div>
+            </div>
+            <p class="text-center text-slate-600 text-[10px] mb-12 italic">Click any stage to expand</p>
 
             <!-- Secondary pipelines -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -572,7 +556,7 @@
             <h2 class="text-4xl gilroy text-white mb-2">Build Your Custom Engine</h2>
             <p class="text-slate-500 text-sm mb-2">Modular infrastructure — activate only what your team needs</p>
             <p class="text-slate-600 text-xs mb-10">or <button onclick="document.getElementById('plans').scrollIntoView({behavior:'smooth'})" class="text-[#00D1FF] hover:underline transition">choose a pre-built plan ↑</button></p>
-            <div class="glass-card p-10 rounded-[3rem] inline-block w-full relative">
+            <div class="glass-card p-5 md:p-10 rounded-[2rem] md:rounded-[3rem] inline-block w-full relative">
                 <div class="flex justify-center mb-8"><div id="centralNode" class="h-10 w-10 bg-[#39FF14] rotate-45 cyber-glow transition-transform duration-500"></div></div>
                 <div class="flex items-center justify-center gap-1 text-white mb-10"><span class="text-3xl font-bold mt-2">$</span><span id="priceDisplay" class="text-7xl font-black gilroy">0</span><span class="text-slate-500 font-bold ml-2">/mo</span></div>
 
@@ -899,10 +883,10 @@
     <!-- CONVERSION GUARANTEE -->
     <section id="guarantee" class="py-20 px-8 border-t border-slate-900">
         <div class="max-w-3xl mx-auto">
-            <div class="glass-card p-10 rounded-3xl text-center" style="border-color: rgba(57,255,20,0.25);">
+            <div class="glass-card p-6 md:p-10 rounded-3xl text-center" style="border-color: rgba(57,255,20,0.25);">
                 <p class="text-[#39FF14] font-bold tracking-[0.2em] uppercase text-[10px] mb-3">Our Conversion Commitment</p>
                 <h2 class="text-3xl gilroy text-white mb-6">Increase Booked Appointments<br>by 20% in Your First Year</h2>
-                <p class="text-slate-300 text-lg leading-relaxed mb-6">— or we extend your annual subscription <span class="text-[#39FF14] font-bold">free of charge</span> until you do,<br class="hidden sm:block">up to 90 additional days beyond your renewal date.</p>
+                <p class="text-slate-300 text-lg leading-relaxed mb-6">— or we extend your annual subscription <span class="text-[#39FF14] font-bold">free of charge</span> until you do.</p>
                 <div class="bg-slate-900/60 rounded-2xl p-6 mb-6 text-left">
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">Eligibility Conditions</p>
                     <ul class="space-y-2 text-sm text-slate-400">
@@ -964,7 +948,7 @@
     <!-- FOUNDING CUSTOMER PROGRAM -->
     <section id="founding" class="py-20 px-8 border-t border-slate-900">
         <div class="max-w-2xl mx-auto text-center">
-            <div class="glass-card p-10 rounded-3xl" style="background: linear-gradient(135deg, rgba(10,25,47,0.97), rgba(5,15,30,0.97)); border-color: rgba(0,209,255,0.2);">
+            <div class="glass-card p-6 md:p-10 rounded-3xl" style="background: linear-gradient(135deg, rgba(10,25,47,0.97), rgba(5,15,30,0.97)); border-color: rgba(0,209,255,0.2);">
                 <div class="inline-flex items-center gap-2 bg-[#00D1FF]/10 border border-[#00D1FF]/20 rounded-full px-4 py-1 mb-6">
                     <span class="text-[#00D1FF] text-xs font-black uppercase tracking-wider">Founding Member Program</span>
                 </div>
@@ -1634,15 +1618,46 @@
         }
 
         // ── PIPELINE DIAGRAM ─────────────────────────────────────────────────────
+        const pipelineDescriptions = {
+            lead: {
+                label: '01 — Lead Arrives',
+                text: 'Every inbound lead — from your website form, CRM, or ad platform — is captured instantly and routed into the AI pipeline. No manual logging, no delays, no leads falling through cracks.'
+            },
+            sentinel: {
+                label: '02 — Instant Sentinel',
+                text: 'Within seconds of arrival, the AI reaches out via your configured channel (SMS, email, WhatsApp). Speed-to-lead drops from hours to under 60 seconds — before your competitors even see the notification.'
+            },
+            brain: {
+                label: '03 — Knowledge Brain',
+                text: 'The AI draws on your uploaded documents, service rules, and pricing logic to answer prospect questions with authority. No hallucinations, no generic responses — only answers you have approved.'
+            },
+            architect: {
+                label: '04 — Appointment Architect',
+                text: 'When intent is confirmed, the AI books the discovery call directly into your calendar using your availability rules. The prospect gets a confirmation; your closer gets a briefed, qualified appointment.'
+            },
+            rep: {
+                label: '05 — Sales Rep',
+                text: 'Your closer joins a conversation that is already warm. Context, objections handled, intent confirmed. They focus on closing — not chasing, qualifying, or re-explaining services.'
+            }
+        };
+
         function togglePipelineNode(nodeId) {
-            const clickedDesc = document.getElementById('pipeline-desc-' + nodeId);
+            const panel     = document.getElementById('pipeline-desc-panel');
+            const label     = document.getElementById('pipeline-desc-label');
+            const text      = document.getElementById('pipeline-desc-text');
             const clickedNode = document.getElementById('pipeline-node-' + nodeId);
-            if (!clickedDesc) return;
-            const isOpen = clickedDesc.classList.contains('open');
-            document.querySelectorAll('.pipeline-desc').forEach(d => d.classList.remove('open'));
+            const isActive  = clickedNode && clickedNode.classList.contains('active');
+
             document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('active'));
-            if (!isOpen) {
-                clickedDesc.classList.add('open');
+
+            if (isActive) {
+                panel.classList.add('hidden');
+            } else {
+                const desc = pipelineDescriptions[nodeId];
+                if (!desc) return;
+                label.textContent = desc.label;
+                text.textContent  = desc.text;
+                panel.classList.remove('hidden');
                 if (clickedNode) clickedNode.classList.add('active');
             }
         }
