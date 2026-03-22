@@ -203,8 +203,7 @@ async def linkedin_connect(
                         WHEN 'enterprise_admin' THEN 2
                         WHEN 'enterprise_agent' THEN 3
                         ELSE 4
-                    END ASC,
-                    om.created_at ASC
+                    END ASC
                 LIMIT 1
                 """,
                 user_id,
