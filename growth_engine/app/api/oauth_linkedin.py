@@ -190,46 +190,58 @@ async def linkedin_connect(
         return RedirectResponse(_dashboard_url(False, "invalid_token"))
 
     # ── 2. Resolve org from org_members ──────────────────────────────────────
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT om.org_id
-            FROM public.org_members om
-            WHERE om.user_id = $1
-            ORDER BY
-                CASE om.role
-                    WHEN 'agency_admin'     THEN 1
-                    WHEN 'enterprise_admin' THEN 2
-                    WHEN 'enterprise_agent' THEN 3
-                    ELSE 4
-                END ASC,
-                om.created_at ASC
-            LIMIT 1
-            """,
-            user_id,
-        )
-        if not row:
-            return RedirectResponse(_dashboard_url(False, "no_membership"))
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT om.org_id
+                FROM public.org_members om
+                WHERE om.user_id = $1
+                ORDER BY
+                    CASE om.role
+                        WHEN 'agency_admin'     THEN 1
+                        WHEN 'enterprise_admin' THEN 2
+                        WHEN 'enterprise_agent' THEN 3
+                        ELSE 4
+                    END ASC,
+                    om.created_at ASC
+                LIMIT 1
+                """,
+                user_id,
+            )
+            if not row:
+                return RedirectResponse(_dashboard_url(False, "no_membership"))
 
-        org_id: uuid.UUID = row["org_id"]
+            org_id: uuid.UUID = row["org_id"]
 
-        # ── 3. Verify Growth Engine entitlement ───────────────────────────────
-        svc_row = await conn.fetchrow(
-            """
-            SELECT status FROM public.org_services
-            WHERE org_id = $1 AND service_key = 'growth_engine'
-            """,
-            org_id,
-        )
-        if not svc_row or svc_row["status"] != "active":
-            return RedirectResponse(_dashboard_url(False, "not_entitled"))
+            # ── 3. Verify Growth Engine entitlement ───────────────────────────
+            svc_row = await conn.fetchrow(
+                """
+                SELECT status FROM public.org_services
+                WHERE org_id = $1 AND service_key = 'growth_engine'
+                """,
+                org_id,
+            )
+            if not svc_row or svc_row["status"] != "active":
+                return RedirectResponse(_dashboard_url(False, "not_entitled"))
+    except Exception as exc:
+        log.error("linkedin_connect_db_error", error=str(exc), user_id=str(user_id))
+        return RedirectResponse(_dashboard_url(False, "server_error"))
 
     # ── 4. Build LinkedIn authorization URL ───────────────────────────────────
     if not settings.linkedin_client_id:
         log.error("linkedin_connect_missing_client_id")
         return RedirectResponse(_dashboard_url(False, "not_configured"))
 
-    state = _make_state(org_id)
+    if not settings.growth_encryption_key:
+        log.error("linkedin_connect_missing_encryption_key")
+        return RedirectResponse(_dashboard_url(False, "not_configured"))
+
+    try:
+        state = _make_state(org_id)
+    except Exception as exc:
+        log.error("linkedin_connect_state_failed", error=str(exc))
+        return RedirectResponse(_dashboard_url(False, "not_configured"))
     params = urlencode({
         "response_type": "code",
         "client_id":     settings.linkedin_client_id,
