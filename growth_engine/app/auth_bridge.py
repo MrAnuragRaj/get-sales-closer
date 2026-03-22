@@ -47,6 +47,7 @@ from typing import Optional
 
 import asyncpg
 import jwt as pyjwt
+from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -57,6 +58,65 @@ from app.logging_config import get_logger
 log = get_logger(__name__)
 
 _bearer = HTTPBearer(auto_error=True)
+
+# ── JWKS client — cached, refreshes every hour ─────────────────────────────
+# Supabase new projects use ES256 (P-256 ECC asymmetric keys).
+# PyJWKClient fetches the public keys from the JWKS endpoint and caches them.
+# Falls back to legacy HS256 secret if JWKS verification fails (older projects).
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client() -> PyJWKClient | None:
+    global _jwks_client
+    if _jwks_client is None and settings.supabase_url:
+        jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        try:
+            _jwks_client = PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=3600)
+        except Exception as exc:
+            log.warning("jwks_client_init_failed", error=str(exc))
+    return _jwks_client
+
+
+def _decode_jwt(token: str) -> dict:
+    """
+    Decode and verify a Supabase JWT.
+
+    Strategy (in order):
+      1. JWKS endpoint (ES256/RS256) — used by new Supabase projects
+      2. Legacy HS256 secret         — used by older Supabase projects
+
+    Both paths verify audience='authenticated' and expiry.
+    Raises pyjwt.InvalidTokenError on any failure.
+    """
+    # ── Attempt 1: JWKS (ES256 / new Supabase keys) ──────────────────────────
+    jwks = _get_jwks_client()
+    if jwks:
+        try:
+            signing_key = jwks.get_signing_key_from_jwt(token)
+            return pyjwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256", "RS256"],
+                audience="authenticated",
+            )
+        except pyjwt.ExpiredSignatureError:
+            raise  # expired is definitive — don't try HS256
+        except Exception as exc:
+            log.debug("jwks_decode_failed_trying_hs256", reason=str(exc))
+
+    # ── Attempt 2: Legacy HS256 secret ───────────────────────────────────────
+    if settings.supabase_jwt_secret:
+        return pyjwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
+
+    raise pyjwt.InvalidTokenError(
+        "No JWT verification method available. "
+        "Set SUPABASE_URL (for JWKS) or SUPABASE_JWT_SECRET (legacy HS256) in Railway."
+    )
 
 
 @dataclass(frozen=True)
@@ -91,14 +151,9 @@ async def require_auth(
     """
     token = credentials.credentials
 
-    # ── Step 1: Verify JWT ─────────────────────────────────────────────────
+    # ── Step 1: Verify JWT (ES256 via JWKS, fallback to legacy HS256) ────────
     try:
-        payload = pyjwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        payload = _decode_jwt(token)
     except pyjwt.ExpiredSignatureError:
         log.warning("auth_failed", reason="token_expired")
         raise HTTPException(
