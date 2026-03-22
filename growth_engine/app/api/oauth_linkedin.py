@@ -78,7 +78,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
 from httpx import AsyncClient
 
-from app.auth_bridge import AuthContext, require_auth
+from app.auth_bridge import AuthContext, _decode_jwt, require_auth
 from app.config import settings
 from app.crypto import decrypt_token, encrypt_token
 from app.db import get_pool
@@ -172,14 +172,9 @@ async def linkedin_connect(
     3. Generate an encrypted state token (CSRF protection + org binding).
     4. Redirect the browser to the LinkedIn authorization URL.
     """
-    # ── 1. Validate Supabase JWT ──────────────────────────────────────────────
+    # ── 1. Validate Supabase JWT (ES256 via JWKS, fallback to HS256) ─────────
     try:
-        payload = pyjwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        payload = _decode_jwt(token)
     except pyjwt.ExpiredSignatureError:
         return RedirectResponse(_dashboard_url(False, "token_expired"))
     except pyjwt.InvalidTokenError:
