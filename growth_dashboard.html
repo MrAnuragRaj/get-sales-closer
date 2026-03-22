@@ -661,10 +661,16 @@ async function growthFetch(path, opts = {}) {
         },
     });
 
-    // 401 = token rejected by Growth Engine (expired or invalid) → re-login
+    // 401 = token rejected by Growth Engine
+    // Only redirect to login if Supabase session is also gone.
+    // If Supabase session is valid but Railway returns 401, it's a server-side
+    // config issue (e.g. wrong SUPABASE_JWT_SECRET) — show error, don't redirect.
     if (res.status === 401) {
-        window.location.href = 'login.html';
-        throw new Error('session_expired');
+        const { data: { session: currentSession } } = await _sb.auth.getSession();
+        if (!currentSession) {
+            window.location.href = 'login.html';
+        }
+        throw new Error('Growth Engine authentication failed. Check Railway SUPABASE_JWT_SECRET.');
     }
 
     // 403 = authenticated but no org membership → onboarding incomplete
@@ -683,8 +689,14 @@ async function growthFetch(path, opts = {}) {
 async function checkApiHealth() {
     const el = document.getElementById('api-status');
     try {
-        await growthFetch('/health');
-        el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span>Connected</span>';
+        // /health is at root (not under /growth prefix) — use bare fetch, no auth needed
+        const base = (window.GROWTH_API_BASE || 'http://localhost:8000');
+        const res = await fetch(`${base}/health`);
+        if (res.ok) {
+            el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span>Connected</span>';
+        } else {
+            el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span>Offline</span>';
+        }
     } catch {
         el.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span><span>Offline</span>';
     }
