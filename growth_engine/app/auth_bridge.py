@@ -81,16 +81,31 @@ def _decode_jwt(token: str) -> dict:
     """
     Decode and verify a Supabase JWT.
 
-    Strategy (in order):
-      1. JWKS endpoint (ES256/RS256) — used by new Supabase projects
-      2. Legacy HS256 secret         — used by older Supabase projects
+    Strategy — driven by the JWT header's `alg` claim:
+      - ES256 / RS256 → JWKS only (asymmetric; HS256 fallback always fails for these)
+      - HS256          → shared secret only (legacy Supabase projects)
 
     Both paths verify audience='authenticated' and expiry.
     Raises pyjwt.InvalidTokenError on any failure.
     """
-    # ── Attempt 1: JWKS (ES256 / new Supabase keys) ──────────────────────────
-    jwks = _get_jwks_client()
-    if jwks:
+    # Peek at the header to pick the right verification path
+    try:
+        header = pyjwt.get_unverified_header(token)
+    except pyjwt.DecodeError as exc:
+        raise pyjwt.InvalidTokenError(f"Malformed JWT header: {exc}") from exc
+
+    alg = header.get("alg", "")
+    log.debug("jwt_decode_attempt", alg=alg)
+
+    # ── Asymmetric tokens (ES256 / RS256) — new Supabase projects ────────────
+    # Never fall back to HS256 for asymmetric tokens — it will always fail.
+    if alg in ("ES256", "RS256"):
+        jwks = _get_jwks_client()
+        if not jwks:
+            log.error("jwks_client_unavailable", hint="Set SUPABASE_URL in Railway env vars")
+            raise pyjwt.InvalidTokenError(
+                "JWKS client not initialized. Ensure SUPABASE_URL is set in Railway."
+            )
         try:
             signing_key = jwks.get_signing_key_from_jwt(token)
             return pyjwt.decode(
@@ -100,11 +115,19 @@ def _decode_jwt(token: str) -> dict:
                 audience="authenticated",
             )
         except pyjwt.ExpiredSignatureError:
-            raise  # expired is definitive — don't try HS256
+            raise
         except Exception as exc:
-            log.debug("jwks_decode_failed_trying_hs256", reason=str(exc))
+            log.error(
+                "jwks_verification_failed",
+                alg=alg,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            raise pyjwt.InvalidTokenError(
+                f"ES256/RS256 JWT verification failed: {exc}"
+            ) from exc
 
-    # ── Attempt 2: Legacy HS256 secret ───────────────────────────────────────
+    # ── Symmetric tokens (HS256) — legacy Supabase projects ──────────────────
     if settings.supabase_jwt_secret:
         return pyjwt.decode(
             token,
@@ -115,7 +138,7 @@ def _decode_jwt(token: str) -> dict:
 
     raise pyjwt.InvalidTokenError(
         "No JWT verification method available. "
-        "Set SUPABASE_URL (for JWKS) or SUPABASE_JWT_SECRET (legacy HS256) in Railway."
+        "Set SUPABASE_URL (for ES256/RS256) or SUPABASE_JWT_SECRET (legacy HS256) in Railway."
     )
 
 
