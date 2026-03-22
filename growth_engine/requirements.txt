@@ -24,6 +24,9 @@ structlog==24.4.0
 # HTTP client (async, for platform API calls in later phases)
 httpx==0.28.0
 
+# OpenAI — content generation, engagement copy, intelligence summaries
+openai==1.57.0
+
 # Image rendering (Phase 3 — Pillow template engine)
 Pillow==11.0.0
 
