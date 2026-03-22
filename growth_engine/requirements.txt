@@ -1,0 +1,48 @@
+# Growth Engine — Python dependencies
+# Pin minor versions; patch versions float for security fixes.
+
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Async Postgres
+asyncpg==0.30.0
+
+# Config / env
+pydantic-settings==2.6.1
+pydantic==2.10.2
+
+# JWT verification (Supabase issues HS256 JWTs)
+PyJWT==2.10.1
+
+# Token encryption (AES-128-CBC + HMAC-SHA256 via Fernet)
+cryptography==43.0.3
+
+# Structured logging
+structlog==24.4.0
+
+# HTTP client (async, for platform API calls in later phases)
+httpx==0.28.0
+
+# Image rendering (Phase 3 — Pillow template engine)
+Pillow==11.0.0
+
+# DB migrations
+# Alembic requires a synchronous DB driver. psycopg2-binary is the standard
+# choice for Postgres. It is listed here as a first-class dependency — not
+# optional, not a manual afterthought. The Alembic env.py uses it automatically.
+# asyncpg is used exclusively at runtime (FastAPI/worker); psycopg2-binary is
+# used exclusively at migration time (alembic upgrade head).
+alembic==1.14.0
+SQLAlchemy==2.0.36     # Alembic requires it; we do NOT use ORM — raw asyncpg only
+psycopg2-binary==2.9.10  # Alembic sync driver — required for migrations
+
+# Date/time utilities
+python-dateutil==2.9.0.post0
+
+# UUID generation
+# (stdlib uuid is sufficient; no extra dep needed)
+
+# Dev / testing (not installed in production Docker image)
+pytest==8.3.4
+pytest-asyncio==0.24.0

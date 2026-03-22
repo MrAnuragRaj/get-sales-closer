@@ -1,0 +1,28 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — local development only.
+# Production is deployed on Railway (see Dockerfile).
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  api:
+    build: .
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on: []   # Supabase Postgres is remote; no local DB service needed
+
+  worker:
+    build: .
+    command: python -m app.worker
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      - api
