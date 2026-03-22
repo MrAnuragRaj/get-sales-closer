@@ -582,10 +582,12 @@ requireAuth({
         _sb = sb;
         _profile = profile;
 
-        const { data: mem } = await sb.from('org_members')
+        const { data: memRows } = await sb.from('org_members')
             .select('org_id, role, organizations(name)')
             .eq('user_id', user.id)
-            .maybeSingle();
+            .order('created_at', { ascending: true })
+            .limit(1);
+        const mem = memRows?.[0] ?? null;
         _membership = mem;
         _orgId = mem?.org_id;
         document.getElementById('org-name-label').textContent = mem?.organizations?.name || 'My Org';
