@@ -37,13 +37,14 @@ FROM deps AS runtime
 COPY . .
 
 # Non-root user for security
-RUN addgroup --system growth && adduser --system --ingroup growth growth
+RUN addgroup --system growth && adduser --system --ingroup growth growth \
+    && chown -R growth:growth /app
 USER growth
 
-# Expose API port (Railway reads $PORT; uvicorn uses SERVICE_PORT env)
+# Expose API port — Railway injects $PORT; default 8080 for local/Docker Compose
 EXPOSE 8080
 
-# Default entrypoint: API server.
-# Worker entrypoint is defined separately via Railway service config:
-#   python -m app.worker
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Shell form so $PORT env var is expanded at runtime.
+# Railway sets PORT automatically to match the service domain port you configured.
+# Locally defaults to 8080 if PORT is not set.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
