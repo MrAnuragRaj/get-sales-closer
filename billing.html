@@ -141,6 +141,79 @@
                 </div>
             </div>
 
+            <!-- AI Social Media Engine -->
+            <div class="mt-4 mb-6">
+                <p class="text-purple-400 font-bold text-xs uppercase tracking-widest mb-3">AI Social Media Engine</p>
+                <div class="space-y-4">
+                    <!-- SCE -->
+                    <div id="card_SCE" class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                        <div class="flex items-center justify-between">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">AI Social Content Engine</span>
+                                <span id="badge_SCE" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="toggleSCE" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                            </label>
+                        </div>
+                        <div id="scePlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                            <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your posting tier</p>
+                            <div class="grid grid-cols-3 gap-2 text-[10px]">
+                                <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                    <input type="radio" name="scePlan" value="199" class="accent-purple-500 sce-plan">
+                                    <span class="font-bold text-white mt-1">Starter</span>
+                                    <span class="text-purple-400 font-bold">$199/mo</span>
+                                    <span class="text-slate-500 text-[9px]">AI posts · scheduling · analytics · 2 accounts</span>
+                                </label>
+                                <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                    <input type="radio" name="scePlan" value="299" class="accent-purple-500 sce-plan" checked>
+                                    <span class="font-bold text-white mt-1">Growth</span>
+                                    <span class="text-purple-400 font-bold">$299/mo</span>
+                                    <span class="text-slate-500 text-[9px]">+ AI images · advanced analytics · 5 accounts</span>
+                                </label>
+                                <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                    <input type="radio" name="scePlan" value="399" class="accent-purple-500 sce-plan">
+                                    <span class="font-bold text-white mt-1">Scale</span>
+                                    <span class="text-purple-400 font-bold">$399/mo</span>
+                                    <span class="text-slate-500 text-[9px]">+ approval workflow · auto-posting · unlimited</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- EB -->
+                    <div id="card_EB" class="relative flex flex-col p-4 rounded-xl bg-purple-900/10 border border-purple-500/20">
+                        <div class="flex items-center justify-between">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Engagement Bot</span>
+                                <span id="badge_EB" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="toggleEB" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                            </label>
+                        </div>
+                        <div id="ebPlanMenu" class="hidden mt-4 pt-4 border-t border-slate-800">
+                            <p class="text-[10px] text-slate-400 mb-3 uppercase font-bold tracking-wider">Choose your engagement tier</p>
+                            <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-purple-500/40 bg-purple-900/10 cursor-pointer text-center">
+                                    <input type="radio" name="ebPlan" value="99" class="accent-purple-500 eb-plan" checked>
+                                    <span class="font-bold text-white mt-1">Starter</span>
+                                    <span class="text-purple-400 font-bold">$99/mo</span>
+                                    <span class="text-slate-500 text-[9px]">AI replies · post interactions · basic analytics</span>
+                                </label>
+                                <label class="flex flex-col items-center gap-1 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 cursor-pointer text-center">
+                                    <input type="radio" name="ebPlan" value="199" class="accent-purple-500 eb-plan">
+                                    <span class="font-bold text-white mt-1">Pro</span>
+                                    <span class="text-purple-400 font-bold">$199/mo</span>
+                                    <span class="text-slate-500 text-[9px]">Full automation · interaction analytics · multi-platform</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Growth Engine standalone add-on -->
             <div class="mt-4 mb-6">
                 <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3">Growth Engine — Add-On</p>
@@ -190,6 +263,7 @@
             A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
             Priority: document.getElementById('togglePriority'),
+            SCE: document.getElementById('toggleSCE'), EB: document.getElementById('toggleEB'),
             GE: document.getElementById('toggleGE')
         };
         const cards = {
@@ -197,6 +271,7 @@
             A: document.getElementById('card_A'), L: document.getElementById('card_L'),
             Intake: document.getElementById('card_Intake'), SafeVoice: document.getElementById('card_SafeVoice'),
             Priority: document.getElementById('card_Priority'),
+            SCE: document.getElementById('card_SCE'), EB: document.getElementById('card_EB'),
             GE: document.getElementById('card_GE')
         };
         const badges = {
@@ -204,6 +279,7 @@
             A: document.getElementById('badge_A'), L: document.getElementById('badge_L'),
             Intake: document.getElementById('badge_Intake'), SafeVoice: document.getElementById('badge_SafeVoice'),
             Priority: document.getElementById('badge_Priority'),
+            SCE: document.getElementById('badge_SCE'), EB: document.getElementById('badge_EB'),
             GE: document.getElementById('badge_GE')
         };
         const deployBtn = document.getElementById('deployBtn');
@@ -237,6 +313,7 @@
             Object.values(toggles).forEach(el => {
                 if (el && !el.disabled) el.addEventListener('change', updateButtonState);
             });
+            document.querySelectorAll('.sce-plan, .eb-plan').forEach(r => r.addEventListener('change', updateButtonState));
             deployBtn.addEventListener('click', generateIntent);
             updateButtonState();
         }
@@ -256,6 +333,8 @@
                     'intake': 'Intake',
                     'safe_voice': 'SafeVoice',
                     'priority': 'Priority',
+                    'sce': 'SCE',
+                    'eb': 'EB',
                     'growth_engine': 'GE'
                 };
 
@@ -319,10 +398,21 @@
                 else        base = 49;
             }
 
+            // SCE/EB plan menus — show only when toggled on AND not locked (owned)
+            const sceOn = toggles.SCE?.checked && !toggles.SCE?.disabled;
+            const ebOn  = toggles.EB?.checked  && !toggles.EB?.disabled;
+            document.getElementById('scePlanMenu')?.classList.toggle('hidden', !sceOn);
+            document.getElementById('ebPlanMenu')?.classList.toggle('hidden', !ebOn);
+
+            const sceSelected = document.querySelector('.sce-plan:checked');
+            const ebSelected  = document.querySelector('.eb-plan:checked');
+
             let premium = 0;
-            if (toggles.Intake?.checked)    premium += 99;
+            if (toggles.Intake?.checked)    premium += 149;
             if (toggles.SafeVoice?.checked) premium += 199;
-            if (toggles.Priority?.checked)  premium += 149;
+            if (toggles.Priority?.checked)  premium += 99;
+            if (sceOn && sceSelected)       premium += parseInt(sceSelected.value);
+            if (ebOn  && ebSelected)        premium += parseInt(ebSelected.value);
             if (toggles.GE?.checked)        premium += 660;
 
             const rawTotal = base + premium;
@@ -350,6 +440,11 @@
             if (intentInFlight) return;
             
             // Build Payload
+            const sceNew = toggles.SCE?.checked && !owned.addons.has('SCE');
+            const ebNew  = toggles.EB?.checked  && !owned.addons.has('EB');
+            const sceSelected = document.querySelector('.sce-plan:checked');
+            const ebSelected  = document.querySelector('.eb-plan:checked');
+
             const payload = {
                 services: {
                     sentinel: toggles.S?.checked && !owned.services.has('S'),
@@ -361,8 +456,13 @@
                     intake: toggles.Intake?.checked && !owned.addons.has('Intake'),
                     safe_voice: toggles.SafeVoice?.checked && !owned.addons.has('SafeVoice'),
                     priority: toggles.Priority?.checked && !owned.addons.has('Priority'),
+                    sce: sceNew,
+                    sce_plan: sceNew && sceSelected ? sceSelected.value : null,
+                    eb: ebNew,
+                    eb_plan: ebNew && ebSelected ? ebSelected.value : null,
                     growth_engine: toggles.GE?.checked && !owned.addons.has('GE')
-                }
+                },
+                channels: {}
             };
 
             const hasSelection = Object.values(payload.services).some(Boolean) || 
@@ -382,11 +482,7 @@
 
             try {
                 const { data, error } = await globalSupabase.rpc('create_checkout_intent', {
-                    payload: { 
-                        services: payload.services, 
-                        addons: payload.addons, 
-                        channels: {} 
-                    },
+                    payload,
                     intent_source: 'billing',
                     billing_cycle: billingCycle
                 });

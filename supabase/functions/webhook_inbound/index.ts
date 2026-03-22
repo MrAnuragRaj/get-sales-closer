@@ -928,14 +928,13 @@ serve(async (req) => {
           let fbLeadOrgId: string | null = null;
 
           if (!psidLead || psidLead.length === 0) {
-            // PSID not yet linked — attempt safe auto-link:
-            // 1. Resolve which org owns this Messenger page.
-            // 2. In that org, find leads with messenger_psid IS NULL.
-            //    Exactly 1 → link. >1 → ambiguous, audit only.
+            // PSID not linked to any lead — resolve org via page_id, then auto-create a lead
             let candidateOrgId: string | null = null;
+            let pageToken: string | null = null;
+
             const { data: messengerChannels } = await supabase
               .from("org_channels")
-              .select("org_id, metadata")
+              .select("org_id, metadata, provider_token")
               .eq("channel", "messenger")
               .eq("is_default", true)
               .eq("status", "active");
@@ -945,6 +944,7 @@ serve(async (req) => {
             );
             if (matchingOrg) {
               candidateOrgId = matchingOrg.org_id;
+              pageToken = matchingOrg.provider_token ?? null;
             } else if (pageId && pageId === Deno.env.get("FACEBOOK_PAGE_ID")) {
               // Shared platform page — can't safely infer org from PSID alone
               candidateOrgId = null;
@@ -962,54 +962,61 @@ serve(async (req) => {
               continue;
             }
 
-            // Find unlinked leads in this org (limit 2 to detect ambiguity)
-            const { data: unlinkedLeads } = await supabase
-              .from("leads")
-              .select("id")
+            // Try to fetch the contact's name from Facebook Graph API
+            let fbUserName = "Messenger Contact";
+            if (pageToken) {
+              try {
+                const nameRes = await fetch(
+                  `https://graph.facebook.com/v21.0/${psid}?fields=name&access_token=${encodeURIComponent(pageToken)}`,
+                );
+                const nameData = await nameRes.json().catch(() => ({}));
+                if (nameData?.name) fbUserName = nameData.name;
+              } catch (_) { /* non-fatal — use default name */ }
+            }
+
+            // Need org owner's user_id for profile_id (NOT NULL column on leads)
+            const { data: ownerRow } = await supabase
+              .from("org_members")
+              .select("user_id")
               .eq("org_id", candidateOrgId)
-              .is("messenger_psid", null)
-              .eq("is_dnc", false)
-              .limit(2);
+              .in("role", ["owner", "agency_admin", "enterprise_admin"])
+              .limit(1)
+              .maybeSingle();
 
-            if (!unlinkedLeads || unlinkedLeads.length === 0) {
-              await supabase.from("audit_events").insert({
-                org_id: candidateOrgId, actor_type: "system", actor_id: null,
-                object_type: "lead", object_id: crypto.randomUUID(),
-                action: "messenger_psid_no_match", reason: "no_unlinked_leads_in_org",
-                before_state: null,
-                after_state: { psid, page_id: pageId, org_id: candidateOrgId },
-              }).then(undefined, () => {});
+            if (!ownerRow?.user_id) {
+              console.warn(`[webhook_inbound] Cannot auto-create lead: no owner for org=${candidateOrgId}`);
               continue;
             }
 
-            if (unlinkedLeads.length > 1) {
-              await supabase.from("audit_events").insert({
-                org_id: candidateOrgId, actor_type: "system", actor_id: null,
-                object_type: "lead", object_id: crypto.randomUUID(),
-                action: "messenger_psid_ambiguous", reason: "multiple_unlinked_leads_in_org",
-                before_state: null,
-                after_state: { psid, page_id: pageId, org_id: candidateOrgId, candidate_count: unlinkedLeads.length },
-              }).then(undefined, () => {});
+            // Auto-create a new lead for this Messenger contact
+            const { data: newLead, error: leadErr } = await supabase
+              .from("leads")
+              .insert({
+                profile_id: ownerRow.user_id,
+                org_id: candidateOrgId,
+                name: fbUserName,
+                messenger_psid: psid,
+                source: "messenger",
+                status: "new",
+              })
+              .select("id")
+              .single();
+
+            if (leadErr || !newLead) {
+              console.error(`[webhook_inbound] Auto-create lead failed for psid=${psid}: ${leadErr?.message}`);
               continue;
             }
-
-            // Exactly 1 unlinked lead — safe to auto-link
-            const targetLeadId = unlinkedLeads[0].id;
-            await supabase.from("leads")
-              .update({ messenger_psid: psid })
-              .eq("id", targetLeadId)
-              .then(undefined, () => {});
 
             await supabase.from("audit_events").insert({
               org_id: candidateOrgId, actor_type: "system", actor_id: null,
-              object_type: "lead", object_id: targetLeadId,
-              action: "messenger_psid_linked", reason: "safe_auto_link_single_candidate",
-              before_state: { messenger_psid: null },
-              after_state: { messenger_psid: psid, page_id: pageId, org_id: candidateOrgId },
+              object_type: "lead", object_id: newLead.id,
+              action: "messenger_lead_auto_created",
+              before_state: null,
+              after_state: { psid, page_id: pageId, name: fbUserName, org_id: candidateOrgId },
             }).then(undefined, () => {});
 
-            console.log(`[webhook_inbound] Messenger PSID auto-linked: lead=${targetLeadId} org=${candidateOrgId} psid=${psid}`);
-            fbLeadId = targetLeadId;
+            console.log(`[webhook_inbound] Messenger lead auto-created: lead=${newLead.id} org=${candidateOrgId} psid=${psid} name="${fbUserName}"`);
+            fbLeadId = newLead.id;
             fbLeadOrgId = candidateOrgId;
 
           } else if (psidLead.length > 1) {

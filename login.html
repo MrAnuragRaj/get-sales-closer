@@ -1,12 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/jpeg" href="favicon.jpg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up | GetSalesCloser</title>
+    <title>Sign In | GetSalesCloser</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 flex items-center justify-center min-h-screen py-10">
     <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 w-full max-w-md">
@@ -14,9 +15,9 @@
             <div class="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-xs">GS</div>
             <span class="text-xl font-bold text-slate-900">GetSalesCloser</span>
         </div>
-        
-        <h2 id="auth-heading" class="text-2xl font-bold text-slate-900 mb-2">Create your account</h2>
-        <p id="auth-subheading" class="text-sm text-slate-500 mb-6">Join the real estate agents closing deals 24/7.</p>
+
+        <h2 id="auth-heading" class="text-2xl font-bold text-slate-900 mb-2">Sign in to your account</h2>
+        <p id="auth-subheading" class="text-sm text-slate-500 mb-6">Welcome back. Enter your email and password.</p>
 
         <div class="grid grid-cols-5 gap-2 mb-6">
             <button onclick="signInWithProvider('google')" title="Google" class="flex items-center justify-center py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
@@ -45,212 +46,161 @@
         <div id="phone-auth-container" class="mb-6 mt-4">
             <div id="phone-input-group" class="space-y-4">
                 <input type="tel" id="phone" placeholder="+1234567890" class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none transition">
-                <button onclick="sendOTP()" id="otp-btn" class="w-full border border-slate-900 text-slate-900 py-2 rounded-xl font-semibold hover:bg-slate-50 transition">
+                <button onclick="sendOTP()" class="w-full border border-slate-900 text-slate-900 py-2 rounded-xl font-semibold hover:bg-slate-50 transition">
                     Send Login Code
                 </button>
             </div>
             <div id="otp-verify-group" class="hidden space-y-4">
                 <input type="text" id="otp-code" placeholder="6-digit code" class="mt-1 block w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none transition">
-                <button onclick="verifyOTP()" id="verify-btn" class="w-full bg-slate-900 text-white py-2 rounded-xl font-semibold hover:bg-slate-800 transition">
+                <button onclick="verifyOTP()" class="w-full bg-slate-900 text-white py-2 rounded-xl font-semibold hover:bg-slate-800 transition">
                     Verify & Sign In
                 </button>
             </div>
         </div>
 
-        <form id="signup-form" class="space-y-4 border-t border-slate-200 pt-4">
-            <div id="signup-extra-fields">
-                <input type="text" id="full_name" placeholder="Full Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl mb-4">
-                <input type="text" id="company" placeholder="Company Name" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
+        <form id="auth-form" class="space-y-4 border-t border-slate-200 pt-4">
+            <div id="signup-extra-fields" class="hidden">
+                <input type="text" id="full_name" placeholder="Full Name" class="block w-full px-4 py-2 border border-slate-200 rounded-xl mb-4">
+                <input type="text" id="company" placeholder="Company Name" class="block w-full px-4 py-2 border border-slate-200 rounded-xl mb-4">
             </div>
             <input type="email" id="email" placeholder="Email Address" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
             <input type="password" id="password" placeholder="Password" required class="block w-full px-4 py-2 border border-slate-200 rounded-xl">
-            <button type="submit" id="auth-submit-btn" class="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold">Sign Up</button>
+            <button type="submit" id="auth-submit-btn" class="w-full bg-slate-900 text-white py-3 rounded-xl font-semibold">Sign In</button>
             <p class="text-center text-sm text-slate-500" id="auth-toggle-text">
-                Already have an account? <button type="button" onclick="switchToSignIn()" class="text-slate-900 font-semibold hover:underline">Sign in</button>
+                New here? <button type="button" onclick="switchToSignUp()" class="text-slate-900 font-semibold hover:underline">Create account</button>
             </p>
         </form>
     </div>
 
-    <script type="module">
-        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-        
-        // Initializing with your actual project data
-        const supabase = createClient(
-            "https://klbwigcvrdfeeeeotehu.supabase.co", 
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8"
-        );
+    <script>
+        const SUPABASE_URL = 'https://klbwigcvrdfeeeeotehu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Post-login redirect: check org_members → org_services (actual entitlement schema)
-        supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === "SIGNED_IN" && session) {
-                const user = session.user;
+        let _authMode = 'signin';
 
-                // Admin shortcut — bypass entitlement check entirely
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('is_admin')
-                    .eq('id', user.id)
-                    .maybeSingle();
+        // ── Redirect logic ─────────────────────────────────────────────────────
+        async function redirectAfterLogin(user) {
+            const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+            if (profile && profile.is_admin) { window.location.href = 'admin.html'; return; }
 
-                if (profile?.is_admin) {
-                    window.location.href = "admin.html";
-                    return;
+            // Claim pending invitations
+            if (user.email) {
+                const { data: invites } = await sb.from('org_invitations').select('org_id, role').eq('invited_email', user.email);
+                for (const inv of (invites || [])) {
+                    await sb.from('org_members').upsert({ user_id: user.id, org_id: inv.org_id, role: inv.role }, { onConflict: 'user_id,org_id' });
+                    await sb.from('org_invitations').delete().eq('invited_email', user.email).eq('org_id', inv.org_id);
                 }
+            }
 
-                // Claim ALL pending org invitations for this email
-                const email = user.email;
-                if (email) {
-                    const { data: invites } = await supabase
-                        .from('org_invitations')
-                        .select('org_id, role')
-                        .eq('invited_email', email);
-                    if (invites && invites.length > 0) {
-                        for (const invite of invites) {
-                            await supabase.from('org_members').upsert(
-                                { user_id: user.id, org_id: invite.org_id, role: invite.role },
-                                { onConflict: 'user_id,org_id' }
-                            );
-                            await supabase.from('org_invitations')
-                                .delete()
-                                .eq('invited_email', email)
-                                .eq('org_id', invite.org_id);
-                        }
-                    }
-                }
+            const { data: memberships } = await sb.from('org_members').select('org_id, role').eq('user_id', user.id);
+            if (!memberships || memberships.length === 0) { window.location.href = 'pricing.html'; return; }
 
-                // Fetch ALL org memberships — user may belong to multiple orgs
-                const { data: memberships } = await supabase
-                    .from('org_members')
-                    .select('org_id, role')
-                    .eq('user_id', user.id);
+            const { data: activeServices } = await sb.from('org_services').select('org_id')
+                .in('org_id', memberships.map(function(m) { return m.org_id; })).eq('status', 'active');
+            const activeOrgIds = new Set((activeServices || []).map(function(s) { return s.org_id; }));
 
-                if (memberships && memberships.length > 0) {
-                    // Fetch active services for all orgs in one query
-                    const { data: activeServices } = await supabase
-                        .from('org_services')
-                        .select('org_id')
-                        .in('org_id', memberships.map(m => m.org_id))
-                        .eq('status', 'active');
+            const rolePriority = { 'enterprise_admin': 0, 'agency_admin': 1, 'enterprise_agent': 2 };
+            const sorted = memberships.slice().sort(function(a, b) {
+                return (rolePriority[a.role] !== undefined ? rolePriority[a.role] : 99) -
+                       (rolePriority[b.role] !== undefined ? rolePriority[b.role] : 99);
+            });
+            const active = sorted.find(function(m) { return activeOrgIds.has(m.org_id); });
 
-                    const activeOrgIds = new Set((activeServices || []).map(s => s.org_id));
+            if (!active) { window.location.href = 'pricing.html'; return; }
+            if (active.role === 'agency_admin') window.location.href = 'agency_admin.html';
+            else if (active.role === 'enterprise_admin') window.location.href = 'enterprise_admin.html';
+            else if (active.role === 'enterprise_agent') window.location.href = 'agent_dashboard.html';
+            else window.location.href = 'dashboard.html';
+        }
 
-                    // Pick highest-priority role that has an active service
-                    const rolePriority = { 'enterprise_admin': 0, 'agency_admin': 1, 'enterprise_agent': 2 };
-                    const sorted = [...memberships].sort((a, b) =>
-                        (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99)
-                    );
-                    const active = sorted.find(m => activeOrgIds.has(m.org_id));
-
-                    if (active) {
-                        if (active.role === 'agency_admin') {
-                            window.location.href = 'agency_admin.html';
-                        } else if (active.role === 'enterprise_admin') {
-                            window.location.href = 'enterprise_admin.html';
-                        } else if (active.role === 'enterprise_agent') {
-                            window.location.href = 'agent_dashboard.html';
-                        } else {
-                            window.location.href = 'dashboard.html';
-                        }
-                    } else {
-                        window.location.href = "pricing.html";
-                    }
-                } else {
-                    // Brand new user — no org yet, send to pricing to configure + buy
-                    window.location.href = "pricing.html";
-                }
+        // ── OAuth (Google, LinkedIn, etc.) — handled via onAuthStateChange after redirect back ──
+        sb.auth.onAuthStateChange(function(event, session) {
+            if (event === 'SIGNED_IN' && session) {
+                redirectAfterLogin(session.user).catch(function(err) { alert('Error: ' + err.message); });
             }
         });
 
-        // Functions attached to window so they work with HTML onclick
-        window.signInWithProvider = async (provider) => {
-            console.log("Starting login for:", provider);
-            const options = { redirectTo: window.location.origin + '/login.html' };
+        function signInWithProvider(provider) {
+            var options = { redirectTo: window.location.origin + '/login.html' };
             if (provider === 'azure') options.scopes = 'email';
-            
-            const { error } = await supabase.auth.signInWithOAuth({ provider, options });
-            if (error) alert(error.message);
-        };
+            sb.auth.signInWithOAuth({ provider: provider, options: options })
+                .then(function(res) { if (res.error) alert(res.error.message); });
+        }
 
-        // Toggle between Sign Up and Sign In modes
-        let _authMode = 'signup';
-        window.switchToSignIn = () => {
+        // ── Mode toggle ────────────────────────────────────────────────────────
+        function switchToSignIn() {
             _authMode = 'signin';
             document.getElementById('auth-heading').textContent = 'Sign in to your account';
             document.getElementById('auth-subheading').textContent = 'Welcome back. Enter your email and password.';
             document.getElementById('signup-extra-fields').classList.add('hidden');
-            document.getElementById('full_name').removeAttribute('required');
-            document.getElementById('company').removeAttribute('required');
             document.getElementById('auth-submit-btn').textContent = 'Sign In';
-            document.getElementById('auth-toggle-text').innerHTML = `New here? <button type="button" onclick="switchToSignUp()" class="text-slate-900 font-semibold hover:underline">Create account</button>`;
-        };
-        window.switchToSignUp = () => {
+            document.getElementById('auth-toggle-text').innerHTML = 'New here? <button type="button" onclick="switchToSignUp()" class="text-slate-900 font-semibold hover:underline">Create account</button>';
+        }
+
+        function switchToSignUp() {
             _authMode = 'signup';
             document.getElementById('auth-heading').textContent = 'Create your account';
-            document.getElementById('auth-subheading').textContent = 'Join the real estate agents closing deals 24/7.';
+            document.getElementById('auth-subheading').textContent = 'Join the sales teams closing deals 24/7.';
             document.getElementById('signup-extra-fields').classList.remove('hidden');
-            document.getElementById('full_name').setAttribute('required', '');
-            document.getElementById('company').setAttribute('required', '');
-            document.getElementById('auth-submit-btn').textContent = 'Sign Up';
-            document.getElementById('auth-toggle-text').innerHTML = `Already have an account? <button type="button" onclick="switchToSignIn()" class="text-slate-900 font-semibold hover:underline">Sign in</button>`;
-        };
+            document.getElementById('auth-submit-btn').textContent = 'Create Account';
+            document.getElementById('auth-toggle-text').innerHTML = 'Already have an account? <button type="button" onclick="switchToSignIn()" class="text-slate-900 font-semibold hover:underline">Sign in</button>';
+        }
 
-        window.sendOTP = async () => {
-            const phone = document.getElementById('phone').value;
-            const { error } = await supabase.auth.signInWithOtp({ phone });
-            if (!error) {
+        // ── Phone OTP ──────────────────────────────────────────────────────────
+        function sendOTP() {
+            var phone = document.getElementById('phone').value;
+            sb.auth.signInWithOtp({ phone: phone }).then(function(res) {
+                if (res.error) { alert(res.error.message); return; }
                 document.getElementById('phone-input-group').classList.add('hidden');
                 document.getElementById('otp-verify-group').classList.remove('hidden');
-            } else {
-                alert(error.message);
-            }
-        };
+            });
+        }
 
-        window.verifyOTP = async () => {
-            const phone = document.getElementById('phone').value;
-            const token = document.getElementById('otp-code').value;
-            const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
-            if (error) alert(error.message);
-        };
+        function verifyOTP() {
+            var phone = document.getElementById('phone').value;
+            var token = document.getElementById('otp-code').value;
+            sb.auth.verifyOtp({ phone: phone, token: token, type: 'sms' })
+                .then(function(res) { if (res.error) alert(res.error.message); });
+        }
 
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        // ── Form submit ────────────────────────────────────────────────────────
+        document.getElementById('auth-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const btn = document.getElementById('auth-submit-btn');
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
+            var btn = document.getElementById('auth-submit-btn');
+            var email = document.getElementById('email').value.trim();
+            var password = document.getElementById('password').value;
             btn.disabled = true;
 
             if (_authMode === 'signin') {
                 btn.textContent = 'Signing in…';
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                btn.disabled = false;
-                btn.textContent = 'Sign In';
-                if (error) alert(error.message);
-                // On success, onAuthStateChange fires SIGNED_IN and handles redirect
+                sb.auth.signInWithPassword({ email: email, password: password }).then(function(res) {
+                    if (res.error) {
+                        alert(res.error.message);
+                        btn.disabled = false;
+                        btn.textContent = 'Sign In';
+                        return;
+                    }
+                    redirectAfterLogin(res.data.user).catch(function(err) {
+                        alert('Redirect error: ' + err.message);
+                        btn.disabled = false;
+                        btn.textContent = 'Sign In';
+                    });
+                }).catch(function(err) {
+                    alert('Sign-in error: ' + err.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Sign In';
+                });
             } else {
                 btn.textContent = 'Creating account…';
-                const full_name = document.getElementById('full_name').value;
-                const company = document.getElementById('company').value;
-
-                const { error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: { data: { full_name, company } }
+                var full_name = document.getElementById('full_name').value.trim();
+                var company = document.getElementById('company').value.trim();
+                sb.auth.signUp({ email: email, password: password, options: { data: { full_name: full_name, company: company } } }).then(function(res) {
+                    btn.disabled = false;
+                    btn.textContent = 'Create Account';
+                    if (res.error) { alert(res.error.message); return; }
+                    document.getElementById('auth-form').innerHTML = '<div class="text-center py-6 space-y-3"><i class="fa fa-envelope text-3xl text-slate-400"></i><h3 class="font-bold text-slate-900 text-lg">Check your email</h3><p class="text-sm text-slate-500">We sent a confirmation link to <strong>' + email + '</strong>. Click it to activate your account, then come back to sign in.</p></div>';
                 });
-
-                btn.disabled = false;
-                btn.textContent = 'Sign Up';
-
-                if (error) {
-                    alert(error.message);
-                } else {
-                    document.getElementById('signup-form').innerHTML = `
-                        <div class="text-center py-6 space-y-3">
-                            <div class="text-3xl">📧</div>
-                            <h3 class="font-bold text-slate-900 text-lg">Check your email</h3>
-                            <p class="text-sm text-slate-500">We sent a confirmation link to <strong>${email}</strong>.<br>Click it to activate your account, then come back to sign in.</p>
-                        </div>`;
-                }
             }
         });
     </script>

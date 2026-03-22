@@ -57,7 +57,7 @@ serve(async (req) => {
     // ── 2. Fetch & validate billing_intent ──────────────────────────────────────
     const { data: intent, error: intentErr } = await sb
       .from("billing_intents")
-      .select("id, org_id, intent_source, pricing_snapshot, status")
+      .select("id, org_id, intent_source, pricing_snapshot, status, paid_at")
       .eq("id", billing_intent_id)
       .single()
     if (intentErr || !intent) throw new Error("billing_intent not found: " + billing_intent_id)
@@ -66,6 +66,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ fulfilled: false, reason: "not_credit_topup" }),
         { status: 200, headers: CORS },
+      )
+    }
+
+    // Security guard: only fulfill intents that have been confirmed as paid
+    // Prevents calling this function to get free credits before payment
+    if (intent.status !== "paid") {
+      return new Response(
+        JSON.stringify({ fulfilled: false, reason: "intent_not_paid", status: intent.status }),
+        { status: 400, headers: CORS },
       )
     }
 

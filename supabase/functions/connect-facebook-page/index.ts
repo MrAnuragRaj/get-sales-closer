@@ -49,24 +49,21 @@ async function storePageInDB(
   pageToken: string,
   pageName: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  // 1. Deactivate any existing Messenger channel for this org
-  await supabase
-    .from("org_channels")
-    .update({ status: "disabled", is_default: false })
-    .eq("org_id", orgId)
-    .eq("channel", "messenger");
-
-  // 2. Insert fresh active channel row
-  const { error: chErr } = await supabase.from("org_channels").insert({
-    org_id: orgId,
-    channel: "messenger",
-    provider: "meta",
-    provider_token: pageToken,
-    status: "active",
-    is_default: true,
-    fallback_policy: "allow_shared",
-    metadata: { page_id: pageId, page_name: pageName },
-  });
+  // Upsert channel row — handles first connect, reconnect, and post-disconnect relink
+  // uq_org_channels_org_channel is UNIQUE(org_id, channel), so INSERT would fail on reconnect
+  const { error: chErr } = await supabase.from("org_channels").upsert(
+    {
+      org_id: orgId,
+      channel: "messenger",
+      provider: "meta",
+      provider_token: pageToken,
+      status: "active",
+      is_default: true,
+      fallback_policy: "allow_shared",
+      metadata: { page_id: pageId, page_name: pageName },
+    },
+    { onConflict: "org_id,channel" },
+  );
 
   if (chErr) {
     console.error("[connect-facebook-page] org_channels insert failed:", chErr.message);
@@ -158,15 +155,43 @@ serve(async (req) => {
       `&fb_exchange_token=${encodeURIComponent(shortRes.access_token)}`,
     ).then(r => r.json()).catch(() => ({}));
 
+    if (longRes.error) {
+      console.warn("[connect-facebook-page] long-lived token exchange warning:", JSON.stringify(longRes.error));
+    }
+
     const userToken = longRes.access_token ?? shortRes.access_token;
 
     // Step 3: get pages the user manages (page tokens from /me/accounts are long-lived)
-    const pagesRes = await fetch(
-      `${GRAPH}/me/accounts?fields=id,name,category,access_token&access_token=${encodeURIComponent(userToken)}`,
-    ).then(r => r.json()).catch(() => ({}));
+    let pagesRawText = "";
+    let pagesRes: any = {};
+    try {
+      const pagesHttpRes = await fetch(
+        `${GRAPH}/me/accounts?fields=id,name,category,access_token&access_token=${encodeURIComponent(userToken)}`,
+      );
+      pagesRawText = await pagesHttpRes.text();
+      pagesRes = JSON.parse(pagesRawText);
+      console.log("[connect-facebook-page] /me/accounts HTTP status:", pagesHttpRes.status, "body keys:", Object.keys(pagesRes).join(","), "data_count:", pagesRes.data?.length ?? "n/a");
+    } catch (e) {
+      console.error("[connect-facebook-page] /me/accounts fetch/parse error:", e, "raw:", pagesRawText.slice(0, 200));
+      return json({ error: `Failed to reach Facebook API: ${e}` }, 500);
+    }
+
+    // Surface the actual Facebook API error if present
+    if (pagesRes.error) {
+      const fbMsg = pagesRes.error.message ?? "Facebook API error";
+      const fbCode = pagesRes.error.code ?? "";
+      const fbSubCode = pagesRes.error.error_subcode ?? "";
+      console.error("[connect-facebook-page] /me/accounts Facebook error:", JSON.stringify(pagesRes.error));
+      return json({ error: `Facebook: ${fbMsg} (code ${fbCode}${fbSubCode ? "/" + fbSubCode : ""})` }, 400);
+    }
 
     if (!pagesRes.data || pagesRes.data.length === 0) {
-      return json({ error: "No Facebook Pages found for this account. Make sure you are an admin of at least one Page." }, 400);
+      // data is [] — user has no Pages accessible to this token
+      // Common causes: app in Development mode, pages_show_list not granted, or user has no Pages
+      console.warn("[connect-facebook-page] /me/accounts returned empty data array. userToken prefix:", userToken.slice(0, 20));
+      return json({
+        error: "No Facebook Pages found. Possible causes: (1) Your app is in Development mode — go to Meta App Dashboard and switch to Live mode, OR add your Facebook account as a Developer/Tester. (2) You did not grant 'pages_show_list' during the OAuth dialog. (3) The Facebook account used has no Pages with admin access.",
+      }, 400);
     }
 
     const pages = (pagesRes.data as any[]).map((p: any) => ({

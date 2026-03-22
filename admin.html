@@ -972,8 +972,40 @@
                 return;
             }
 
-            alert("✅ Payment Approved & Access Granted!");
-            fetchPendingTransfers(); 
+            // After bank transfer approval, trigger fulfillment for credit/number purchase intents
+            // (subscription intents are handled by process_pending_activations pg_cron)
+            try {
+                const { data: intentRow } = await supabase
+                    .from('billing_intents')
+                    .select('intent_source')
+                    .eq('id', intentId)
+                    .single();
+
+                const intentSource = intentRow?.intent_source;
+
+                if (intentSource === 'credit_topup') {
+                    const res = await fetch(supabaseUrl + '/functions/v1/fulfill-paid-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ billing_intent_id: intentId, payment_event_id: 'bank_transfer' }),
+                    });
+                    const result = await res.json().catch(() => ({}));
+                    if (!res.ok && result.error) console.error('[approve] fulfill-paid-order error:', result.error);
+                } else if (intentSource === 'number_purchase') {
+                    const res = await fetch(supabaseUrl + '/functions/v1/fulfill-number-request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ billing_intent_id: intentId, payment_event_id: 'bank_transfer' }),
+                    });
+                    const result = await res.json().catch(() => ({}));
+                    if (!res.ok && result.error) console.error('[approve] fulfill-number-request error:', result.error);
+                }
+            } catch (e) {
+                console.error('[approve] fulfillment dispatch error (non-fatal):', e);
+            }
+
+            alert("Payment Approved & Access Granted!");
+            fetchPendingTransfers();
             fetchActiveEntitlements();
         }
 

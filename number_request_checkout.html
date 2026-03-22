@@ -153,19 +153,25 @@
                 const area_code = document.getElementById('area-code').value.trim() || null;
                 const channel = document.getElementById('channel').value;
 
-                const { data: result, error: fnErr } = await _sb.functions.invoke('create-number-purchase-order', {
-                    body: { area_code, channel },
-                });
+                let jwt;
+                try { const { data } = await _sb.auth.refreshSession(); jwt = data?.session?.access_token; } catch (_) {}
+                if (!jwt) { const { data: { session } } = await _sb.auth.getSession(); jwt = session?.access_token; }
+                if (!jwt) throw new Error('Session expired — please refresh the page and try again.');
 
-                if (fnErr) {
-                    let msg = fnErr.message || String(fnErr);
-                    try { const b = await fnErr.context?.json?.(); if (b?.error) msg = b.error; else if (b?.message) msg = b.message; } catch (_) {}
-                    throw new Error(msg);
-                }
-                if (!result?.intent_id) {
-                    const e = result?.error;
-                    throw new Error(e ? (typeof e === 'string' ? e : e.message || JSON.stringify(e)) : 'Failed to create order');
-                }
+                const res = await fetch(
+                    'https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/create-number-purchase-order',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + jwt,
+                        },
+                        body: JSON.stringify({ area_code, channel }),
+                    }
+                );
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok || result.error) throw new Error(result.error || result.message || result.msg || ('HTTP ' + res.status));
+                if (!result.intent_id) throw new Error('Failed to create order — no intent returned.');
 
                 window.location.href = 'payment.html?intent_id=' + result.intent_id;
             } catch (err) {

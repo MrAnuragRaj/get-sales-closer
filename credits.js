@@ -6,7 +6,6 @@
   'use strict';
 
   const SUPABASE_URL = 'https://klbwigcvrdfeeeeotehu.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8';
 
   const CREDIT_CONFIG = {
     voice_min:  { label: 'Voice Minutes',    icon: 'fa-microphone',    color: 'purple', unit: 'min',  min_qty: 100,   step: 100,   price_label: '$0.20/min',  unit_price: 0.20 },
@@ -262,26 +261,34 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Creating order...'; }
 
     try {
-      const { data: result, error: fnErr } = await _sb.functions.invoke('create-credit-topup-order', {
-        body: { token_key: _currentTokenKey, quantity: qty },
-      });
+      // Force-refresh to get a guaranteed fresh access token
+      let jwt;
+      try {
+        const { data } = await _sb.auth.refreshSession();
+        jwt = data?.session?.access_token;
+      } catch (_) {}
+      if (!jwt) {
+        const { data: { session } } = await _sb.auth.getSession();
+        jwt = session?.access_token;
+      }
+      if (!jwt) throw new Error('Session expired — please refresh the page and try again.');
 
-      if (fnErr) {
-        let errMsg = fnErr.message || String(fnErr);
-        try {
-          const errBody = await fnErr.context?.json?.();
-          if (errBody?.error) errMsg = typeof errBody.error === 'string' ? errBody.error : JSON.stringify(errBody.error);
-          else if (errBody?.message) errMsg = errBody.message;
-          else if (errBody) errMsg = JSON.stringify(errBody);
-        } catch (_) {}
-        throw new Error(errMsg);
+      const res = await fetch(
+        SUPABASE_URL + '/functions/v1/create-credit-topup-order',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + jwt,
+          },
+          body: JSON.stringify({ token_key: _currentTokenKey, quantity: qty }),
+        }
+      );
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result.error) {
+        throw new Error(result.error || result.message || result.msg || ('HTTP ' + res.status));
       }
-      if (!result || !result.intent_id) {
-        const errMsg = result?.error
-          ? (typeof result.error === 'string' ? result.error : result.error.message || JSON.stringify(result.error))
-          : result?.message || 'Failed to create order';
-        throw new Error(errMsg);
-      }
+      if (!result.intent_id) throw new Error('Failed to create order — no intent returned.');
 
       window.location.href = 'payment.html?intent_id=' + result.intent_id;
     } catch (err) {

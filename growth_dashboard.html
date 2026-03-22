@@ -615,6 +615,26 @@ requireAuth({
 
         await checkApiHealth();
         switchTab('overview', document.querySelector('[data-tab=overview]'));
+
+        // Handle OAuth return — show feedback toast and clean up URL
+        const _oauthParams = new URLSearchParams(window.location.search);
+        if (_oauthParams.get('linkedin_connected') === '1') {
+            toast('LinkedIn connected successfully.', 'success');
+            history.replaceState({}, '', window.location.pathname);
+        } else if (_oauthParams.get('linkedin_error')) {
+            const errCode = _oauthParams.get('linkedin_error');
+            const errMessages = {
+                access_denied:         'LinkedIn connection was cancelled.',
+                token_exchange_failed: 'LinkedIn token exchange failed. Please try again.',
+                userinfo_failed:       'Could not retrieve your LinkedIn profile. Please try again.',
+                not_entitled:          'Growth Engine subscription required.',
+                not_configured:        'LinkedIn OAuth is not configured yet on the server.',
+                invalid_state:         'OAuth state mismatch — please try connecting again.',
+                token_expired:         'Session expired. Please sign in again.',
+            };
+            toast(errMessages[errCode] || `LinkedIn OAuth error: ${errCode}`, 'error');
+            history.replaceState({}, '', window.location.pathname);
+        }
     }
 });
 
@@ -743,7 +763,8 @@ async function loadConnectionHealth() {
                     <span class="text-xs font-medium" style="color:${cfg.color}">${cfg.label}${expiredNote}</span>
                     ${lastOk}${lastFail}
                     ${engageBadge}
-                    ${p.reconnect_url && p.status !== 'feature_disabled' ? `<a href="${p.reconnect_url}" class="text-xs text-indigo-400 hover:text-indigo-300 ml-1">Reconnect</a>` : ''}
+                    ${p.reconnect_url && p.status !== 'feature_disabled' ? `<button onclick="connectPlatform('${p.platform}')" class="text-xs text-indigo-400 hover:text-indigo-300 ml-1 underline">${p.status === 'not_connected' ? 'Connect' : 'Reconnect'}</button>` : ''}
+                    ${p.platform === 'linkedin' && p.status === 'connected' ? `<button onclick="disconnectLinkedIn()" class="text-xs text-slate-500 hover:text-red-400 ml-1" title="Disconnect LinkedIn"><i class="fa-solid fa-link-slash"></i></button>` : ''}
                 </div>`;
         }).join('');
     } catch(e) {
@@ -775,6 +796,38 @@ function _connCfg(status) {
         feature_disabled: { color: '#475569', bg: 'rgba(71,85,105,0.1)',  label: 'Disabled' },
     };
     return map[status] || { color: '#94a3b8', bg: 'rgba(100,116,139,0.1)', label: status };
+}
+
+// ── PLATFORM CONNECT / DISCONNECT ────────────────────────────────────────────
+
+async function connectPlatform(platform) {
+    // Refresh JWT so it's fresh for the OAuth state binding
+    const { data: { session } } = await _sb.auth.getSession();
+    const token = session?.access_token;
+    if (!token) { window.location.href = 'login.html'; return; }
+
+    const base = (window.GROWTH_API_BASE || 'http://localhost:8000');
+
+    if (platform === 'linkedin') {
+        // Redirect browser to Growth Engine OAuth start — it validates the JWT,
+        // generates encrypted state, and redirects to LinkedIn.
+        window.location.href = `${base}/growth/oauth/linkedin/connect?token=${encodeURIComponent(token)}`;
+        return;
+    }
+
+    // Meta (Facebook / Instagram) — placeholder until Meta OAuth is built
+    toast('Meta OAuth is coming soon. LinkedIn is available now.', 'info');
+}
+
+async function disconnectLinkedIn() {
+    if (!confirm('Disconnect LinkedIn? The AI will no longer be able to post to this account.')) return;
+    try {
+        await growthFetch('/oauth/linkedin', { method: 'DELETE' });
+        toast('LinkedIn disconnected.', 'success');
+        loadConnectionHealth();
+    } catch(e) {
+        toast('Could not disconnect: ' + e.message, 'error');
+    }
 }
 
 // ── OVERVIEW ──────────────────────────────────────────────────────────────────

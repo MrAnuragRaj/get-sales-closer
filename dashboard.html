@@ -13,8 +13,9 @@
     <script src="credits.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
-        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); }
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: white; }
+        .glass-panel { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); }
+        .glass-header { background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.06); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .nav-item { transition: all 0.2s; border-left: 3px solid transparent; cursor: pointer; }
         .nav-item:hover { background: rgba(255, 255, 255, 0.03); }
@@ -136,31 +137,6 @@
         </div>
     </div>
 
-    <div id="locked-revenue-health-modal" class="modal-overlay hidden" onclick="closeModal('locked-revenue-health-modal')">
-        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-0 shadow-2xl relative overflow-hidden" onclick="event.stopPropagation()">
-            <div class="p-6 bg-gradient-to-r from-indigo-900/50 to-slate-900 border-b border-white/5">
-                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500"><i class="fa-solid fa-lock text-xl"></i></div><div><h2 class="text-lg font-bold text-white">Revenue Health (Beta)</h2><p class="text-xs text-slate-400">Join Early Access</p></div></div>
-            </div>
-            <div class="p-6 text-sm text-slate-300 space-y-4 h-[400px] overflow-y-auto content-area">
-                <h3 class="font-bold text-white text-xs uppercase tracking-wide">Subtitle</h3><p>Your AI-powered revenue diagnostic system</p>
-                <h3 class="font-bold text-white text-xs uppercase tracking-wide mt-2">What this is</h3><p>Revenue Health is your AI Revenue Doctor. It analyzes your sales flow to detect leaks.</p>
-                <button onclick="registerBetaInterest('revenue_health')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg mt-2">🎯 Join Revenue Health Beta</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="locked-missed-revenue-modal" class="modal-overlay hidden" onclick="closeModal('locked-missed-revenue-modal')">
-        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-0 shadow-2xl relative overflow-hidden" onclick="event.stopPropagation()">
-            <div class="p-6 bg-gradient-to-r from-indigo-900/50 to-slate-900 border-b border-white/5">
-                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500"><i class="fa-solid fa-lock text-xl"></i></div><div><h2 class="text-lg font-bold text-white">Missed Revenue Intelligence (Beta)</h2><p class="text-xs text-slate-400">Unlock Visibility</p></div></div>
-            </div>
-            <div class="p-6 text-sm text-slate-300 space-y-4 h-[400px] overflow-y-auto content-area">
-                <h3 class="font-bold text-white text-xs uppercase tracking-wide">Subtitle</h3><p>Find revenue you didn’t know you were losing</p>
-                <button onclick="registerBetaInterest('missed_revenue')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg mt-2">🚀 Apply for Missed Revenue Beta</button>
-            </div>
-        </div>
-    </div>
-
     <div id="negotiation-modal" class="modal-overlay hidden">
         <div class="bg-slate-900 border border-white/10 rounded-xl w-full max-w-5xl h-[85vh] shadow-2xl flex flex-col relative">
             <div class="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950">
@@ -226,7 +202,189 @@
         </div>
     </div>
 
-    <aside class="w-72 glass-panel flex flex-col justify-between z-20 border-r border-white/5 fixed inset-y-0 left-0">
+    <!-- Deal Commander Store Modal -->
+    <div id="deal-commander-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onclick="if(event.target===this)closeDealCommander()">
+        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl no-scrollbar">
+            <div class="flex items-center justify-between p-6 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                <div class="flex items-center gap-3">
+                    <i class="fa fa-bullseye text-indigo-400"></i>
+                    <h2 class="text-lg font-bold text-white">Deal Commander Store</h2>
+                </div>
+                <button onclick="closeDealCommander()" class="text-slate-400 hover:text-white text-xl transition leading-none">&times;</button>
+            </div>
+
+            <!-- Usage Credits -->
+            <div class="p-6 border-b border-white/5">
+                <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-4">Usage Credits</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onclick="closeDealCommander();window.Credits?.showTopupModal('voice_min',false)" class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 border border-white/10 rounded-xl hover:border-purple-500/40 hover:bg-purple-900/10 transition text-center">
+                        <i class="fa fa-microphone text-purple-400 text-xl"></i>
+                        <span class="text-white font-bold text-xs">Voice Minutes</span>
+                        <span class="text-slate-500 text-[10px]">$0.20/min</span>
+                    </button>
+                    <button onclick="closeDealCommander();window.Credits?.showTopupModal('sms_msg',false)" class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 border border-white/10 rounded-xl hover:border-indigo-500/40 hover:bg-indigo-900/10 transition text-center">
+                        <i class="fa fa-comment-sms text-indigo-400 text-xl"></i>
+                        <span class="text-white font-bold text-xs">SMS Credits</span>
+                        <span class="text-slate-500 text-[10px]">$0.01/msg</span>
+                    </button>
+                    <button onclick="closeDealCommander();window.Credits?.showTopupModal('ai_credit',false)" class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 border border-white/10 rounded-xl hover:border-emerald-500/40 hover:bg-emerald-900/10 transition text-center">
+                        <i class="fa fa-brain text-emerald-400 text-xl"></i>
+                        <span class="text-white font-bold text-xs">AI Credits</span>
+                        <span class="text-slate-500 text-[10px]">$0.01/30 cr</span>
+                    </button>
+                    <button onclick="closeDealCommander();window.Credits?.showTopupModal('wa_msg',false)" class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 border border-white/10 rounded-xl hover:border-green-500/40 hover:bg-green-900/10 transition text-center">
+                        <i class="fab fa-whatsapp text-green-400 text-xl"></i>
+                        <span class="text-white font-bold text-xs">WhatsApp</span>
+                        <span class="text-slate-500 text-[10px]">$0.01/msg</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Revenue Doctor Reports -->
+            <div class="p-6 border-b border-white/5">
+                <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-4">Revenue Doctor Reports</p>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="flex flex-col items-center gap-1.5 p-4 bg-indigo-900/10 border border-indigo-500/20 rounded-xl text-center">
+                        <i class="fa fa-stethoscope text-indigo-400 text-lg"></i>
+                        <span class="text-white font-bold text-xs">5 Reports</span>
+                        <span class="text-indigo-400 font-bold">$79</span>
+                        <span class="text-slate-600 text-[9px]">$15.80 each</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1.5 p-4 bg-indigo-900/20 border border-indigo-400/40 rounded-xl text-center ring-1 ring-indigo-500/20">
+                        <i class="fa fa-stethoscope text-indigo-400 text-lg"></i>
+                        <span class="text-white font-bold text-xs">10 Reports</span>
+                        <span class="text-indigo-400 font-bold">$149</span>
+                        <span class="text-emerald-400 text-[9px] font-bold">Best Value</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1.5 p-4 bg-indigo-900/10 border border-indigo-500/20 rounded-xl text-center">
+                        <i class="fa fa-stethoscope text-indigo-400 text-lg"></i>
+                        <span class="text-white font-bold text-xs">20 Reports</span>
+                        <span class="text-indigo-400 font-bold">$249</span>
+                        <span class="text-slate-600 text-[9px]">$12.45 each</span>
+                    </div>
+                </div>
+                <a href="revenue_doctor.html" onclick="closeDealCommander()" class="flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-xl transition" style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25)">
+                    <i class="fa fa-stethoscope"></i> Open Revenue Doctor to Buy Reports
+                </a>
+            </div>
+
+            <!-- Dedicated Number -->
+            <div class="p-6 border-b border-white/5">
+                <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-4">Dedicated Number Bundle</p>
+                <div class="flex items-center justify-between bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
+                    <div>
+                        <p class="text-white font-bold text-sm">Dedicated Phone Number</p>
+                        <p class="text-slate-500 text-xs mt-0.5">Your own number + Voice 100 min + SMS 2,000 msgs + setup</p>
+                    </div>
+                    <div class="text-right shrink-0 ml-4">
+                        <p class="text-cyan-400 font-bold text-lg">$110</p>
+                        <p class="text-slate-500 text-[10px]">one-time</p>
+                    </div>
+                </div>
+                <a href="number_request_checkout.html" onclick="closeDealCommander()" class="mt-3 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-xl transition" style="background:rgba(6,182,212,0.1);color:#67e8f9;border:1px solid rgba(6,182,212,0.2)">
+                    <i class="fa fa-phone"></i> Get Dedicated Number — $110
+                </a>
+            </div>
+
+            <!-- Subscription Modules -->
+            <div class="p-6">
+                <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-4">Subscription Modules</p>
+                <div class="space-y-2 mb-4">
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-bolt text-yellow-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Instant Sentinel</span></div>
+                        <span class="text-slate-400 text-xs">from $49/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-brain text-indigo-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Knowledge Brain</span></div>
+                        <span class="text-slate-400 text-xs">add-on</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-calendar-check text-emerald-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Appointment Architect</span></div>
+                        <span class="text-slate-400 text-xs">add-on</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-microphone-lines text-purple-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Voice Liaison</span></div>
+                        <span class="text-slate-400 text-xs">add-on</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-shield-halved text-blue-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Professional Intake Assurance</span></div>
+                        <span class="text-slate-400 text-xs">$149/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-gavel text-blue-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Compliance-Safe Voice Handling</span></div>
+                        <span class="text-slate-400 text-xs">$199/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-route text-blue-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Priority Intake Routing</span></div>
+                        <span class="text-slate-400 text-xs">$99/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-pen-nib text-purple-400 text-xs w-4 text-center"></i><span class="text-sm text-white">AI Social Content Engine</span></div>
+                        <span class="text-slate-400 text-xs">$199–$399/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-robot text-violet-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Engagement Bot</span></div>
+                        <span class="text-slate-400 text-xs">$99–$199/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-seedling text-emerald-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Growth Engine <span class="text-[9px] text-emerald-400 font-bold ml-1">Beta</span></span></div>
+                        <span class="text-slate-400 text-xs">$660/mo</span>
+                    </div>
+                </div>
+                <a href="billing.html" onclick="closeDealCommander()" class="flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-3 rounded-xl transition" style="background:linear-gradient(135deg,rgba(0,209,255,0.1),rgba(37,99,235,0.1));color:#7dd3fc;border:1px solid rgba(0,209,255,0.2)">
+                    <i class="fa fa-arrow-right"></i> Manage Subscription — billing.html
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline Intelligence Modal -->
+    <div id="pipeline-intelligence-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onclick="if(event.target===this)closePipelineModal()">
+        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl no-scrollbar">
+            <div class="flex items-center justify-between p-6 border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                <div class="flex items-center gap-3">
+                    <i class="fa fa-chart-line text-emerald-400"></i>
+                    <h2 class="text-lg font-bold text-white">Pipeline Intelligence</h2>
+                    <span class="text-xs text-slate-500">Last 28 days</span>
+                </div>
+                <button onclick="closePipelineModal()" class="text-slate-400 hover:text-white text-xl transition leading-none">&times;</button>
+            </div>
+            <div class="p-6">
+                <!-- Stat tiles -->
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <div class="bg-slate-800/60 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-white" id="gi-total">—</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Total Leads</p>
+                    </div>
+                    <div class="bg-slate-800/60 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-emerald-400" id="gi-ai-captured">—</p>
+                        <p class="text-[11px] text-slate-500 mt-1">AI Captured</p>
+                    </div>
+                    <div class="bg-slate-800/60 rounded-xl p-4 text-center">
+                        <p class="text-2xl font-bold text-indigo-400" id="gi-appt-rate">—</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Appt. Rate</p>
+                    </div>
+                </div>
+                <!-- Weekly sparkline -->
+                <div class="mb-6">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Weekly New Leads</p>
+                    <div class="flex items-end gap-2 h-16" id="gi-sparkline">
+                        <p class="text-slate-600 text-xs">Loading...</p>
+                    </div>
+                </div>
+                <!-- Source breakdown -->
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Lead Sources</p>
+                    <div id="gi-sources"><p class="text-slate-600 text-xs">Loading...</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile sidebar overlay -->
+    <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden" onclick="closeMobileSidebar()"></div>
+
+    <aside id="sidebar" class="w-72 glass-panel flex flex-col justify-between z-40 border-r border-white/5 fixed inset-y-0 left-0 -translate-x-full md:translate-x-0 transition-transform duration-300">
         <div>
             <div class="h-20 flex flex-col justify-center px-6 border-b border-white/5 relative">
                 <div class="flex items-center justify-between">
@@ -244,7 +402,7 @@
                 <p class="text-[10px] text-slate-500 mt-1 pl-1" id="brand-sub">Autonomous Revenue</p>
             </div>
 
-            <div class="overflow-y-auto h-[calc(100vh-180px)] no-scrollbar py-6">
+            <div class="overflow-y-auto h-[calc(100vh-300px)] no-scrollbar py-6">
                 <div class="px-6 mb-6">
                     <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
                         <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voice Usage</span><span class="text-[10px] text-green-400" id="voice-cost">$0.00</span></div>
@@ -271,13 +429,20 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col relative overflow-hidden ml-72 h-screen">
-        <header class="h-20 glass-header flex items-center justify-between px-8 z-10">
-            <div><h1 class="text-xl font-bold text-white">Deal Commander</h1><p class="text-xs text-slate-400">Revenue Radar & Diagnostics</p></div>
+    <main class="flex-1 flex flex-col relative overflow-hidden md:ml-72 h-screen">
+        <header class="h-20 glass-header flex items-center justify-between px-4 md:px-8 z-10">
+            <!-- Mobile hamburger -->
+            <button id="sidebar-toggle" class="md:hidden mr-3 text-slate-400 hover:text-white transition shrink-0" onclick="toggleMobileSidebar()">
+                <i class="fa fa-bars text-lg"></i>
+            </button>
+            <div class="cursor-pointer group" onclick="openDealCommander()" title="Open Deal Commander Store">
+                <h1 class="text-xl font-bold text-white group-hover:text-indigo-300 transition">Deal Commander</h1>
+                <p class="text-xs text-slate-400 group-hover:text-slate-300 transition">Revenue Radar & Diagnostics — click to top up credits</p>
+            </div>
             <div class="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center"><span class="text-sm font-bold">U</span></div>
         </header>
 
-        <div class="flex-1 overflow-auto p-8 relative">
+        <div class="flex-1 overflow-auto p-4 md:p-8 relative">
             <div class="max-w-6xl mx-auto space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div id="priority-card" class="glass-panel p-5 rounded-2xl border-l-4 border-red-500 relative overflow-hidden">
@@ -285,17 +450,31 @@
                         <p class="text-sm text-slate-300 mb-4" id="priority-text">Scanning pipeline...</p>
                         <button onclick="openNegotiationsModal()" class="w-full bg-red-600/90 hover:bg-red-500 text-white text-xs font-bold py-2.5 rounded-lg transition shadow-lg">View Negotiation</button>
                     </div>
-                    <div class="glass-panel p-5 rounded-2xl border border-yellow-500/20 relative group cursor-pointer overflow-hidden" onclick="openModal('locked-missed-revenue-modal')">
-                        <div class="lock-overlay" title="Locked (Beta)"><i class="fa-solid fa-lock text-white text-3xl opacity-80 mb-2"></i><p class="text-xs text-white font-bold opacity-0 group-hover:opacity-100 transition">Locked (Beta)</p></div>
-                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-slate-400">Missed Revenue</h3><i class="fa-solid fa-triangle-exclamation text-yellow-500"></i></div>
-                        <div class="flex items-end gap-2 blur-[4px]"><span class="text-3xl font-bold text-red-400">$4,200</span></div>
-                        <p class="text-xs text-yellow-600 mt-2">Enable Growth Intelligence.</p>
+                    <!-- Revenue Doctor KPI -->
+                    <div class="glass-panel p-5 rounded-2xl border border-indigo-500/20 relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="fa fa-stethoscope text-indigo-400"></i>
+                                <h3 class="font-bold text-white">Revenue Doctor</h3>
+                            </div>
+                            <span id="dash-rd-quota-badge" class="hidden text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">
+                                <i class="fa fa-ticket text-indigo-400 mr-1"></i><span id="dash-rd-quota-num">—</span> left
+                            </span>
+                        </div>
+                        <div id="dash-rd-body"><p class="text-slate-600 text-xs italic">Loading...</p></div>
                     </div>
-                    <div class="glass-panel p-5 rounded-2xl border border-white/5 relative group cursor-pointer overflow-hidden" onclick="openModal('locked-revenue-health-modal')">
-                        <div class="lock-overlay"><i class="fa-solid fa-lock text-white text-3xl opacity-80 mb-2"></i><p class="text-xs text-white font-bold opacity-0 group-hover:opacity-100 transition">Locked (Beta)</p></div>
-                        <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-slate-300">Revenue Health</h3><i class="fa-solid fa-user-doctor text-indigo-500 text-xl"></i></div>
-                        <h3 class="text-3xl font-bold text-yellow-400 blur-[4px]">72%</h3>
-                        <div class="mt-3 blur-[2px]"><div class="flex justify-between text-[9px] text-slate-500 mb-1"><span>Visibility</span><span>30%</span></div><div class="w-full bg-slate-800 rounded-full h-1.5"><div class="bg-indigo-500 h-1.5 rounded-full" style="width: 30%"></div></div></div>
+                    <!-- Revenue Health KPI -->
+                    <div class="glass-panel p-5 rounded-2xl border border-white/5 relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="fa fa-heart-pulse text-rose-400"></i>
+                                <h3 class="font-bold text-white">Revenue Health</h3>
+                            </div>
+                            <button onclick="refreshDashRevenueHealth()" id="dash-rh-refresh" class="text-slate-500 hover:text-white transition text-xs" title="Refresh">
+                                <i class="fa fa-rotate-right"></i>
+                            </button>
+                        </div>
+                        <div id="dash-rh-body"><p class="text-slate-600 text-xs italic">Loading...</p></div>
                     </div>
                 </div>
 
@@ -429,7 +608,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <button onclick="savePersona()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition">Save Persona</button>
-                        <span id="persona-saved-flash" class="hidden text-xs text-green-400">✓ Saved!</span>
+                        <span id="persona-saved-flash" class="hidden text-xs text-green-400"><i class="fa fa-check mr-1"></i>Saved</span>
                     </div>
                 </div>
 
@@ -465,70 +644,129 @@
                     </div>
                 </div>
 
-                <!-- Growth Intelligence Card -->
-                <div id="growth-intelligence-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-6">
+
+                <!-- AI Social Content Engine (SCE) Gate -->
+                <div id="sce-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-pen-nib text-purple-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">AI Social Content Engine</h2>
+                        <span id="sce-active-badge" class="hidden text-xs bg-purple-500/20 border border-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+                    </div>
+                    <!-- Locked state (default, hidden when entitled) -->
+                    <div id="sce-locked-body">
+                        <p class="text-sm text-slate-400 mb-4">Auto-generate LinkedIn posts, email sequences, and social content from your closed deals and lead interactions.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-purple-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Posts/mo</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-white">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Sequences</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-indigo-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Engagements</p>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                            <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                            <p class="text-sm font-bold text-white mb-1">AI Social Content Engine</p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $199/mo — turns your pipeline data into LinkedIn & email content automatically.</p>
+                            <a href="billing.html?lock=sce" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                        </div>
+                    </div>
+                    <!-- Active state (shown when entitled) -->
+                    <div id="sce-active-body" class="hidden">
+                        <p class="text-sm text-slate-400 mb-4">Your AI Social Content Engine is active. Content generation dashboard coming soon.</p>
+                        <div class="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4 text-center">
+                            <i class="fa fa-pen-nib text-purple-400 text-2xl mb-2 block"></i>
+                            <p class="text-xs text-slate-400">Content automation workspace launching shortly. Your subscription is active and being configured.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Engagement Bot (EB) Gate -->
+                <div id="eb-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-robot text-violet-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Engagement Bot</h2>
+                        <span id="eb-active-badge" class="hidden text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+                    </div>
+                    <!-- Locked state -->
+                    <div id="eb-locked-body">
+                        <p class="text-sm text-slate-400 mb-4">Automated follow-up bot that re-engages cold leads, responds to social comments, and qualifies inbound interest on autopilot.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-violet-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Re-engaged</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-white">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Replies</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-indigo-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Qualified</p>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                            <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                            <p class="text-sm font-bold text-white mb-1">Engagement Bot</p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $99/mo — re-engages cold leads and qualifies inbound interest automatically.</p>
+                            <a href="billing.html?lock=eb" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                        </div>
+                    </div>
+                    <!-- Active state -->
+                    <div id="eb-active-body" class="hidden">
+                        <p class="text-sm text-slate-400 mb-4">Your Engagement Bot is active. Automated re-engagement is running in the background.</p>
+                        <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 text-center">
+                            <i class="fa fa-robot text-violet-400 text-2xl mb-2 block"></i>
+                            <p class="text-xs text-slate-400">Engagement automation workspace launching shortly. Your subscription is active and being configured.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Growth System (Growth Engine) Gate -->
+                <div id="ge-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
                         <i class="fa fa-seedling text-emerald-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">Growth Intelligence</h2>
-                        <span class="text-[10px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-2 py-0.5 rounded-full">Beta</span>
-                        <span class="text-xs text-slate-500 ml-auto">Last 28 days</span>
+                        <h2 class="text-lg font-bold text-white">AI Growth System</h2>
+                        <span class="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">Beta</span>
+                        <span id="ge-active-badge" class="hidden text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
                     </div>
-                    <!-- Stat tiles -->
-                    <div class="grid grid-cols-3 gap-3 mb-6">
-                        <div class="bg-slate-900/60 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-white" id="gi-total">—</p>
-                            <p class="text-[11px] text-slate-500 mt-1">Total Leads</p>
+                    <!-- Locked state (default) -->
+                    <div id="ge-locked-body">
+                        <p class="text-sm text-slate-400 mb-4">LinkedIn content automation, lead attribution, and growth intelligence — all powered by your pipeline data.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-emerald-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Posts/mo</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-white">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Attributed</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-indigo-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Reach</p>
+                            </div>
                         </div>
-                        <div class="bg-slate-900/60 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-emerald-400" id="gi-ai-captured">—</p>
-                            <p class="text-[11px] text-slate-500 mt-1">AI Captured</p>
-                        </div>
-                        <div class="bg-slate-900/60 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-indigo-400" id="gi-appt-rate">—</p>
-                            <p class="text-[11px] text-slate-500 mt-1">Appt. Rate</p>
+                        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                            <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                            <p class="text-sm font-bold text-white mb-1">AI Growth System <span class="text-emerald-400">Beta</span></p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">$660/mo — LinkedIn content, engagement automation and growth intelligence from your pipeline.</p>
+                            <a href="billing.html?lock=growth_engine" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)">Unlock Add-on</a>
                         </div>
                     </div>
-                    <!-- Weekly sparkline -->
-                    <div class="mb-6">
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Weekly New Leads</p>
-                        <div class="flex items-end gap-2 h-16" id="gi-sparkline">
-                            <p class="text-slate-600 text-xs">Loading...</p>
-                        </div>
+                    <!-- Active state -->
+                    <div id="ge-active-body" class="hidden">
+                        <p class="text-sm text-slate-400 mb-4">Your AI Growth System is active. Open the Growth Dashboard to view insights and configure content automation.</p>
+                        <a href="growth_dashboard.html" class="flex items-center justify-center gap-2 w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold py-3 rounded-xl transition text-sm">
+                            <i class="fa fa-seedling"></i>
+                            Open Growth Dashboard
+                        </a>
                     </div>
-                    <!-- Source breakdown -->
-                    <div>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Lead Sources</p>
-                        <div id="gi-sources"><p class="text-slate-600 text-xs">Loading...</p></div>
-                    </div>
-                    <a href="growth_dashboard.html" class="mt-4 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">
-                        <i class="fa fa-seedling"></i> Open Growth Engine
-                    </a>
-                </div>
-
-                <!-- Revenue Health Card -->
-                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-5">
-                        <i class="fa fa-heart-pulse text-rose-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">Revenue Health</h2>
-                        <span class="text-xs text-slate-500 ml-auto">Weekly snapshot</span>
-                        <button onclick="refreshDashRevenueHealth()" id="dash-rh-refresh" class="text-xs text-slate-500 hover:text-white transition ml-2" title="Refresh">
-                            <i class="fa fa-rotate-right"></i>
-                        </button>
-                    </div>
-                    <div id="dash-rh-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
-                </div>
-
-                <!-- Revenue Doctor Card -->
-                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-5">
-                        <i class="fa fa-stethoscope text-indigo-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">Revenue Doctor</h2>
-                        <span id="dash-rd-quota-badge" class="hidden text-xs bg-slate-800 border border-white/10 text-slate-400 px-2.5 py-0.5 rounded-full ml-auto">
-                            <i class="fa fa-ticket text-indigo-400 mr-1"></i>
-                            <span id="dash-rd-quota-num">—</span> left
-                        </span>
-                    </div>
-                    <div id="dash-rd-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
                 <!-- WhatsApp Settings Card -->
@@ -712,6 +950,18 @@
     </div>
 
     <script>
+        // --- MOBILE SIDEBAR ---
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+        function closeMobileSidebar() {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+        }
+
         // --- GLOBAL STATE ---
         let sbClient = null;
         let currentUser = {};
@@ -724,8 +974,11 @@
         let currentDiagnosis = null;
 
         const SIDEBAR_CONFIG = {
-            'niche_closer': { label: 'Deal Commander', icon: 'fa-bullseye', locked: false, link: '#', module: 'niche_closer' },
-            'content_roi': { label: 'Growth Intelligence (Beta)', icon: 'fa-chart-line', locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
+            'niche_closer': { label: 'Deal Commander', icon: 'fa-bullseye', locked: false, link: '#', module: null },
+            'content_roi': { label: 'Pipeline Intelligence', icon: 'fa-chart-line', locked: false, link: '#', module: null },
+            'sce': { label: 'AI Social Content Engine', icon: 'fa-pen-nib', locked: false, link: '#', module: 'sce' },
+            'eb': { label: 'Engagement Bot', icon: 'fa-robot', locked: false, link: '#', module: 'eb' },
+            'growth_engine': { label: 'AI Growth System', icon: 'fa-seedling', locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
             'b': { label: 'Knowledge Brain', icon: 'fa-brain', locked: false, link: 'Knowledge Brain.html', module: 'brain' },
             's': { label: 'Instant Sentinel', icon: 'fa-bolt', locked: false, link: 'sentinel.html', module: 'sentinel' },
             'a': { label: 'Appt. Architect', icon: 'fa-calendar-check', locked: false, link: 'App Architect.html', module: 'architect' },
@@ -786,6 +1039,27 @@
                 orgEntitlements = {};
                 if (data) data.forEach(s => orgEntitlements[s.service_key] = s.status);
             } catch (e) { console.error("Entitlement Error", e); }
+            renderAddonGates();
+        }
+
+        function renderAddonGates() {
+            const addons = [
+                { key: 'sce',           lockedId: 'sce-locked-body', activeId: 'sce-active-body', badgeId: 'sce-active-badge' },
+                { key: 'eb',            lockedId: 'eb-locked-body',  activeId: 'eb-active-body',  badgeId: 'eb-active-badge'  },
+                { key: 'growth_engine', lockedId: 'ge-locked-body',  activeId: 'ge-active-body',  badgeId: 'ge-active-badge'  },
+            ];
+            addons.forEach(({ key, lockedId, activeId, badgeId }) => {
+                const entitled = orgEntitlements[key] === 'active';
+                const locked = document.getElementById(lockedId);
+                const active = document.getElementById(activeId);
+                const badge  = document.getElementById(badgeId);
+                if (entitled) {
+                    locked?.classList.add('hidden');
+                    active?.classList.remove('hidden');
+                    badge?.classList.remove('hidden');
+                }
+                // non-entitled: locked state is default, no change needed
+            });
         }
 
         function renderSidebar() {
@@ -809,42 +1083,31 @@
             });
         }
 
+        function openDealCommander() {
+            document.getElementById('deal-commander-modal').classList.remove('hidden');
+        }
+        function closeDealCommander() {
+            document.getElementById('deal-commander-modal').classList.add('hidden');
+        }
+        function closePipelineModal() {
+            document.getElementById('pipeline-intelligence-modal').classList.add('hidden');
+        }
+
         function handleNavClick(key, isLocked) {
+            closeMobileSidebar();
             const config = SIDEBAR_CONFIG[key];
             if (!config) return;
             if (isLocked || config.locked) {
-                // Redirect to Billing with Context
-                window.location.href = `billing.html?lock=${config.module}`; 
-                return; 
+                window.location.href = `billing.html?lock=${config.module}`;
+                return;
             }
-            if(config.link && config.link !== '#') window.location.href = config.link;
+            if (key === 'niche_closer') { openDealCommander(); return; }
+            if (key === 'content_roi') { document.getElementById('pipeline-intelligence-modal').classList.remove('hidden'); return; }
+            if (key === 'sce') { document.getElementById('sce-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'eb')  { document.getElementById('eb-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (config.link && config.link !== '#') window.location.href = config.link;
         }
 
-        async function registerBetaInterest(betaKey) {
-            try {
-                await sbClient.from('beta_interest').insert({
-                    org_id: currentOrgId,
-                    user_id: currentUser.id,
-                    beta_key: betaKey
-                });
-                showBetaThankYou(betaKey);
-            } catch (e) { showBetaThankYou(betaKey); }
-        }
-
-        function showBetaThankYou(betaKey) {
-            const modalId = betaKey === 'revenue_health' ? 'locked-revenue-health-modal' : 'locked-missed-revenue-modal';
-            const modal = document.getElementById(modalId);
-            const contentArea = modal.querySelector('.content-area');
-            contentArea.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full text-center space-y-4">
-                    <i class="fa-solid fa-circle-check text-green-400 text-5xl"></i>
-                    <h3 class="text-white font-bold text-lg">Thank You!</h3>
-                    <p class="text-slate-300 text-sm">
-                        ${betaKey === 'revenue_health' ? "You’re on the list. We’ll notify you as soon as enrollment opens." : "Application received. We’ll reach out once your account is eligible."}
-                    </p>
-                </div>
-            `;
-        }
 
         async function openNegotiationsModal() {
             openModal('negotiation-modal');
@@ -1046,8 +1309,11 @@
                 if (!taskId) throw new Error('No task ID returned');
 
                 // 4. Fire executor_sms immediately (don't wait for sweeper)
-                sb.functions.invoke('executor_sms', { body: { task_id: taskId } })
-                    .catch(err => console.warn('[mirror_test] executor_sms invoke failed (non-fatal):', err));
+                fetch('https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/executor_sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsYndpZ2N2cmRmZWVlZW90ZWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NDA4MDgsImV4cCI6MjA4NDExNjgwOH0.gdqggXxOsl0CO0ctKfCWYzVuMrmP6TXSiYftTXDC4v8' },
+                    body: JSON.stringify({ task_id: taskId })
+                }).catch(err => console.warn('[mirror_test] executor_sms failed (non-fatal):', err));
 
                 // 5. Mark onboarding complete
                 await sb.from('profiles').update({ onboarding_completed: true }).eq('id', userId);
@@ -1137,7 +1403,7 @@
                     priorityBadge.className = 'bg-slate-700 text-slate-400 text-[10px] px-2 py-1 rounded font-bold uppercase';
                     priorityCard.className = priorityCard.className.replace('border-red-500', 'border-slate-600');
                 } else if (hasIssue) {
-                    priorityText.innerText = `⚠️ ${chatDelay}-min avg response delay detected. Leads are cooling — act now.`;
+                    priorityText.innerText = `${chatDelay}-min avg response delay detected. Leads are cooling — act now.`;
                     priorityBadge.innerText = 'Urgent';
                     priorityBadge.className = 'bg-red-500/20 text-red-400 text-[10px] px-2 py-1 rounded font-bold uppercase';
                 } else {
@@ -1765,7 +2031,7 @@
                         <p class="text-xs text-slate-500 mt-0.5">Enable to send messages via WhatsApp channel</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="dash-wa-toggle" class="sr-only" ${enabled ? 'checked' : ''} onchange="toggleDashWa(this, '${orgId}')">
+                        <input type="checkbox" id="dash-wa-toggle" class="sr-only peer" ${enabled ? 'checked' : ''} onchange="toggleDashWa(this, '${orgId}')">
                         <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-green-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
                     </label>
                 </div>
@@ -1867,17 +2133,6 @@
         async function loadDashRevenueDoctor(orgId) {
             const el = document.getElementById('dash-rd-body');
             if (!el || !orgId) return;
-            // Entitlement: voice plan required for Revenue Doctor
-            const hasVoice = orgEntitlements['voice'] === 'active';
-            if (!hasVoice) {
-                el.innerHTML = `<div class="text-center py-2">
-                    <i class="fa fa-lock text-slate-600 text-2xl mb-3 block"></i>
-                    <p class="text-sm text-slate-400 font-medium mb-1">Requires the Voice plan</p>
-                    <p class="text-xs text-slate-600 mb-4">Get AI-generated pipeline diagnoses, root cause analysis, and prioritised fix recommendations.</p>
-                    <a href="billing.html" class="inline-block text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg transition">Upgrade to Voice →</a>
-                </div>`;
-                return;
-            }
             try {
                 const { data: { session } } = await sbClient.auth.getSession();
                 const jwt = session?.access_token ?? '';
@@ -1912,9 +2167,14 @@
                     : `<p class="text-xs text-slate-600 mt-3">No reports yet. Generate your first diagnosis.</p>`;
                 el.innerHTML = `<p class="text-xs text-slate-400 mb-1">${quota} report${quota !== 1 ? 's' : ''} remaining this month.</p>
                     ${lastHTML}
-                    <a href="revenue_doctor.html" class="mt-4 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)">
-                        <i class="fa fa-stethoscope"></i> Open Revenue Doctor
-                    </a>
+                    <div class="flex gap-2 mt-4">
+                        <a href="revenue_doctor.html" class="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-lg transition" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)">
+                            <i class="fa fa-stethoscope"></i> Open Doctor
+                        </a>
+                        <button onclick="window.Credits?.showTopupModal('doctor_report', true)" class="flex-1 text-xs font-bold px-3 py-2.5 rounded-lg transition bg-indigo-600 hover:bg-indigo-500 text-white">
+                            Buy Reports
+                        </button>
+                    </div>
                     ${quota === 0 ? '<p class="text-[10px] text-slate-600 text-center mt-2">Quota resets on the 1st of next month</p>' : ''}`;
             } catch(e) {
                 el.innerHTML = `<p class="text-slate-500 text-xs">Unable to load Revenue Doctor status.</p>`;
@@ -2046,9 +2306,14 @@
                         </div>
                         <span class="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">Connected</span>
                     </div>
-                    <button onclick="dashStartFbConnect(event)" class="w-full py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-sm font-bold transition">
-                        <i class="fab fa-facebook mr-2"></i>Reconnect / Change Page
-                    </button>`;
+                    <div class="flex gap-2">
+                        <button onclick="dashStartFbConnect(event)" class="flex-1 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-sm font-bold transition">
+                            <i class="fab fa-facebook mr-2"></i>Change Page
+                        </button>
+                        <button onclick="dashDisconnectFbPage(event)" class="py-2 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 text-sm font-bold transition" title="Disconnect">
+                            <i class="fa fa-unlink"></i>
+                        </button>
+                    </div>`;
             } else {
                 el.innerHTML = `
                     <p class="text-slate-400 text-sm mb-4">Connect your Facebook Page to handle Messenger conversations with your AI agent.</p>
@@ -2080,6 +2345,30 @@
             } catch (e) {
                 btn.disabled = false; btn.innerHTML = origHTML;
                 alert('Error: ' + e.message);
+            }
+        }
+
+        async function dashDisconnectFbPage(event) {
+            if (!confirm('Disconnect your Facebook Page? Messenger conversations will stop until you reconnect.')) return;
+            const btn = event.target.closest('button');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            try {
+                const sb = sbClient;
+                // Disable all messenger channels for this org
+                await sb.from('org_channels')
+                    .update({ status: 'disabled', is_default: false })
+                    .eq('org_id', currentOrgId)
+                    .eq('channel', 'messenger');
+                // Clear messenger capability
+                await sb.from('org_channel_capabilities')
+                    .update({ messenger_enabled: false, messenger_page_id: null })
+                    .eq('org_id', currentOrgId);
+                // Reload the card
+                await loadDashFbPage(currentOrgId, sb);
+            } catch (e) {
+                btn.disabled = false; btn.innerHTML = origHTML;
+                alert('Error disconnecting: ' + e.message);
             }
         }
 
@@ -2203,7 +2492,7 @@
                         <p class="text-xs text-slate-400 mb-3 mt-1">Share this URL anywhere — website, social media, WhatsApp. No coding needed.</p>
                         <div class="bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono break-all mb-3 select-all" id="deploy-smart-link">${smartLink}</div>
                         <button onclick="copyDeployLink()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-copy text-xs mr-1"></i> Copy Smart Link</button>
-                        <span id="deploy-link-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                        <span id="deploy-link-flash" class="hidden text-xs text-green-400 block text-center mt-1"><i class="fa fa-check mr-1"></i>Copied</span>
                     </div>
                     <div class="border border-slate-700 bg-slate-800/40 rounded-xl p-4">
                         <div class="flex items-center gap-2 mb-1">
@@ -2216,7 +2505,7 @@
                             <button onclick="copyDeployScript()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition">Copy Code</button>
                             <button onclick="emailWebmaster()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition"><i class="fa fa-envelope text-xs mr-1"></i> Email Webmaster</button>
                         </div>
-                        <span id="deploy-script-flash" class="hidden text-xs text-green-400 block text-center mt-1">✓ Copied!</span>
+                        <span id="deploy-script-flash" class="hidden text-xs text-green-400 block text-center mt-1"><i class="fa fa-check mr-1"></i>Copied</span>
                     </div>
                 </div>`;
         }
@@ -2263,7 +2552,7 @@
                     <button onclick="copyApiKeyToClipboard()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold px-3 py-2 rounded-lg transition"><i class="fa fa-copy mr-1"></i>Copy</button>
                     <button onclick="confirmRegenerateKey('${orgId}')" class="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-2 rounded-lg transition ml-auto"><i class="fa fa-rotate mr-1"></i>Regenerate</button>
                 </div>
-                <span id="api-key-copy-flash" class="hidden text-xs text-green-400 mt-2 block">✓ Copied to clipboard!</span>`;
+                <span id="api-key-copy-flash" class="hidden text-xs text-green-400 mt-2 block"><i class="fa fa-check mr-1"></i>Copied to clipboard</span>`;
         }
 
         function toggleRevealKey() {
@@ -2323,7 +2612,7 @@
         function copyText(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 const orig = btn.innerHTML;
-                btn.innerHTML = '<i class="fa fa-check mr-0.5"></i>✓';
+                btn.innerHTML = '<i class="fa fa-check mr-0.5"></i>';
                 btn.classList.add('text-green-400');
                 setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-400'); }, 1500);
             });

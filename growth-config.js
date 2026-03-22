@@ -11,4 +11,4 @@
  * DO NOT hardcode a URL anywhere else. All pages load this file and read
  * window.GROWTH_API_BASE. Changing it here changes it everywhere.
  */
-window.GROWTH_API_BASE = 'http://localhost:8000';
+window.GROWTH_API_BASE = 'https://get-sales-closer-production.up.railway.app';
