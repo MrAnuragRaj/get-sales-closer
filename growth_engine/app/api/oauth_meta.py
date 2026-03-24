@@ -101,7 +101,7 @@ _AUTHORIZE_URL = "https://www.facebook.com/v21.0/dialog/oauth"
 _TOKEN_URL    = f"{_GRAPH_API}/oauth/access_token"
 
 # Scopes for Facebook Pages posting + Instagram Business posting
-_SCOPES = "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish"
+_SCOPES = "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_business_basic,instagram_business_content_publish"
 
 
 # ── State helpers (same Fernet pattern as oauth_linkedin.py) ──────────────────
