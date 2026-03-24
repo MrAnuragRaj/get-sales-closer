@@ -38,6 +38,11 @@ Phase 8 (LinkedIn OAuth — built):
   /growth/oauth/linkedin/connect    — Start LinkedIn OAuth (GET, token= query param)
   /growth/oauth/linkedin/callback   — LinkedIn OAuth callback (GET)
   /growth/oauth/linkedin            — Disconnect LinkedIn (DELETE, Bearer JWT)
+
+Phase 9 (Meta OAuth — built):
+  /growth/oauth/meta/connect        — Start Meta/Facebook OAuth (GET, token= query param)
+  /growth/oauth/meta/callback       — Meta OAuth callback (GET, handles facebook + instagram)
+  /growth/oauth/meta/{platform}     — Disconnect Facebook or Instagram (DELETE, Bearer JWT)
 """
 
 from __future__ import annotations
@@ -46,6 +51,7 @@ from fastapi import APIRouter
 
 from app.api.accounts import router as accounts_router
 from app.api.oauth_linkedin import router as oauth_linkedin_router
+from app.api.oauth_meta import router as oauth_meta_router
 from app.api.radar import router as radar_router
 from app.api.assets import router as assets_router
 from app.api.assets import variant_asset_router
@@ -71,4 +77,5 @@ router.include_router(engagement_router)
 router.include_router(analytics_router)
 router.include_router(accounts_router)
 router.include_router(oauth_linkedin_router)
+router.include_router(oauth_meta_router)
 router.include_router(radar_router)

@@ -654,6 +654,22 @@ requireAuth({
             };
             toast(errMessages[errCode] || `LinkedIn OAuth error: ${errCode}`, 'error');
             history.replaceState({}, '', window.location.pathname);
+        } else if (_oauthParams.get('meta_connected') === '1') {
+            toast('Facebook and Instagram connected successfully.', 'success');
+            history.replaceState({}, '', window.location.pathname);
+        } else if (_oauthParams.get('meta_error')) {
+            const errCode = _oauthParams.get('meta_error');
+            const errMessages = {
+                access_denied:         'Facebook connection was cancelled.',
+                token_exchange_failed: 'Facebook token exchange failed. Please try again.',
+                no_pages:              'No Facebook Pages found. Create a Facebook Page and try again.',
+                not_entitled:          'Growth Engine subscription required.',
+                not_configured:        'Meta OAuth is not configured yet on the server.',
+                invalid_state:         'OAuth state mismatch — please try connecting again.',
+                token_expired:         'Session expired. Please sign in again.',
+            };
+            toast(errMessages[errCode] || `Meta OAuth error: ${errCode}`, 'error');
+            history.replaceState({}, '', window.location.pathname);
         }
     }
 });
@@ -820,6 +836,7 @@ async function loadConnectionHealth() {
                     ${engageBadge}
                     ${p.reconnect_url && p.status !== 'feature_disabled' ? `<button onclick="connectPlatform('${p.platform}')" class="text-xs text-indigo-400 hover:text-indigo-300 ml-1 underline">${p.status === 'not_connected' ? 'Connect' : 'Reconnect'}</button>` : ''}
                     ${p.platform === 'linkedin' && p.status === 'connected' ? `<button onclick="disconnectLinkedIn()" class="text-xs text-slate-500 hover:text-red-400 ml-1" title="Disconnect LinkedIn"><i class="fa-solid fa-link-slash"></i></button>` : ''}
+                    ${(p.platform === 'facebook' || p.platform === 'instagram') && p.status === 'connected' ? `<button onclick="disconnectMeta('${p.platform}')" class="text-xs text-slate-500 hover:text-red-400 ml-1" title="Disconnect ${p.platform}"><i class="fa-solid fa-link-slash"></i></button>` : ''}
                 </div>`;
         }).join('');
     } catch(e) {
@@ -870,8 +887,14 @@ async function connectPlatform(platform) {
         return;
     }
 
-    // Meta (Facebook / Instagram) — placeholder until Meta OAuth is built
-    toast('Meta OAuth is coming soon. LinkedIn is available now.', 'info');
+    if (platform === 'facebook' || platform === 'instagram') {
+        // Both Facebook and Instagram are handled by the same Meta OAuth flow.
+        // The callback upserts both facebook page(s) and linked instagram business accounts.
+        window.location.href = `${base}/growth/oauth/meta/connect?token=${encodeURIComponent(token)}`;
+        return;
+    }
+
+    toast(`OAuth for ${platform} is not yet available.`, 'info');
 }
 
 async function disconnectLinkedIn() {
@@ -879,6 +902,18 @@ async function disconnectLinkedIn() {
     try {
         await growthFetch('/oauth/linkedin', { method: 'DELETE' });
         toast('LinkedIn disconnected.', 'success');
+        loadConnectionHealth();
+    } catch(e) {
+        toast('Could not disconnect: ' + e.message, 'error');
+    }
+}
+
+async function disconnectMeta(platform) {
+    const label = platform === 'facebook' ? 'Facebook' : 'Instagram';
+    if (!confirm(`Disconnect ${label}? The AI will no longer be able to post to this account.`)) return;
+    try {
+        await growthFetch(`/oauth/meta/${platform}`, { method: 'DELETE' });
+        toast(`${label} disconnected.`, 'success');
         loadConnectionHealth();
     } catch(e) {
         toast('Could not disconnect: ' + e.message, 'error');
