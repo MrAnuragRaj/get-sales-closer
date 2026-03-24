@@ -66,6 +66,7 @@ This URN is required by the LinkedIn UGC Posts v2 API (publishers/linkedin.py).
 
 from __future__ import annotations
 
+import json
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -402,8 +403,8 @@ async def linkedin_callback(
             access_token_enc,
             refresh_token_enc,
             token_expires_at,
-            {"scopes": _SCOPES.split()},
-            {"email": email, "picture": picture_url},
+            json.dumps({"scopes": _SCOPES.split()}),
+            json.dumps({"email": email, "picture": picture_url}),
         )
 
     log.info(
