@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-19 (Session 33 — index.html fully complete; pipeline shared panel, mobile responsiveness, guarantee text fixes) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-03-31 (Session 34 — Growth Engine LinkedIn OAuth fixed; Meta OAuth built; all 15 Alembic migrations applied to Supabase growth schema) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -239,10 +239,42 @@ CTA in locked-preview links to `billing.html?lock=growth_engine`.
 - Revoke panel: filter + multi-select checkbox list of orgs with GE active → Revoke Access button
 - No SQL needed for beta access management
 
-**What's NOT built yet:**
-- Growth Engine FastAPI (Railway) — the actual LinkedIn/content automation service that writes to `growth.*` schema
-- `growth.engagement_opportunities`, `growth.revenue_attributions` tables — created by FastAPI Alembic migrations
-- Until FastAPI is live, all growth schema metrics show 0 / "—" in the Founder Dashboard (graceful degradation working)
+**Growth Engine FastAPI (Railway) — Current State:**
+- **Railway service**: `get-sales-closer-production.up.railway.app` — deployed and running
+- **Alembic migrations 001–015**: all applied to Supabase — full `growth.*` schema exists (25+ tables including `social_accounts`, `content_pieces`, `authority_ladders`, `content_experiments`, `engagement_targets`, `engagement_opportunities`, `engagement_actions`, etc.)
+- **LinkedIn OAuth** (`growth_engine/app/api/oauth_linkedin.py`): fully working end-to-end ✅
+  - Auth: ES256 JWT via JWKS only (no HS256 fallback for asymmetric tokens)
+  - Connects to LinkedIn → exchanges code → upserts `growth.social_accounts`
+- **Meta OAuth** (`growth_engine/app/api/oauth_meta.py`): built and registered ✅
+  - Routes: `GET /growth/oauth/meta/connect`, `GET /growth/oauth/meta/callback`, `DELETE /growth/oauth/meta/{platform}`
+  - Callback: exchanges code → long-lived token → fetches FB Pages + linked Instagram Business accounts → upserts both
+  - Instagram: `engage_capable=false`, `engage_status_reason='platform_unsupported'` (Instagram API doesn't support commenting on others' posts)
+  - Scopes: `pages_show_list,pages_manage_posts,pages_read_engagement,instagram_business_basic,instagram_business_content_publish`
+- **growth_dashboard.html**: connect/disconnect wired for LinkedIn, Facebook, Instagram ✅
+  - `connectPlatform('facebook'/'instagram')` → `/growth/oauth/meta/connect?token=...`
+  - `?meta_connected=1` / `?meta_error=...` return param toasts handled
+  - Disconnect buttons for all 3 platforms in connection pills
+
+**Railway env vars required (set these before Meta OAuth works):**
+- `META_APP_ID` = `1684991566191260` (GetSalesCloser Agent app)
+- `META_APP_SECRET` = (from Meta App Settings → Basic)
+- `GROWTH_ENCRYPTION_KEY` = 44-char URL-safe base64 Fernet key (already set)
+- `SUPABASE_URL` = Supabase project URL (for JWKS — already set)
+
+**Meta App setup (one-time, do before testing):**
+- Facebook Login → Settings → Valid OAuth Redirect URIs → add: `https://get-sales-closer-production.up.railway.app/growth/oauth/meta/callback`
+- Required App Review permissions: `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_business_basic`, `instagram_business_content_publish`, `pages_messaging` (for Messenger), `public_profile`, `email`
+- NOT needed: Business Asset User Profile Access, Instagram Public Content Access, pages_manage_metadata, pages_utility_messaging, business_management, instagram_business_manage_messages, instagram_basic (use instagram_business_basic instead)
+- Webhooks NOT required for OAuth or posting — only needed for inbound events
+
+**Critical auth_bridge.py gotcha:**
+- `org_members` table has NO `created_at` column — never add it to ORDER BY
+- ES256/RS256 JWTs must ONLY use JWKS path — never fall back to HS256 (it always fails for asymmetric tokens)
+- asyncpg does NOT auto-serialize Python dicts for jsonb params — always use `json.dumps()`
+
+**What's NOT built yet (Growth Engine):**
+- Until `META_APP_ID`/`META_APP_SECRET` are set in Railway, Meta OAuth returns 500
+- Until FastAPI is live writing actual automation data, Founder Dashboard growth metrics show 0 / "—" (graceful degradation working)
 
 ---
 
@@ -309,15 +341,15 @@ All phases shipped and live at https://www.getsalescloser.com:
 
 ## What's Next (priority order)
 
-1. **Dashboard redesigns (3 files)** — align all post-login dashboards with the new pricing model and brand style established in index.html
+1. **Meta OAuth activation** — set `META_APP_ID` + `META_APP_SECRET` in Railway Variables; add callback URI in Meta Developer App; test Facebook + Instagram connect flow on growth_dashboard.html
+2. **billing.html updates** — add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
+3. **Dashboard redesigns (3 files)** — align all post-login dashboards with the new pricing model and brand style established in index.html
    - `dashboard.html` (Solo): SCE/EB/GE entitlement gates, channel infrastructure alignment, updated Credit Wallet, consistent visual language
    - `agency_admin.html`: seat management UI, agency-specific add-ons (SCE/EB/GE), updated pricing display
    - `enterprise_admin.html`: tier table alignment, leaderboard, overseer — visual consistency with new design system
-2. **billing.html updates** — add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
-3. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
-4. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-5. **Growth Engine FastAPI (Railway)** — deploy the Python service (`growth_engine/`), run Alembic migrations for `growth.*` schema, set `GROWTH_ENGINE_URL` in admin.html; once live, Founder Dashboard metrics will populate automatically
-6. **Growth Engine E2E (Group GE)** — after FastAPI is live: entitlement gate, locked-preview, grant via admin, verify dashboard populates
+4. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+5. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+6. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
 
 ---
 
@@ -350,3 +382,6 @@ curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/datab
 14. **Growth Engine Founder Dashboard**: calls `admin_get_growth_metrics` + `admin_get_beta_prospects` in `Promise.all` — both require `profiles.is_admin = true` on the caller; will silently return empty if called as non-admin
 15. **`create_checkout_intent` pricing (version 4)**: Two DB overloads — 2-param (old, `intent_source` in `'checkout'|'upgrade'`) and 3-param (current, `intent_source` in `'pricing'|'billing'`). pricing.html and billing.html use the 3-param version. Correct prices: intake=$149, safe_voice=$199, priority=$99, chatbot=$149, install=$99 (one-time), growth_engine=$660. Channel model for S-alone: `base = 49 + max(0, (sms+wa+fb count - 1) * 10)`. SCE: parse `addons.sce_plan` text ('199'/'299'/'399'). EB: parse `addons.eb_plan` text ('99'/'199'). payment.html reads amount from `billing_intents.pricing_snapshot.final_invoice_amount`.
 16. **index.html → pricing.html state passing**: `handleDeployment()` saves selections to `localStorage['gsc_pricing_config']` (JSON). pricing.html's `applyStoredConfig()` reads and applies it on load, then removes the key (consumed once).
+17. **Growth Engine FastAPI — asyncpg jsonb**: asyncpg does NOT auto-serialize Python dicts for jsonb columns. Always `json.dumps(your_dict)` before passing as a query parameter.
+18. **Growth Engine FastAPI — JWT auth**: `org_members` has no `created_at` column. Never add `om.created_at` to ORDER BY in auth_bridge.py or oauth routes. ES256 JWTs must only use JWKS (`_get_jwks_client()`), never HS256 — inspect the JWT header `alg` claim first.
+19. **Growth Engine FastAPI — Fernet key**: `GROWTH_ENCRYPTION_KEY` must be exactly a 44-char URL-safe base64 Fernet key. Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
