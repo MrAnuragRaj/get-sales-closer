@@ -153,9 +153,7 @@
                 <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Lead Sources</p>
                 <div id="ent-gi-sources"><p class="text-slate-600 text-xs">Loading...</p></div>
             </div>
-            <a href="growth_dashboard.html" class="mt-4 flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">
-                <i class="fa fa-seedling"></i> Open Growth Engine
-            </a>
+            <div id="ent-ge-cta" class="mt-4"></div>
         </div>
 
         <!-- Revenue Health -->
@@ -334,6 +332,70 @@
                 <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
             </div>
         </div>
+
+        <!-- AI Social Content Engine (SCE) Gate -->
+        <div id="ent-sce-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-pen-nib text-purple-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">AI Social Content Engine</h2>
+                <span id="ent-sce-badge" class="hidden text-xs bg-purple-500/20 border border-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ent-sce-locked">
+                <p class="text-sm text-slate-400 mb-3">Auto-generate LinkedIn posts, email sequences, and social content from your team's closed deals and lead interactions.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">AI Social Content Engine</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $199/mo — turns your pipeline data into LinkedIn & email content automatically.</p>
+                    <a href="billing.html?lock=sce" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ent-sce-active" class="hidden">
+                <p class="text-sm text-slate-400">AI Social Content Engine is active. Content automation is running for your enterprise team.</p>
+            </div>
+        </div>
+
+        <!-- Engagement Bot (EB) Gate -->
+        <div id="ent-eb-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-robot text-violet-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Engagement Bot</h2>
+                <span id="ent-eb-badge" class="hidden text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ent-eb-locked">
+                <p class="text-sm text-slate-400 mb-3">Automated follow-up bot that re-engages cold leads, responds to social comments, and qualifies inbound interest on autopilot — across your entire team.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">Engagement Bot</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $99/mo — re-engages cold leads and qualifies inbound interest automatically.</p>
+                    <a href="billing.html?lock=eb" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ent-eb-active" class="hidden">
+                <p class="text-sm text-slate-400">Engagement Bot is active. Automated re-engagement is running for your enterprise team.</p>
+            </div>
+        </div>
+
+        <!-- Interactive ChatBot Gate -->
+        <div id="ent-chatbot-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-comments text-cyan-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Interactive ChatBot</h2>
+                <span id="ent-chatbot-badge" class="hidden text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ent-chatbot-locked">
+                <p class="text-sm text-slate-400 mb-3">Full-featured AI chat interface for your website — branded conversations, lead capture, and instant AI response for your enterprise team.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">Interactive ChatBot</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">$149/mo — branded AI chat widget with full lead capture, conversation history, and instant AI response.</p>
+                    <a href="billing.html?lock=chatbot" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid rgba(6,182,212,0.3)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ent-chatbot-active" class="hidden">
+                <p class="text-sm text-slate-400">Interactive ChatBot is active. Use the Deploy section above to get your embed code and Smart Link.</p>
+            </div>
+        </div>
+
     </div>
 
     <!-- Agent Overseer Panel -->
@@ -460,6 +522,7 @@
                 entLoadDeliveryStatus(_orgId, sb);
                 entLoadInfraStatus(_orgId, sb);
                 entLoadFbPage(_orgId, sb);
+                entFetchEntitlements();
             }
         });
 
@@ -1768,6 +1831,48 @@
                 `Hi,\n\nPlease add our AI chat widget to the website.\n\nOption 1 — Zero-code Smart Link (recommended):\nShare this URL on any page or button:\n${link}\n\nOption 2 — Floating Chat Widget:\nPaste this code before the </body> tag on every page:\n\n${script}\n\nThank you!`
             );
             window.open(`mailto:?subject=${subject}&body=${body}`);
+        }
+
+        // ── Add-on Entitlement Gates ──────────────────────────────────────────
+        let _entOrgEntitlements = {};
+
+        async function entFetchEntitlements() {
+            if (!_orgId) return;
+            const { data } = await _sb.from('org_services').select('service_key, status').eq('org_id', _orgId);
+            _entOrgEntitlements = {};
+            if (data) data.forEach(s => { _entOrgEntitlements[s.service_key] = s.status; });
+            entRenderAddonGates();
+        }
+
+        function entRenderAddonGates() {
+            // SCE / EB / ChatBot lock→active
+            const addons = [
+                { key: 'sce',     lockedId: 'ent-sce-locked',     activeId: 'ent-sce-active',     badgeId: 'ent-sce-badge'     },
+                { key: 'eb',      lockedId: 'ent-eb-locked',      activeId: 'ent-eb-active',      badgeId: 'ent-eb-badge'      },
+                { key: 'chatbot', lockedId: 'ent-chatbot-locked', activeId: 'ent-chatbot-active', badgeId: 'ent-chatbot-badge' },
+            ];
+            addons.forEach(({ key, lockedId, activeId, badgeId }) => {
+                const entitled = _entOrgEntitlements[key] === 'active';
+                if (entitled) {
+                    document.getElementById(lockedId)?.classList.add('hidden');
+                    document.getElementById(activeId)?.classList.remove('hidden');
+                    document.getElementById(badgeId)?.classList.remove('hidden');
+                }
+            });
+
+            // Growth Intelligence CTA — entitled → Open dashboard; not entitled → Unlock CTA
+            const geEntitled = _entOrgEntitlements['growth_engine'] === 'active';
+            const ctaEl = document.getElementById('ent-ge-cta');
+            if (!ctaEl) return;
+            if (geEntitled) {
+                ctaEl.innerHTML = `<a href="growth_dashboard.html" class="flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">
+                    <i class="fa fa-seedling"></i> Open AI Social Growth System
+                </a>`;
+            } else {
+                ctaEl.innerHTML = `<a href="billing.html?lock=growth_engine" class="flex items-center justify-center gap-2 w-full text-xs font-bold px-4 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.08);color:#6ee7b7;border:1px solid rgba(16,185,129,0.2)">
+                    <i class="fa fa-lock text-xs"></i> Unlock AI Social Growth System — $660/mo
+                </a>`;
+            }
         }
     </script>
 </body>
