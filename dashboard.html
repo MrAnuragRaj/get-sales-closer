@@ -42,7 +42,7 @@
     <div id="auth-loader" class="modal-overlay">
         <div class="flex flex-col items-center">
             <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 text-4xl mb-4"></i>
-            <p class="text-slate-400 text-sm font-bold">Initializing Revenue Doctor...</p>
+            <p class="text-slate-400 text-sm font-bold">Initializing Command Center...</p>
         </div>
     </div>
 
@@ -295,6 +295,10 @@
                         <span class="text-slate-400 text-xs">from $49/mo</span>
                     </div>
                     <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
+                        <div class="flex items-center gap-2"><i class="fa fa-comments text-cyan-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Interactive ChatBot</span></div>
+                        <span class="text-slate-400 text-xs">$149/mo</span>
+                    </div>
+                    <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
                         <div class="flex items-center gap-2"><i class="fa fa-brain text-indigo-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Knowledge Brain</span></div>
                         <span class="text-slate-400 text-xs">add-on</span>
                     </div>
@@ -327,7 +331,7 @@
                         <span class="text-slate-400 text-xs">$99–$199/mo</span>
                     </div>
                     <div class="flex items-center justify-between py-2.5 px-3 bg-slate-800/40 rounded-lg">
-                        <div class="flex items-center gap-2"><i class="fa fa-seedling text-emerald-400 text-xs w-4 text-center"></i><span class="text-sm text-white">Growth Engine <span class="text-[9px] text-emerald-400 font-bold ml-1">Beta</span></span></div>
+                        <div class="flex items-center gap-2"><i class="fa fa-seedling text-emerald-400 text-xs w-4 text-center"></i><span class="text-sm text-white">AI Social Growth System <span class="text-[9px] text-emerald-400 font-bold ml-1">Beta</span></span></div>
                         <span class="text-slate-400 text-xs">$660/mo</span>
                     </div>
                 </div>
@@ -727,17 +731,17 @@
                     </div>
                 </div>
 
-                <!-- AI Growth System (Growth Engine) Gate -->
+                <!-- AI Social Growth System (Growth Engine) Gate -->
                 <div id="ge-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
                     <div class="flex items-center gap-3 mb-4">
                         <i class="fa fa-seedling text-emerald-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">AI Growth System</h2>
+                        <h2 class="text-lg font-bold text-white">AI Social Growth System</h2>
                         <span class="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">Beta</span>
                         <span id="ge-active-badge" class="hidden text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
                     </div>
                     <!-- Locked state (default) -->
                     <div id="ge-locked-body">
-                        <p class="text-sm text-slate-400 mb-4">LinkedIn content automation, lead attribution, and growth intelligence — all powered by your pipeline data.</p>
+                        <p class="text-sm text-slate-400 mb-4">LinkedIn & Meta content automation, lead attribution, and growth intelligence — all powered by your pipeline data.</p>
                         <div class="grid grid-cols-3 gap-3 mb-5">
                             <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
                                 <p class="text-xl font-bold text-emerald-400">—</p>
@@ -754,18 +758,59 @@
                         </div>
                         <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
                             <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
-                            <p class="text-sm font-bold text-white mb-1">AI Growth System <span class="text-emerald-400">Beta</span></p>
-                            <p class="text-xs text-slate-400 mb-4 text-center px-8">$660/mo — LinkedIn content, engagement automation and growth intelligence from your pipeline.</p>
+                            <p class="text-sm font-bold text-white mb-1">AI Social Growth System — Strategy Layer <span class="text-emerald-400">Beta</span></p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">$660/mo — LinkedIn & Meta content, engagement automation, and growth attribution from your pipeline.</p>
                             <a href="billing.html?lock=growth_engine" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)">Unlock Add-on</a>
                         </div>
                     </div>
                     <!-- Active state -->
                     <div id="ge-active-body" class="hidden">
-                        <p class="text-sm text-slate-400 mb-4">Your AI Growth System is active. Open the Growth Dashboard to view insights and configure content automation.</p>
+                        <p class="text-sm text-slate-400 mb-4">Your AI Social Growth System is active. Open the Growth Dashboard to view insights and configure content automation.</p>
                         <a href="growth_dashboard.html" class="flex items-center justify-center gap-2 w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold py-3 rounded-xl transition text-sm">
                             <i class="fa fa-seedling"></i>
                             Open Growth Dashboard
                         </a>
+                    </div>
+                </div>
+
+                <!-- Interactive ChatBot Gate -->
+                <div id="chatbot-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-comments text-cyan-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Interactive ChatBot</h2>
+                        <span id="chatbot-active-badge" class="hidden text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+                    </div>
+                    <!-- Locked state -->
+                    <div id="chatbot-locked-body">
+                        <p class="text-sm text-slate-400 mb-4">Full-featured AI chat interface for your website — branded conversations, lead capture, and instant follow-up all in one widget.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-cyan-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Sessions/mo</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-white">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Avg Duration</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-indigo-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Leads Captured</p>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                            <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                            <p class="text-sm font-bold text-white mb-1">Interactive ChatBot</p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">$149/mo — branded AI chat widget with full lead capture, conversation history, and instant AI response.</p>
+                            <a href="billing.html?lock=chatbot" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid rgba(6,182,212,0.3)">Unlock Add-on</a>
+                        </div>
+                    </div>
+                    <!-- Active state -->
+                    <div id="chatbot-active-body" class="hidden">
+                        <p class="text-sm text-slate-400 mb-4">Your Interactive ChatBot is active. Use the Deploy section below to get your embed code and Smart Link.</p>
+                        <div class="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4 text-center">
+                            <i class="fa fa-comments text-cyan-400 text-2xl mb-2 block"></i>
+                            <p class="text-xs text-slate-400">Scroll down to <strong class="text-white">Deploy AI Site Liaison</strong> to copy your embed code and Smart Link.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -974,15 +1019,16 @@
         let currentDiagnosis = null;
 
         const SIDEBAR_CONFIG = {
-            'niche_closer': { label: 'Deal Commander', icon: 'fa-bullseye', locked: false, link: '#', module: null },
-            'content_roi': { label: 'Pipeline Intelligence', icon: 'fa-chart-line', locked: false, link: '#', module: null },
-            'sce': { label: 'AI Social Content Engine', icon: 'fa-pen-nib', locked: false, link: '#', module: 'sce' },
-            'eb': { label: 'Engagement Bot', icon: 'fa-robot', locked: false, link: '#', module: 'eb' },
-            'growth_engine': { label: 'AI Growth System', icon: 'fa-seedling', locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
-            'b': { label: 'Knowledge Brain', icon: 'fa-brain', locked: false, link: 'Knowledge Brain.html', module: 'brain' },
-            's': { label: 'Instant Sentinel', icon: 'fa-bolt', locked: false, link: 'sentinel.html', module: 'sentinel' },
-            'a': { label: 'Appt. Architect', icon: 'fa-calendar-check', locked: false, link: 'App Architect.html', module: 'architect' },
-            'l': { label: 'Voice Liaison', icon: 'fa-microphone-lines', locked: false, link: 'Voice Liaison.html', module: 'voice' }
+            'niche_closer':  { label: 'Deal Commander',              icon: 'fa-bullseye',        locked: false, link: '#',                   module: null },
+            'content_roi':   { label: 'Pipeline Intelligence',       icon: 'fa-chart-line',      locked: false, link: '#',                   module: null },
+            'sce':           { label: 'AI Social Content Engine',    icon: 'fa-pen-nib',         locked: false, link: '#',                   module: 'sce' },
+            'eb':            { label: 'Engagement Bot',              icon: 'fa-robot',           locked: false, link: '#',                   module: 'eb' },
+            'chatbot':       { label: 'Interactive ChatBot',         icon: 'fa-comments',        locked: false, link: '#',                   module: 'chatbot' },
+            'growth_engine': { label: 'AI Social Growth System',     icon: 'fa-seedling',        locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
+            'b':             { label: 'Knowledge Brain',             icon: 'fa-brain',           locked: false, link: 'Knowledge Brain.html', module: 'brain' },
+            's':             { label: 'Instant Sentinel',            icon: 'fa-bolt',            locked: false, link: 'sentinel.html',        module: 'sentinel' },
+            'a':             { label: 'Appt. Architect',             icon: 'fa-calendar-check',  locked: false, link: 'App Architect.html',   module: 'architect' },
+            'l':             { label: 'Voice Liaison',               icon: 'fa-microphone-lines', locked: false, link: 'Voice Liaison.html',   module: 'voice' }
         };
 
         window.addEventListener('load', () => {
@@ -1044,9 +1090,10 @@
 
         function renderAddonGates() {
             const addons = [
-                { key: 'sce',           lockedId: 'sce-locked-body', activeId: 'sce-active-body', badgeId: 'sce-active-badge' },
-                { key: 'eb',            lockedId: 'eb-locked-body',  activeId: 'eb-active-body',  badgeId: 'eb-active-badge'  },
-                { key: 'growth_engine', lockedId: 'ge-locked-body',  activeId: 'ge-active-body',  badgeId: 'ge-active-badge'  },
+                { key: 'sce',           lockedId: 'sce-locked-body',     activeId: 'sce-active-body',     badgeId: 'sce-active-badge'     },
+                { key: 'eb',            lockedId: 'eb-locked-body',      activeId: 'eb-active-body',      badgeId: 'eb-active-badge'      },
+                { key: 'chatbot',       lockedId: 'chatbot-locked-body', activeId: 'chatbot-active-body', badgeId: 'chatbot-active-badge' },
+                { key: 'growth_engine', lockedId: 'ge-locked-body',      activeId: 'ge-active-body',      badgeId: 'ge-active-badge'      },
             ];
             addons.forEach(({ key, lockedId, activeId, badgeId }) => {
                 const entitled = orgEntitlements[key] === 'active';
@@ -1103,8 +1150,9 @@
             }
             if (key === 'niche_closer') { openDealCommander(); return; }
             if (key === 'content_roi') { document.getElementById('pipeline-intelligence-modal').classList.remove('hidden'); return; }
-            if (key === 'sce') { document.getElementById('sce-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-            if (key === 'eb')  { document.getElementById('eb-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'sce')     { document.getElementById('sce-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'eb')      { document.getElementById('eb-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'chatbot') { document.getElementById('chatbot-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
             if (config.link && config.link !== '#') window.location.href = config.link;
         }
 
