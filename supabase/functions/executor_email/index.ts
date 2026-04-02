@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts";
 import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
+import { updateConversationState } from "../_shared/conversation_state.ts";
 
 const LEASE_SECONDS = 90;
 const TOKEN_KEY = "sentinel.email";
@@ -163,6 +164,23 @@ serve(async (req) => {
   const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "email");
   if (!rlGate.allow) return rlGate.response;
 
+  // Validate Resend config BEFORE token debit — fail_task cleanly if missing config.
+  // This prevents users being billed for sends that cannot succeed due to misconfiguration.
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  const FROM_EMAIL = "support@getsalescloser.com";
+  if (!RESEND_API_KEY) {
+    await supabase
+      .from("execution_tasks")
+      .update({
+        status: "failed",
+        last_error: "MISSING_RESEND_CONFIG",
+        locked_by: null,
+        locked_until: null,
+      })
+      .eq("id", task_id);
+    return new Response("Missing Resend config", { status: 500 });
+  }
+
   // Generate email content (AI or RAW bypass inside brain.ts)
   const brainResult = await generateMessage(supabase, {
     task_id,
@@ -254,25 +272,6 @@ serve(async (req) => {
     return new Response("Insufficient tokens", { status: 402 });
   }
 
-  // Send via Resend
-  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  // Executor email always uses support@ per project convention (not billing@)
-  const FROM_EMAIL = "support@getsalescloser.com";
-
-  if (!RESEND_API_KEY) {
-    await supabase
-      .from("execution_tasks")
-      .update({
-        status: "failed",
-        last_error: "MISSING_RESEND_CONFIG",
-        locked_by: null,
-        locked_until: null,
-      })
-      .eq("id", task_id);
-
-    return new Response("Missing Resend config", { status: 500 });
-  }
-
   // Pre-send delivery attempt — idempotency guard via UNIQUE(task_id, attempt_number)
   const attemptNumber = task.attempt ?? 1;
   const { data: deliveryAttempt, error: daInsertErr } = await supabase
@@ -296,6 +295,29 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
   }
 
+  // Non-23505 insert error — treat delivery_attempt as mandatory precondition.
+  // Do NOT call provider without an idempotency record. Refund and abort.
+  if (daInsertErr) {
+    console.error(JSON.stringify({
+      event: "email_delivery_attempt_insert_failed",
+      task_id,
+      error_code: daInsertErr.code,
+      error_message: daInsertErr.message,
+    }));
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "sentinel.email", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:da_insert_failed`,
+      p_metadata: { phase: "refund", reason: "delivery_attempt_insert_failed", task_id },
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `DELIVERY_ATTEMPT_INSERT_FAILED:${daInsertErr.code}:${daInsertErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id).in("status", ["running", "pending"]);
+    return new Response("Delivery attempt insert failed", { status: 500 });
+  }
+
   const deliveryAttemptId = deliveryAttempt?.id;
 
   let res: Response;
@@ -315,6 +337,13 @@ serve(async (req) => {
       }),
     });
   } catch (networkErr) {
+    // Network error: Resend was never reached — no email sent. Refund the token.
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: TOKEN_KEY, p_amount: TOKEN_AMOUNT,
+      p_idempotency_key: `refund:${task_id}:network_error`,
+      p_metadata: { phase: "refund", reason: "resend_network_error", task_id },
+    });
     if (deliveryAttemptId) {
       await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId);
     }
@@ -333,6 +362,13 @@ serve(async (req) => {
 
   if (!res.ok) {
     const errorText = await res.text();
+    // Resend rejected the request — no email was sent. Refund the token.
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: TOKEN_KEY, p_amount: TOKEN_AMOUNT,
+      p_idempotency_key: `refund:${task_id}:resend_failed`,
+      p_metadata: { phase: "refund", reason: "resend_provider_error", task_id },
+    });
     if (deliveryAttemptId) {
       await supabase.from("delivery_attempts").update({ status: "failed", error_code: "RESEND_FAILED", error_message: errorText.slice(0, 500) }).eq("id", deliveryAttemptId);
     }
@@ -362,6 +398,37 @@ serve(async (req) => {
     }).eq("id", deliveryAttemptId);
   }
 
+  // Delivery status pre-check — do not mark succeeded unless delivery_attempt is actually 'sent'.
+  // Guards against cases where the delivery_attempt update above failed silently.
+  if (deliveryAttemptId) {
+    const { data: daCheck } = await supabase
+      .from("delivery_attempts")
+      .select("status")
+      .eq("id", deliveryAttemptId)
+      .maybeSingle();
+
+    if (daCheck?.status !== "sent") {
+      console.error(JSON.stringify({
+        event: "email_task_success_blocked_delivery_not_sent",
+        task_id,
+        delivery_attempt_id: deliveryAttemptId,
+        delivery_attempt_status: daCheck?.status ?? "unknown",
+        resend_id: providerId,
+      }));
+      await supabase
+        .from("execution_tasks")
+        .update({
+          status: "failed",
+          last_error: `DELIVERY_STATUS_MISMATCH:expected_sent_got_${daCheck?.status ?? "unknown"}`,
+          locked_by: null,
+          locked_until: null,
+        })
+        .eq("id", task_id)
+        .in("status", ["running", "pending"]);
+      return new Response("Delivery status mismatch", { status: 500 });
+    }
+  }
+
   // Log interaction
   await supabase.from("interactions").insert({
     lead_id: task.lead_id,
@@ -380,8 +447,8 @@ serve(async (req) => {
     },
   });
 
-  // Finalize task
-  await supabase
+  // Finalize task — guarded so a stale no-op cannot mark a non-running task succeeded
+  const { data: emailFinalizedTask } = await supabase
     .from("execution_tasks")
     .update({
       status: "succeeded",
@@ -397,7 +464,19 @@ serve(async (req) => {
         to: toEmail,
       },
     })
-    .eq("id", task_id);
+    .eq("id", task_id)
+    .in("status", ["running", "pending"])
+    .select("id")
+    .maybeSingle();
+
+  if (!emailFinalizedTask) {
+    console.warn(JSON.stringify({ event: "email_task_finalize_noop", task_id, note: "task not in running/pending — already handled elsewhere" }));
+  }
+
+  // Update conversation state (best-effort).
+  // source="outbound": preserves stage, only writes last_outbound_intent metadata.
+  updateConversationState(supabase, task.lead_id, task.org_id, "initial_outreach", "", "outbound")
+    .then(undefined, (e: any) => console.error("[executor_email] updateConversationState failed:", e));
 
   // Cancel retries (email)
   await supabase.rpc("cancel_pending_retries_channel", {

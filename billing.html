@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="auth.js"></script>
 
     <style>
@@ -17,16 +16,13 @@
         .glass-card { background: rgba(10, 25, 47, 0.8); backdrop-filter: blur(15px); border: 1px solid rgba(0, 209, 255, 0.2); }
         .btn-dopamine { background: linear-gradient(135deg, #00D1FF 0%, #2563eb 100%); transition: all 0.3s ease; }
         .btn-dopamine:disabled { background: #334155; cursor: not-allowed; opacity: 0.5; box-shadow: none; }
-        
         .deployment-overlay { position: fixed; inset: 0; background: #020617; z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; }
         .lock-impact { animation: impact-pulse 0.6s ease-out forwards; }
-        
         @keyframes impact-pulse {
             0% { transform: rotate(45deg) scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
             50% { transform: rotate(45deg) scale(1.5); box-shadow: 0 0 60px 30px rgba(57, 255, 20, 0.5); }
             100% { transform: rotate(45deg) scale(1.2); box-shadow: 0 0 30px 10px rgba(57, 255, 20, 0.8); }
         }
-
         .owned-state { opacity: 0.5; pointer-events: none; border-color: #39FF14; background: rgba(57, 255, 20, 0.05); }
         .owned-badge { display: inline-block; color: #39FF14; font-size: 10px; font-weight: bold; background: rgba(57, 255, 20, 0.1); padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
     </style>
@@ -67,30 +63,48 @@
         <div class="glass-card p-10 rounded-[3rem] w-full relative">
 
             <!-- Billing cycle toggle -->
-            <div class="flex items-center justify-center gap-3 mb-6">
-                <button id="btnMonthly" onclick="setBillingCycle('monthly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-[#00D1FF] text-slate-950">Monthly</button>
-                <button id="btnYearly" onclick="setBillingCycle('yearly')" class="px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition bg-slate-800 text-slate-400">Yearly <span class="text-green-400 ml-1">Save 12%</span></button>
+            <div class="flex justify-center mb-6">
+                <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center">
+                    <button id="btnMonthly" class="px-6 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 transition-all duration-300 shadow-lg">
+                        Monthly
+                    </button>
+                    <button id="btnYearly" class="px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-300 flex items-center gap-2">
+                        Yearly <span class="text-[10px] bg-[#39FF14] text-black px-1.5 py-0.5 rounded font-black">2 months free</span>
+                    </button>
+                </div>
             </div>
 
             <div class="flex items-center justify-center gap-1 text-white mb-2">
                 <span class="text-3xl font-bold mt-2">$</span>
                 <span id="priceDisplay" class="text-8xl font-black gilroy">--</span>
-                <span id="billingLabel" class="text-slate-500 font-bold ml-2">/mo (upgrade)</span>
+                <span class="text-slate-500 font-bold ml-2">/mo</span>
             </div>
-            <p id="yearlyNote" class="hidden text-center text-xs text-green-400 mb-1">Billed annually — you save <span id="yearlySavings"></span>/mo vs monthly</p>
-            <p id="baseImpliedHint" class="hidden text-center text-xs text-yellow-400 mb-8">Instant Sentinel ($49 base) will be included — required for this module</p>
-            
+            <div id="billingSubtext" class="text-center text-slate-400 text-sm font-medium mb-10 h-6">Select modules to upgrade</div>
+
             <div class="space-y-4 mb-10">
-                <div id="card_S" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
-                    <div class="text-left flex items-center gap-2">
-                        <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
-                        <span id="badge_S" class="hidden owned-badge">ACTIVE</span>
+
+                <!-- Sentinel -->
+                <div id="card_S" class="relative flex flex-col p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <div class="text-left flex items-center gap-2">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">The Instant Sentinel</span>
+                            <span id="badge_S" class="hidden owned-badge">ACTIVE</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="toggleS" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                        </label>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="toggleS" class="sr-only peer">
-                        <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-                    </label>
+                    <div id="channelMenu" class="hidden mt-4 pt-4 border-t border-slate-800 text-[10px] text-left space-y-2">
+                        <div class="flex items-center gap-2 text-slate-400"><span class="text-[#00D1FF]">✓</span> Email — Always included</div>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="sms"> SMS Channel</label>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="whatsapp"> WhatsApp Business</label>
+                        <label class="flex items-center gap-2 text-slate-300"><input type="checkbox" class="chan-box accent-[#00D1FF]" data-id="fb"> Facebook Messenger</label>
+                        <p class="text-slate-600 mt-1">First live channel included · Additional channels +$10 each</p>
+                    </div>
                 </div>
+
+                <!-- Knowledge Brain -->
                 <div id="card_B" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
                     <div class="text-left flex items-center gap-2">
                         <span class="text-white font-bold text-xs uppercase tracking-wider">The Knowledge Brain</span>
@@ -98,6 +112,8 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleB" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                 </div>
+
+                <!-- Appointment Architect -->
                 <div id="card_A" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
                     <div class="text-left flex items-center gap-2">
                         <span class="text-white font-bold text-xs uppercase tracking-wider">Appointment Architect</span>
@@ -105,6 +121,8 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleA" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                 </div>
+
+                <!-- Voice Liaison -->
                 <div id="card_L" class="relative flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-slate-800">
                     <div class="text-left flex items-center gap-2">
                         <span class="text-white font-bold text-xs uppercase tracking-wider">The Voice Liaison</span>
@@ -113,12 +131,14 @@
                     <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleL" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                 </div>
 
+                <!-- Premium Add-ons -->
                 <div class="pt-8 pb-4 text-left">
                     <p class="text-blue-400 font-bold text-xs uppercase tracking-widest mb-4">Premium Add-ons</p>
                     <div class="space-y-4">
                         <div id="card_Intake" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
                             <div class="text-left flex items-center gap-2">
                                 <span class="text-white font-bold text-xs uppercase tracking-wider">Professional Intake Assurance</span>
+                                <span class="text-[10px] text-slate-400">+$149/mo</span>
                                 <span id="badge_Intake" class="hidden owned-badge">ACTIVE</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleIntake" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
@@ -126,6 +146,7 @@
                         <div id="card_SafeVoice" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
                             <div class="text-left flex items-center gap-2">
                                 <span class="text-white font-bold text-xs uppercase tracking-wider">Compliance-Safe Voice Handling</span>
+                                <span class="text-[10px] text-slate-400">+$199/mo</span>
                                 <span id="badge_SafeVoice" class="hidden owned-badge">ACTIVE</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleSafeVoice" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
@@ -133,9 +154,26 @@
                         <div id="card_Priority" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
                             <div class="text-left flex items-center gap-2">
                                 <span class="text-white font-bold text-xs uppercase tracking-wider">Priority Intake Routing</span>
+                                <span class="text-[10px] text-slate-400">+$99/mo</span>
                                 <span id="badge_Priority" class="hidden owned-badge">ACTIVE</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="togglePriority" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="card_Chatbot" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Interactive ChatBot</span>
+                                <span class="text-[10px] text-slate-400">+$149/mo</span>
+                                <span id="badge_Chatbot" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleChatbot" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D1FF] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                        <div id="card_Install" class="relative flex items-center justify-between p-4 rounded-xl bg-[#39FF14]/5 border border-[#39FF14]/20">
+                            <div class="text-left flex items-center gap-2">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Setup &amp; Onboarding</span>
+                                <span class="text-[10px] text-[#39FF14]">+$99 (One-time)</span>
+                                <span id="badge_Install" class="hidden owned-badge">ACTIVE</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleInstall" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#39FF14] after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
                         </div>
                     </div>
                 </div>
@@ -214,17 +252,20 @@
                 </div>
             </div>
 
-            <!-- Growth Engine standalone add-on -->
+            <!-- Growth Engine -->
             <div class="mt-4 mb-6">
-                <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3">Growth Engine — Add-On</p>
+                <div class="flex items-center gap-2 mb-3">
+                    <p class="text-emerald-400 font-bold text-xs uppercase tracking-widest">AI Social Growth System — Strategy Layer</p>
+                    <span class="bg-emerald-900/40 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded font-black">Beta</span>
+                </div>
                 <div id="card_GE" class="relative flex items-center justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
                     <div class="text-left flex-1 mr-4">
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-white font-bold text-xs uppercase tracking-wider">Growth Engine</span>
-                            <span class="text-[9px] font-bold uppercase tracking-widest bg-emerald-900/40 text-emerald-400 border border-emerald-700/30 px-1.5 py-0.5 rounded-full">Beta</span>
                             <span id="badge_GE" class="hidden owned-badge">ACTIVE</span>
                         </div>
-                        <p class="text-[10px] text-slate-500">AI content · engagement automation · relationship intelligence · revenue attribution</p>
+                        <p class="text-[10px] text-slate-400">Strategy · engagement attribution · growth analytics · revenue optimization</p>
+                        <p class="text-[10px] text-emerald-600 mt-1">Pairs with AI Social Content Engine + Engagement Bot for complete social automation</p>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <span class="text-[10px] text-emerald-400 font-bold whitespace-nowrap">+$660/mo</span>
@@ -233,6 +274,7 @@
                 </div>
             </div>
 
+            <p class="text-center text-slate-600 text-xs mb-6">Modular infrastructure — activate only what your team needs</p>
             <button id="deployBtn" class="w-full py-5 rounded-xl text-white font-black uppercase tracking-widest gilroy shadow-xl transition-all duration-300 btn-dopamine disabled:opacity-50 disabled:cursor-not-allowed">Generate Invoice</button>
         </div>
     </div>
@@ -245,17 +287,7 @@
         let owned = { services: new Set(), addons: new Set() };
         let intentInFlight = false;
         let globalSupabase = null;
-        let billingCycle = 'monthly'; // 'monthly' | 'yearly'
-
-        function setBillingCycle(cycle) {
-            billingCycle = cycle;
-            const isYearly = cycle === 'yearly';
-            document.getElementById('btnMonthly').className = `px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition ${!isYearly ? 'bg-[#00D1FF] text-slate-950' : 'bg-slate-800 text-slate-400'}`;
-            document.getElementById('btnYearly').className = `px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition ${isYearly ? 'bg-[#00D1FF] text-slate-950' : 'bg-slate-800 text-slate-400'}`;
-            document.getElementById('yearlyNote').classList.toggle('hidden', !isYearly);
-            document.getElementById('billingLabel').innerText = isYearly ? '/mo, billed yearly' : '/mo (upgrade)';
-            updateButtonState();
-        }
+        let billingCycle = 'monthly';
 
         // --- DOM REFS ---
         const toggles = {
@@ -263,6 +295,7 @@
             A: document.getElementById('toggleA'), L: document.getElementById('toggleL'),
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
             Priority: document.getElementById('togglePriority'),
+            Chatbot: document.getElementById('toggleChatbot'), Install: document.getElementById('toggleInstall'),
             SCE: document.getElementById('toggleSCE'), EB: document.getElementById('toggleEB'),
             GE: document.getElementById('toggleGE')
         };
@@ -271,6 +304,7 @@
             A: document.getElementById('card_A'), L: document.getElementById('card_L'),
             Intake: document.getElementById('card_Intake'), SafeVoice: document.getElementById('card_SafeVoice'),
             Priority: document.getElementById('card_Priority'),
+            Chatbot: document.getElementById('card_Chatbot'), Install: document.getElementById('card_Install'),
             SCE: document.getElementById('card_SCE'), EB: document.getElementById('card_EB'),
             GE: document.getElementById('card_GE')
         };
@@ -279,17 +313,33 @@
             A: document.getElementById('badge_A'), L: document.getElementById('badge_L'),
             Intake: document.getElementById('badge_Intake'), SafeVoice: document.getElementById('badge_SafeVoice'),
             Priority: document.getElementById('badge_Priority'),
+            Chatbot: document.getElementById('badge_Chatbot'), Install: document.getElementById('badge_Install'),
             SCE: document.getElementById('badge_SCE'), EB: document.getElementById('badge_EB'),
             GE: document.getElementById('badge_GE')
         };
         const deployBtn = document.getElementById('deployBtn');
         const overlay = document.getElementById('deploymentOverlay');
 
+        // --- BILLING CYCLE ---
+        function setBillingCycle(cycle) {
+            billingCycle = cycle;
+            if (cycle === 'yearly') {
+                document.getElementById('btnYearly').className = "px-6 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 shadow-lg transition-all flex items-center gap-2";
+                document.getElementById('btnMonthly').className = "px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all";
+            } else {
+                document.getElementById('btnMonthly').className = "px-6 py-2 rounded-lg text-sm font-bold text-white bg-slate-700 transition-all duration-300 shadow-lg";
+                document.getElementById('btnYearly').className = "px-6 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all duration-300 flex items-center gap-2";
+            }
+            updateButtonState();
+        }
+
+        document.getElementById('btnMonthly').addEventListener('click', () => setBillingCycle('monthly'));
+        document.getElementById('btnYearly').addEventListener('click', () => setBillingCycle('yearly'));
+
         // --- 1. BOOTSTRAP VIA AUTH.JS ---
         window.addEventListener('load', () => {
-            // Require Auth will handle redirect & loading state
             requireAuth({
-                requireProfile: true, // We need org_id from profile (or metadata)
+                requireProfile: true,
                 requireOnboarding: true,
                 onAuthenticated: async (profile, user, sb) => {
                     globalSupabase = sb;
@@ -309,48 +359,38 @@
                 setTimeout(() => document.getElementById('card_GE')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
             }
 
-            // Interaction Listeners
+            // Interaction listeners
             Object.values(toggles).forEach(el => {
                 if (el && !el.disabled) el.addEventListener('change', updateButtonState);
             });
             document.querySelectorAll('.sce-plan, .eb-plan').forEach(r => r.addEventListener('change', updateButtonState));
+            document.querySelectorAll('.chan-box').forEach(b => b.addEventListener('change', updateButtonState));
             deployBtn.addEventListener('click', generateIntent);
             updateButtonState();
         }
 
-        // --- 2. FETCH TRUTH (VIA RPC) ---
+        // --- 2. FETCH OWNED ENTITLEMENTS ---
         async function fetchOwnedEntitlements() {
             try {
                 const { data, error } = await globalSupabase.rpc('get_active_entitlements');
-                
                 if (error) throw error;
 
                 const map = {
-                    'sentinel': 'S',
-                    'brain': 'B',
-                    'architect': 'A',
-                    'voice': 'L',
-                    'intake': 'Intake',
-                    'safe_voice': 'SafeVoice',
-                    'priority': 'Priority',
-                    'sce': 'SCE',
-                    'eb': 'EB',
-                    'growth_engine': 'GE'
+                    'sentinel': 'S', 'brain': 'B', 'architect': 'A', 'voice': 'L',
+                    'intake': 'Intake', 'safe_voice': 'SafeVoice', 'priority': 'Priority',
+                    'chatbot': 'Chatbot',
+                    'sce': 'SCE', 'eb': 'EB', 'growth_engine': 'GE'
                 };
 
-                // data.keys is the flat array of owned service_keys
                 (data?.keys || []).forEach(key => {
                     const uiKey = map[key];
-                    if (!uiKey) return; // Ignore unknown keys
-
-                    // Categorize based on UI Key
+                    if (!uiKey) return;
                     if (['S', 'B', 'A', 'L'].includes(uiKey)) {
                         owned.services.add(uiKey);
                     } else {
                         owned.addons.add(uiKey);
                     }
                 });
-
             } catch (e) {
                 console.error("Entitlement sync failed:", e);
                 alert("Could not verify your current plan. Please refresh.");
@@ -371,34 +411,18 @@
             });
         }
 
+        // --- 4. PRICE CALCULATOR ---
         function calculate() {
             const S = toggles.S?.checked || false;
             const B = toggles.B?.checked || false;
             const A = toggles.A?.checked || false;
             const L = toggles.L?.checked || false;
 
-            // B and A require a base (S or L). If neither is active, S ($49) is implied.
-            const hasBase = S || L;
-            const effS = S || (!hasBase && (B || A));
+            // Show channel menu when Sentinel is toggled on
+            document.getElementById('channelMenu')?.classList.toggle('hidden', !S);
+            const liveChannels = S ? document.querySelectorAll('.chan-box:checked').length : 0;
 
-            let base = 0;
-            if (L) {
-                if (effS && B && A) base = 349;
-                else if (effS && B)  base = 299;
-                else if (effS && A)  base = 249;
-                else if (B && A)  base = 299;
-                else if (effS)       base = 199;
-                else if (B)       base = 249;
-                else if (A)       base = 199;
-                else              base = 149;
-            } else if (effS) {
-                if (B && A) base = 249;
-                else if (B) base = 199;
-                else if (A) base = 149;
-                else        base = 49;
-            }
-
-            // SCE/EB plan menus — show only when toggled on AND not locked (owned)
+            // SCE/EB plan menus — show only when toggled on and not locked
             const sceOn = toggles.SCE?.checked && !toggles.SCE?.disabled;
             const ebOn  = toggles.EB?.checked  && !toggles.EB?.disabled;
             document.getElementById('scePlanMenu')?.classList.toggle('hidden', !sceOn);
@@ -407,39 +431,72 @@
             const sceSelected = document.querySelector('.sce-plan:checked');
             const ebSelected  = document.querySelector('.eb-plan:checked');
 
+            // B and A require a base (S or L). If neither active, S ($49) is implied.
+            const hasBase = S || L;
+            const effS = S || (!hasBase && (B || A));
+
+            let base = 0;
+            if (L) {
+                if (effS && B && A) base = 349;
+                else if (effS && B)  base = 299;
+                else if (effS && A)  base = 249;
+                else if (B && A)     base = 299;
+                else if (effS)       base = 199;
+                else if (B)          base = 249;
+                else if (A)          base = 199;
+                else                 base = 149;
+            } else if (effS) {
+                if (B && A) base = 249;
+                else if (B) base = 199;
+                else if (A) base = 149;
+                else        base = 49 + Math.max(0, (liveChannels - 1) * 10);
+            }
+
             let premium = 0;
             if (toggles.Intake?.checked)    premium += 149;
             if (toggles.SafeVoice?.checked) premium += 199;
             if (toggles.Priority?.checked)  premium += 99;
+            if (toggles.Chatbot?.checked)   premium += 149;
             if (sceOn && sceSelected)       premium += parseInt(sceSelected.value);
             if (ebOn  && ebSelected)        premium += parseInt(ebSelected.value);
             if (toggles.GE?.checked)        premium += 660;
 
-            const rawTotal = base + premium;
+            // Install is one-time, never discounted
+            const oneTime = toggles.Install?.checked ? 99 : 0;
+            const rawRecurring = base + premium;
             const isYearly = billingCycle === 'yearly';
-            const total = isYearly ? Math.round(rawTotal * 0.88) : rawTotal;
-            // Show base-implied notice when user picked B/A without explicitly selecting a base
-            const baseImplied = !hasBase && (B || A);
-            const hint = document.getElementById('baseImpliedHint');
-            if (hint) hint.classList.toggle('hidden', !baseImplied);
-            // Show exact dollar savings on yearly
-            const savingsEl = document.getElementById('yearlySavings');
-            if (savingsEl && rawTotal > 0) savingsEl.innerText = `$${rawTotal - total}`;
-            document.getElementById('priceDisplay').innerText = total > 0 ? total : '--';
+            const recurringDisplay = isYearly ? Math.round(rawRecurring * 0.88) : rawRecurring;
+
+            document.getElementById('priceDisplay').innerText = recurringDisplay > 0 ? recurringDisplay : '--';
+
+            const subtext = document.getElementById('billingSubtext');
+            if (rawRecurring === 0 && oneTime === 0) {
+                subtext.innerText = 'Select modules to upgrade';
+                subtext.className = "text-center text-slate-400 text-sm font-medium mb-10 h-6";
+            } else if (isYearly) {
+                const totalYearly = Math.round(rawRecurring * 12 * 0.88) + oneTime;
+                subtext.innerText = `Billed as $${totalYearly} yearly` + (oneTime > 0 ? ' (includes setup)' : '');
+                subtext.className = "text-center text-[#39FF14] text-sm font-medium mb-10 h-6";
+            } else {
+                const firstBill = rawRecurring + oneTime;
+                subtext.innerText = oneTime > 0 ? `First bill: $${firstBill} (includes setup)` : 'Billed monthly';
+                subtext.className = "text-center text-slate-400 text-sm font-medium mb-10 h-6";
+            }
         }
 
         function updateButtonState() {
             calculate();
-            const hasNew = Object.values(toggles).some(el => el && el.checked && !el.disabled);
+            const hasNewModule = Object.values(toggles).some(el => el && el.checked && !el.disabled);
+            const hasNewChannel = document.querySelectorAll('.chan-box:checked').length > 0;
+            const hasNew = hasNewModule || hasNewChannel;
             deployBtn.disabled = !hasNew;
             deployBtn.innerText = hasNew ? "Generate Invoice" : "No Changes Selected";
         }
 
-        // --- 4. GENERATE INTENT (SECURE RPC) ---
+        // --- 5. GENERATE INTENT ---
         async function generateIntent() {
             if (intentInFlight) return;
-            
-            // Build Payload
+
             const sceNew = toggles.SCE?.checked && !owned.addons.has('SCE');
             const ebNew  = toggles.EB?.checked  && !owned.addons.has('EB');
             const sceSelected = document.querySelector('.sce-plan:checked');
@@ -447,37 +504,42 @@
 
             const payload = {
                 services: {
-                    sentinel: toggles.S?.checked && !owned.services.has('S'),
-                    brain: toggles.B?.checked && !owned.services.has('B'),
-                    architect: toggles.A?.checked && !owned.services.has('A'),
-                    voice: toggles.L?.checked && !owned.services.has('L')
+                    sentinel:  toggles.S?.checked    && !owned.services.has('S'),
+                    brain:     toggles.B?.checked    && !owned.services.has('B'),
+                    architect: toggles.A?.checked    && !owned.services.has('A'),
+                    voice:     toggles.L?.checked    && !owned.services.has('L')
                 },
                 addons: {
-                    intake: toggles.Intake?.checked && !owned.addons.has('Intake'),
-                    safe_voice: toggles.SafeVoice?.checked && !owned.addons.has('SafeVoice'),
-                    priority: toggles.Priority?.checked && !owned.addons.has('Priority'),
-                    sce: sceNew,
-                    sce_plan: sceNew && sceSelected ? sceSelected.value : null,
-                    eb: ebNew,
-                    eb_plan: ebNew && ebSelected ? ebSelected.value : null,
+                    intake:       toggles.Intake?.checked    && !owned.addons.has('Intake'),
+                    safe_voice:   toggles.SafeVoice?.checked && !owned.addons.has('SafeVoice'),
+                    priority:     toggles.Priority?.checked  && !owned.addons.has('Priority'),
+                    chatbot:      toggles.Chatbot?.checked   && !owned.addons.has('Chatbot'),
+                    installation: toggles.Install?.checked   && !owned.addons.has('Install'),
+                    sce:          sceNew,
+                    sce_plan:     sceNew && sceSelected ? sceSelected.value : null,
+                    eb:           ebNew,
+                    eb_plan:      ebNew && ebSelected ? ebSelected.value : null,
                     growth_engine: toggles.GE?.checked && !owned.addons.has('GE')
                 },
-                channels: {}
+                channels: {
+                    sms:      document.querySelector('.chan-box[data-id="sms"]')?.checked      || false,
+                    whatsapp: document.querySelector('.chan-box[data-id="whatsapp"]')?.checked || false,
+                    fb:       document.querySelector('.chan-box[data-id="fb"]')?.checked       || false
+                }
             };
 
-            const hasSelection = Object.values(payload.services).some(Boolean) || 
-                               Object.values(payload.addons).some(Boolean);
+            const hasSelection =
+                Object.values(payload.services).some(Boolean) ||
+                Object.values(payload.addons).some(Boolean) ||
+                Object.values(payload.channels).some(Boolean);
 
             if (!hasSelection) return;
 
-            // Start Transaction
             intentInFlight = true;
             deployBtn.innerText = "Processing...";
             deployBtn.disabled = true;
             overlay.style.display = 'flex';
             document.getElementById('animNode').classList.add('lock-impact');
-
-            // Prevent Refresh
             window.onbeforeunload = () => "Processing billing transaction...";
 
             try {
@@ -489,7 +551,6 @@
 
                 if (error) throw error;
 
-                // Success Redirect
                 window.onbeforeunload = null;
                 window.location.href = `payment.html?intent_id=${data.intent_id}`;
 

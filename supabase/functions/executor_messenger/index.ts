@@ -274,6 +274,32 @@ serve(async (req) => {
   const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "messenger");
   if (!rlGate.allow) return rlGate.response;
 
+  // 3.6) DNC / terminal lead guard — application-layer second check on top of SQL-level gate.
+  // Fail-closed: if the RPC itself errors, abort execution rather than risk a DNC send.
+  const { data: msgTerm, error: msgTermErr } = await supabase.rpc("is_lead_terminal", {
+    p_org_id: task.org_id,
+    p_lead_id: task.lead_id,
+  });
+  if (msgTermErr) {
+    console.error(JSON.stringify({ event: "messenger_terminal_check_failed", task_id, lead_id: task.lead_id, error: msgTermErr.message }));
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `TERMINAL_CHECK_FAILED: ${msgTermErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Terminal check failed", { status: 500 });
+  }
+  if (msgTerm?.[0]?.is_terminal) {
+    console.warn(JSON.stringify({ event: "messenger_lead_terminal_skip", task_id, lead_id: task.lead_id, reason: msgTerm[0].reason }));
+    await supabase.from("execution_tasks").update({
+      status: "skipped_terminal",
+      last_error: msgTerm[0].reason,
+      executed_at: new Date().toISOString(),
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Lead terminal, task skipped", { status: 200 });
+  }
+
   // 4) Resolve Messenger page token (BEFORE token consumption — fail_task aborts cleanly)
   const senderRes = await resolveMessengerSender(supabase, task.org_id, task_id);
 
@@ -428,6 +454,29 @@ serve(async (req) => {
   if (daInsertErr?.code === "23505") {
     console.log(`[executor_messenger] Duplicate invocation for task ${task_id} attempt ${attemptNumber} — idempotent skip`);
     return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
+  }
+
+  // Non-23505 insert error — treat delivery_attempt as mandatory precondition.
+  // Do NOT call provider without an idempotency record. Refund and abort.
+  if (daInsertErr) {
+    console.error(JSON.stringify({
+      event: "messenger_delivery_attempt_insert_failed",
+      task_id,
+      error_code: daInsertErr.code,
+      error_message: daInsertErr.message,
+    }));
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "messenger_msg", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:da_insert_failed`,
+      p_metadata: { phase: "refund", reason: "delivery_attempt_insert_failed", task_id },
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `DELIVERY_ATTEMPT_INSERT_FAILED:${daInsertErr.code}:${daInsertErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id).in("status", ["running", "pending"]);
+    return new Response("Delivery attempt insert failed", { status: 500 });
   }
 
   const deliveryAttemptId = deliveryAttempt?.id;
@@ -594,15 +643,7 @@ serve(async (req) => {
   // ── 10) Success ───────────────────────────────────────────────────────────────
   const messageId = graphJson?.message_id ?? null;
 
-  await supabase.from("execution_tasks").update({
-    status: "succeeded",
-    executed_at: new Date().toISOString(),
-    provider: "facebook",
-    provider_id: messageId,
-    locked_by: null,
-    locked_until: null,
-  }).eq("id", task_id);
-
+  // Update delivery_attempt to 'sent' BEFORE marking task succeeded — order matters.
   if (deliveryAttemptId) {
     await supabase.from("delivery_attempts").update({
       status: "sent",
@@ -610,6 +651,45 @@ serve(async (req) => {
       sent_at: new Date().toISOString(),
       metadata: { psid, page_id: PAGE_ID, messaging_type: messengerType },
     }).eq("id", deliveryAttemptId);
+  }
+
+  // Delivery status pre-check — do not mark succeeded unless delivery_attempt is actually 'sent'.
+  if (deliveryAttemptId) {
+    const { data: daCheck } = await supabase
+      .from("delivery_attempts")
+      .select("status")
+      .eq("id", deliveryAttemptId)
+      .maybeSingle();
+
+    if (daCheck?.status !== "sent") {
+      console.error(JSON.stringify({
+        event: "messenger_task_success_blocked_delivery_not_sent",
+        task_id,
+        delivery_attempt_id: deliveryAttemptId,
+        delivery_attempt_status: daCheck?.status ?? "unknown",
+        fb_message_id: messageId,
+      }));
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: `DELIVERY_STATUS_MISMATCH:expected_sent_got_${daCheck?.status ?? "unknown"}`,
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id).in("status", ["running", "pending"]);
+      return new Response("Delivery status mismatch", { status: 500 });
+    }
+  }
+
+  const { data: messengerFinalizedTask } = await supabase.from("execution_tasks").update({
+    status: "succeeded",
+    executed_at: new Date().toISOString(),
+    provider: "facebook",
+    provider_id: messageId,
+    locked_by: null,
+    locked_until: null,
+  }).eq("id", task_id).in("status", ["running", "pending"]).select("id").maybeSingle();
+
+  if (!messengerFinalizedTask) {
+    console.warn(JSON.stringify({ event: "messenger_task_finalize_noop", task_id, note: "task not in running/pending — already handled elsewhere" }));
   }
 
   // Log outbound interaction so AI has conversation history on next inbound

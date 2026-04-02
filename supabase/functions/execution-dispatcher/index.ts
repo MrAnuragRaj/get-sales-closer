@@ -6,8 +6,10 @@ import { enforceOrgCancellationForDispatcher, enforcePlatformKillSwitchForDispat
 const DEFAULT_LIMIT = 25;
 const DEFAULT_LEASE_SECONDS = 90;
 
-// Hard timeout so a stuck executor doesn't hold the dispatcher open forever
-const EXECUTOR_TIMEOUT_MS = 15000;
+// Hard timeout so a stuck executor doesn't hold the dispatcher open forever.
+// 25 s gives voice executor (history fetch + VAPI call) enough headroom while
+// staying safely inside the Supabase Edge Function 60 s wall-clock limit.
+const EXECUTOR_TIMEOUT_MS = 25000;
 
 function getBaseUrl() {
   return (Deno.env.get("GSC_SUPABASE_URL") ?? Deno.env.get("SUPABASE_URL"))!;
@@ -209,6 +211,62 @@ async function applyPolicyToTask(args: {
 
   // Success is terminal and should not go through retry policy (unless you want post-success transitions).
   if (executor_status === "succeeded") {
+    // Verify delivery actually happened for THIS attempt before marking succeeded.
+    // We scope by attempt_number so a historical sent row from a previous attempt
+    // cannot mask a silent no-op on the current one.
+    //
+    // The executor is the authoritative writer of delivery_attempt.status='sent'.
+    // A generic 2xx without a confirmed send for the current attempt must not be
+    // counted as success — doing so would permanently close the task without a
+    // real message being delivered on this attempt.
+    const currentAttempt = Number(task.attempt ?? 1);
+    const { data: sentRow } = await supabase
+      .from("delivery_attempts")
+      .select("id")
+      .eq("task_id", taskId)
+      .eq("attempt_number", currentAttempt)
+      .eq("status", "sent")
+      .limit(1)
+      .maybeSingle();
+
+    if (!sentRow) {
+      // No confirmed send for this attempt. Two possibilities:
+      //   A) Executor already wrote a terminal status (skipped_terminal, failed, etc.)
+      //      → our guarded update (.eq("status","running")) will no-op — safe.
+      //   B) Task is still running (executor returned 2xx but wrote nothing)
+      //      → must not leave it leased/running forever; push back to pending with backoff.
+      //
+      // We attempt a guarded push-to-pending. If task is no longer 'running', the update
+      // no-ops and the executor-written status stands.
+      const backoffAt = new Date(Date.now() + 30 * 1000).toISOString();
+      const { data: resolvedRow } = await supabase
+        .from("execution_tasks")
+        .update({
+          status: "pending",
+          scheduled_for: backoffAt,
+          last_error: `DISPATCHER_NO_SENT_ROW_ATTEMPT_${currentAttempt}`,
+          locked_by: null,
+          locked_until: null,
+        })
+        .eq("id", taskId)
+        .eq("locked_by", workerId)
+        .eq("status", "running")
+        .select("id,status")
+        .maybeSingle();
+
+      const wasStillRunning = !!resolvedRow;
+      console.warn(JSON.stringify({
+        event: "dispatcher_succeeded_no_sent_delivery",
+        task_id: taskId,
+        channel: task.channel,
+        attempt_number: currentAttempt,
+        was_still_running: wasStillRunning,
+        action: wasStillRunning ? "pushed_back_to_pending_30s" : "executor_status_preserved",
+      }));
+
+      return { ok: true, applied: wasStillRunning ? "pending_backoff" : "executor_status_preserved", update: resolvedRow ?? null, error: null };
+    }
+
     const { error: updErr, data: updData } = await supabase
       .from("execution_tasks")
       .update({
@@ -501,6 +559,48 @@ serve(async (req) => {
       execJson = null;
     } finally {
       clearTimeout(timeout);
+    }
+
+    // Timeout race guard: when the executor times out (599), check delivery_attempts
+    // to determine the true outcome before applying the failure policy.
+    //
+    //   delivery_attempts.status = 'sent'   → executor sent AFTER our abort; treat as succeeded
+    //   delivery_attempts.status = 'failed' → executor confirmed failure; retry via policy
+    //   no row / status = 'pending'          → executor never reached the send; retry via policy
+    //
+    // This prevents re-queuing a task whose message was already delivered.
+    if (execHttpStatus === 599) {
+      const { data: deliveryAttemptRow } = await supabase
+        .from("delivery_attempts")
+        .select("id, status")
+        .eq("task_id", taskId)
+        .in("status", ["sent", "failed"])
+        .order("attempt_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (deliveryAttemptRow?.status === "sent") {
+        console.warn(JSON.stringify({
+          event: "dispatcher_timeout_but_delivery_sent",
+          task_id: taskId,
+          channel,
+          delivery_attempt_id: deliveryAttemptRow.id,
+          action: "treating_as_succeeded",
+        }));
+        execOk = true;
+        execHttpStatus = 200;
+        execText = "DELIVERY_CONFIRMED_VIA_DELIVERY_ATTEMPTS";
+        execJson = { success: true, status: "succeeded" };
+      } else if (deliveryAttemptRow?.status === "failed") {
+        // Executor confirmed failure — leave execOk = false so policy applies retry/dead-letter
+        console.warn(JSON.stringify({
+          event: "dispatcher_timeout_delivery_confirmed_failed",
+          task_id: taskId,
+          channel,
+          delivery_attempt_id: deliveryAttemptRow.id,
+          action: "applying_failure_policy",
+        }));
+      }
     }
 
     const normalized = normalizeExecutorStatus({

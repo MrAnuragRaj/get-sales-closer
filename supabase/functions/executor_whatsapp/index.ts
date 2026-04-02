@@ -214,6 +214,32 @@ serve(async (req) => {
   const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "whatsapp");
   if (!rlGate.allow) return rlGate.response;
 
+  // 3.6) DNC / terminal lead guard — application-layer second check on top of SQL-level gate.
+  // Fail-closed: if the RPC itself errors, abort execution rather than risk a DNC send.
+  const { data: waTerm, error: waTermErr } = await supabase.rpc("is_lead_terminal", {
+    p_org_id: task.org_id,
+    p_lead_id: task.lead_id,
+  });
+  if (waTermErr) {
+    console.error(JSON.stringify({ event: "whatsapp_terminal_check_failed", task_id, lead_id: task.lead_id, error: waTermErr.message }));
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `TERMINAL_CHECK_FAILED: ${waTermErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Terminal check failed", { status: 500 });
+  }
+  if (waTerm?.[0]?.is_terminal) {
+    console.warn(JSON.stringify({ event: "whatsapp_lead_terminal_skip", task_id, lead_id: task.lead_id, reason: waTerm[0].reason }));
+    await supabase.from("execution_tasks").update({
+      status: "skipped_terminal",
+      last_error: waTerm[0].reason,
+      executed_at: new Date().toISOString(),
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Lead terminal, task skipped", { status: 200 });
+  }
+
   // 4) Resolve WhatsApp sender with explicit fallback policy (BEFORE token consumption)
   const senderRes = await resolveWaSender(supabase, task.org_id, task_id);
 
@@ -364,6 +390,29 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
   }
 
+  // Non-23505 insert error — treat delivery_attempt as mandatory precondition.
+  // Do NOT call provider without an idempotency record. Refund and abort.
+  if (daInsertErr) {
+    console.error(JSON.stringify({
+      event: "whatsapp_delivery_attempt_insert_failed",
+      task_id,
+      error_code: daInsertErr.code,
+      error_message: daInsertErr.message,
+    }));
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "wa_msg", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:da_insert_failed`,
+      p_metadata: { phase: "refund", reason: "delivery_attempt_insert_failed", task_id },
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `DELIVERY_ATTEMPT_INSERT_FAILED:${daInsertErr.code}:${daInsertErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id).in("status", ["running", "pending"]);
+    return new Response("Delivery attempt insert failed", { status: 500 });
+  }
+
   const deliveryAttemptId = deliveryAttempt?.id;
 
   // 8) Twilio WhatsApp send
@@ -410,10 +459,12 @@ serve(async (req) => {
     // Refund token on failure
     await supabase.rpc("grant_tokens_core_v1", {
       p_org_id: task.org_id,
+      p_scope: "user",
+      p_user_id: task.actor_user_id,
       p_token_key: "wa_msg",
       p_amount: 1,
-      p_idempotency_key: `refund:${task_id}`,
-      p_reason: "executor_whatsapp_network_error",
+      p_idempotency_key: `refund:${task_id}:network_error`,
+      p_metadata: { phase: "refund", reason: "executor_whatsapp_network_error", task_id },
     });
 
     await supabase.from("execution_tasks").update({
@@ -445,10 +496,12 @@ serve(async (req) => {
     // Refund token on provider failure
     await supabase.rpc("grant_tokens_core_v1", {
       p_org_id: task.org_id,
+      p_scope: "user",
+      p_user_id: task.actor_user_id,
       p_token_key: "wa_msg",
       p_amount: 1,
-      p_idempotency_key: `refund:${task_id}`,
-      p_reason: "executor_whatsapp_provider_error",
+      p_idempotency_key: `refund:${task_id}:provider_error`,
+      p_metadata: { phase: "refund", reason: "executor_whatsapp_provider_error", task_id },
     });
 
     await supabase.from("execution_tasks").update({
@@ -472,15 +525,45 @@ serve(async (req) => {
     }).eq("id", deliveryAttemptId);
   }
 
-  // 10) Finalize task
-  await supabase.from("execution_tasks").update({
+  // Delivery status pre-check — do not mark succeeded unless delivery_attempt is actually 'sent'.
+  if (deliveryAttemptId) {
+    const { data: daCheck } = await supabase
+      .from("delivery_attempts")
+      .select("status")
+      .eq("id", deliveryAttemptId)
+      .maybeSingle();
+
+    if (daCheck?.status !== "sent") {
+      console.error(JSON.stringify({
+        event: "whatsapp_task_success_blocked_delivery_not_sent",
+        task_id,
+        delivery_attempt_id: deliveryAttemptId,
+        delivery_attempt_status: daCheck?.status ?? "unknown",
+        twilio_sid: providerMessageId,
+      }));
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: `DELIVERY_STATUS_MISMATCH:expected_sent_got_${daCheck?.status ?? "unknown"}`,
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id).in("status", ["running", "pending"]);
+      return new Response("Delivery status mismatch", { status: 500 });
+    }
+  }
+
+  // 10) Finalize task — guarded so a stale no-op cannot mark a non-running task succeeded
+  const { data: waFinalizedTask } = await supabase.from("execution_tasks").update({
     status: "succeeded",
     executed_at: new Date().toISOString(),
     provider: "twilio_wa",
     provider_id: providerMessageId,
     locked_by: null,
     locked_until: null,
-  }).eq("id", task_id);
+  }).eq("id", task_id).in("status", ["running", "pending"]).select("id").maybeSingle();
+
+  if (!waFinalizedTask) {
+    console.warn(JSON.stringify({ event: "whatsapp_task_finalize_noop", task_id, note: "task not in running/pending — already handled elsewhere" }));
+  }
 
   // Log outbound interaction so AI has conversation history on next inbound
   await supabase.from("interactions").insert({

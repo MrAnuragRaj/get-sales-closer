@@ -350,6 +350,29 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
   }
 
+  // Non-23505 insert error — treat delivery_attempt as mandatory precondition.
+  // Do NOT call provider without an idempotency record. Refund and abort.
+  if (vdaInsertErr) {
+    console.error(JSON.stringify({
+      event: "voice_delivery_attempt_insert_failed",
+      task_id,
+      error_code: vdaInsertErr.code,
+      error_message: vdaInsertErr.message,
+    }));
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: TOKEN_KEY, p_amount: VOICE_INIT_TOKENS,
+      p_idempotency_key: `refund:${task_id}:da_insert_failed`,
+      p_metadata: { phase: "refund", reason: "delivery_attempt_insert_failed", task_id },
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `DELIVERY_ATTEMPT_INSERT_FAILED:${vdaInsertErr.code}:${vdaInsertErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id).in("status", ["running", "pending"]);
+    return new Response("Delivery attempt insert failed", { status: 500 });
+  }
+
   const voiceDeliveryAttemptId = voiceDeliveryAttempt?.id;
 
   // 8) Vapi call start
@@ -487,6 +510,16 @@ serve(async (req) => {
   }
 
   if (!callId) {
+    // VAPI returned 200 but no call ID — mark delivery_attempt as failed so
+    // delivery_attempts stays consistent with the task failure below.
+    if (voiceDeliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({
+        status: "failed",
+        error_code: "VAPI_NO_CALL_ID",
+        error_message: "VAPI response did not include a call ID",
+      }).eq("id", voiceDeliveryAttemptId);
+    }
+
     const refundIdem = `${task_id}:voice:init_refund_no_call_id`;
     await supabase.rpc("grant_tokens_core_v1", {
       p_org_id: task.org_id,
@@ -531,32 +564,71 @@ serve(async (req) => {
     .maybeSingle();
 
   if (linkErr || !linked) {
-    const refundIdem = `${task_id}:voice:init_refund_link_failed`;
-    await supabase.rpc("grant_tokens_core_v1", {
-      p_org_id: task.org_id,
-      p_scope: "user",
-      p_user_id: task.actor_user_id,
-      p_token_key: TOKEN_KEY,
-      p_amount: VOICE_INIT_TOKENS,
-      p_idempotency_key: refundIdem,
-      p_intent_id: null,
-      p_provider: "vapi",
-      p_provider_payment_id: callId,
-      p_metadata: {
-        phase: "init_refund",
-        reason: "link_failed",
+    // The VAPI call was successfully initiated (delivery_attempt='sent') but we could not
+    // persist provider_id on the task row. The call IS real — do NOT refund and do NOT fail.
+    //
+    // Refunding here would mean a real call was made but the user wasn't charged —
+    // then a retry would make a second real call (duplicate call + second charge).
+    //
+    // Correct action: mark task succeeded with link_failed flag in metadata so ops can
+    // reconcile via VAPI dashboard. The token debit stands.
+    console.error(JSON.stringify({
+      severity: "partial_success",
+      event: "voice_call_initiated_but_link_failed",
+      alert_for_ops: true,
+      task_id,
+      call_id: callId,
+      delivery_attempt_id: voiceDeliveryAttemptId ?? null,
+      delivery_attempt_status: "sent",
+      link_error: linkErr?.message ?? "NO_ROW_UPDATED",
+      note: "VAPI call was made but provider_id could not be persisted — marking succeeded to prevent duplicate call on retry",
+      action_required: "Check VAPI dashboard for call_id; reconcile task manually if needed",
+    }));
+
+    // Mark succeeded: call was real, token debit is correct, no retry should occur.
+    await supabase
+      .from("execution_tasks")
+      .update({
+        status: "succeeded",
+        executed_at: new Date().toISOString(),
+        provider: "vapi",
+        last_error: `VOICE_LINK_FAILED_BUT_CALL_REAL:${linkErr?.message ?? "NO_ROW_UPDATED"}`,
+        metadata: {
+          ...(task.metadata ?? {}),
+          voice: {
+            ...((task.metadata ?? {}).voice ?? {}),
+            call_id: callId,
+            provider: "vapi",
+            link_failed: true,
+            link_error: linkErr?.message ?? "NO_ROW_UPDATED",
+          },
+        },
+        locked_by: null,
+        locked_until: null,
+      })
+      .eq("id", task_id)
+      .in("status", ["running", "pending"]);
+
+    // Cancel pending voice retries for the same plan — the call was real, no retry should fire.
+    // Awaited (not best-effort): we need to confirm cancellation ran. If it errors, we log and
+    // still return 200 (task is already terminal), but the error is surfaced for ops visibility.
+    const { error: cancelErr } = await supabase.rpc("cancel_pending_retries_channel", {
+      p_plan_id: task.plan_id,
+      p_channel: "voice",
+      p_exclude_task_id: task_id,
+      p_reason: "VOICE_CALL_REAL_CANCEL_RETRIES_LINK_FAILED",
+    });
+    if (cancelErr) {
+      console.error(JSON.stringify({
+        event: "voice_link_failed_cancel_retries_error",
         task_id,
         call_id: callId,
-        link_error: linkErr?.message ?? "NO_ROW_UPDATED",
-      },
-    });
+        error: cancelErr.message,
+        note: "Task already marked succeeded — call was real — but retry cancellation RPC failed. Ops must verify no duplicate call tasks are pending.",
+      }));
+    }
 
-    await failTask(supabase, task_id, {
-      last_error: `VOICE_TASK_LINK_CALL_FAILED: ${linkErr?.message ?? "NO_ROW_UPDATED"}`,
-      provider: "vapi",
-    });
-
-    return new Response("Failed to link call to task", { status: 500 });
+    return new Response("Call initiated but link failed — marked succeeded to prevent duplicate", { status: 200 });
   }
 
   // 10) Upsert voice_calls row (best-effort)
@@ -591,8 +663,11 @@ serve(async (req) => {
       .eq("id", task_id);
   }
 
-  // 11) Mark succeeded (call initiated)
-  await supabase
+  // 11) Mark succeeded (call initiated).
+  // Guard: only update if still in running or pending state — prevents stomping on a task
+  // that the dispatcher timed out and re-queued while this executor was running.
+  // Delivery_attempt is already 'sent' so the call was made; this guard keeps task state consistent.
+  const { data: voiceFinalizedTask } = await supabase
     .from("execution_tasks")
     .update({
       status: "succeeded",
@@ -614,7 +689,19 @@ serve(async (req) => {
         },
       },
     })
-    .eq("id", task_id);
+    .eq("id", task_id)
+    .in("status", ["running", "pending"])
+    .select("id")
+    .maybeSingle();
+
+  if (!voiceFinalizedTask) {
+    console.warn(JSON.stringify({
+      event: "voice_finalize_noop_task_moved",
+      task_id,
+      call_id: callId,
+      note: "Task was moved out of running/pending by another worker before finalization — call was already made",
+    }));
+  }
 
   // 12) Cancel voice retries
   await supabase.rpc("cancel_pending_retries_channel", {

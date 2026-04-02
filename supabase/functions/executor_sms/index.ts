@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std/http/server.ts";
 import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
+import { updateConversationState } from "../_shared/conversation_state.ts";
+import type { Intent } from "../_shared/intent_rules.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -200,6 +202,32 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
   const rlGate = await enforceRateLimitForTaskExecutor(supabase, task_id, task.org_id, "sms");
   if (!rlGate.allow) return rlGate.response;
 
+  // 3.6) DNC / terminal lead guard — application-layer second check on top of SQL-level gate.
+  // Fail-closed: if the RPC itself errors, abort execution rather than risk a DNC send.
+  const { data: smsTerm, error: smsTermErr } = await supabase.rpc("is_lead_terminal", {
+    p_org_id: task.org_id,
+    p_lead_id: task.lead_id,
+  });
+  if (smsTermErr) {
+    console.error(JSON.stringify({ event: "sms_terminal_check_failed", task_id, lead_id: task.lead_id, error: smsTermErr.message }));
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `TERMINAL_CHECK_FAILED: ${smsTermErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Terminal check failed", { status: 500 });
+  }
+  if (smsTerm?.[0]?.is_terminal) {
+    console.warn(JSON.stringify({ event: "sms_lead_terminal_skip", task_id, lead_id: task.lead_id, reason: smsTerm[0].reason }));
+    await supabase.from("execution_tasks").update({
+      status: "skipped_terminal",
+      last_error: smsTerm[0].reason,
+      executed_at: new Date().toISOString(),
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Lead terminal, task skipped", { status: 200 });
+  }
+
   // 4) Resolve SMS sender (BEFORE token consumption — fail_task aborts cleanly)
   const senderRes = await resolveSmsSender(supabase, task.org_id, task_id);
 
@@ -226,6 +254,32 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     });
   }
 
+  // Validate Twilio credentials BEFORE token debit — fail_task cleanly if missing config.
+  // This prevents users being billed for sends that cannot succeed due to misconfiguration.
+  const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
+  const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
+  if (!TWILIO_SID || !TWILIO_TOKEN) {
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: "TWILIO_CREDENTIALS_MISSING",
+      locked_by: null,
+      locked_until: null,
+    }).eq("id", task_id);
+    return new Response("Twilio credentials missing", { status: 500 });
+  }
+
+  // Resolve intent early so it's available in both force_content and AI paths.
+  const effectiveIntent = task.metadata?.intent_trace ?? task.metadata?.intent ?? "ambiguous";
+
+  // Normalise to a valid Intent; unmapped values fall back to "ambiguous".
+  const VALID_INTENTS = new Set<string>([
+    "request_callback","request_meeting","request_pricing_details",
+    "clarification_business","qualification_answer","objection_soft",
+    "objection_hard","affirmative","negative","not_interested",
+    "unsubscribe","off_topic","ambiguous",
+  ]);
+  const safeIntent = (VALID_INTENTS.has(effectiveIntent) ? effectiveIntent : "ambiguous") as Intent;
+
   // 5) Generate message — skip AI if force_content is set (human takeover)
   let messageBody: string;
   if (task.metadata?.force_content) {
@@ -242,14 +296,12 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
       .limit(1)
       .maybeSingle();
 
-    const effectiveIntent = task.metadata?.intent_trace ?? task.metadata?.intent ?? "initial_outreach";
-
     const brainResult = await generateMessage(supabase, {
       task_id,
       org_id: task.org_id,
       lead: { id: task.lead_id, name: task.leads?.name },
       channel: "sms",
-      intent: effectiveIntent,
+      intent: safeIntent,
       user_query: latestInbound?.content ?? undefined,
     });
 
@@ -330,11 +382,44 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     return new Response(JSON.stringify({ success: true, skipped: true, reason: "duplicate_invocation" }), { status: 200 });
   }
 
+  // Non-23505 insert error — treat delivery_attempt as mandatory precondition.
+  // Do NOT call provider without an idempotency record. Refund and abort.
+  if (daInsertErr) {
+    console.error(JSON.stringify({
+      event: "sms_delivery_attempt_insert_failed",
+      task_id,
+      error_code: daInsertErr.code,
+      error_message: daInsertErr.message,
+    }));
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "sentinel.sms", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:da_insert_failed`,
+      p_metadata: { phase: "refund", reason: "delivery_attempt_insert_failed", task_id },
+    });
+    await supabase.from("execution_tasks").update({
+      status: "failed",
+      last_error: `DELIVERY_ATTEMPT_INSERT_FAILED:${daInsertErr.code}:${daInsertErr.message}`,
+      locked_by: null, locked_until: null,
+    }).eq("id", task_id).in("status", ["running", "pending"]);
+    return new Response("Delivery attempt insert failed", { status: 500 });
+  }
+
   const deliveryAttemptId = deliveryAttempt?.id;
 
   // 7) Twilio send
   const toPhone = task.leads?.phone ?? null;
   if (!toPhone) {
+    // Refund: no send occurred. Phone was missing at send time (guard didn't catch it earlier).
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "sentinel.sms", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:missing_phone`,
+      p_metadata: { phase: "refund", reason: "missing_lead_phone_at_send", task_id },
+    });
+    if (deliveryAttemptId) {
+      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "MISSING_LEAD_PHONE", error_message: "Lead phone number was null at send step" }).eq("id", deliveryAttemptId);
+    }
     await supabase.from("execution_tasks").update({
       status: "failed",
       last_error: "MISSING_LEAD_PHONE_AT_SEND",
@@ -342,19 +427,6 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
       locked_until: null,
     }).eq("id", task_id);
     return new Response("Missing lead phone at send step", { status: 400 });
-  }
-
-  const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
-  const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
-
-  if (!TWILIO_SID || !TWILIO_TOKEN) {
-    await supabase.from("execution_tasks").update({
-      status: "failed",
-      last_error: "TWILIO_CREDENTIALS_MISSING",
-      locked_by: null,
-      locked_until: null,
-    }).eq("id", task_id);
-    return new Response("Twilio credentials missing", { status: 500 });
   }
 
   const authHeader = `Basic ${btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)}`;
@@ -384,6 +456,13 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     console.log(`[executor_sms] Twilio response: status=${twilioRespStatus} body=${rawBody.slice(0, 300)}`);
 
     if (!twilioResp.ok) {
+      // Twilio rejected the request — no message was sent. Refund the token.
+      await supabase.rpc("grant_tokens_core_v1", {
+        p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+        p_token_key: "sentinel.sms", p_amount: 1,
+        p_idempotency_key: `refund:${task_id}:twilio_failed`,
+        p_metadata: { phase: "refund", reason: "twilio_provider_error", status: twilioRespStatus, task_id },
+      });
       if (deliveryAttemptId) {
         await supabase.from("delivery_attempts").update({ status: "failed", error_code: "TWILIO_FAILED", error_message: rawBody.slice(0, 500) }).eq("id", deliveryAttemptId);
       }
@@ -399,16 +478,39 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     try {
       twilioJson = JSON.parse(rawBody);
     } catch (parseErr) {
-      await supabase.from("delivery_attempts").update({ status: "failed", error_code: "JSON_PARSE_ERROR", error_message: rawBody.slice(0, 500) }).eq("id", deliveryAttemptId ?? "");
-      await supabase.from("execution_tasks").update({
-        status: "failed",
-        last_error: `TWILIO_JSON_PARSE_ERROR(${twilioRespStatus}): ${rawBody.slice(0, 500)}`,
-        locked_by: null,
-        locked_until: null,
-      }).eq("id", task_id);
-      return new Response("Twilio response parse failed", { status: 500 });
+      // Twilio returned HTTP 2xx — the message was accepted and sent by Twilio.
+      // We simply failed to parse the response JSON (no SID available).
+      // Correct action: treat as successful send with unknown SID.
+      //   - Do NOT refund: the token debit is correct (message was delivered).
+      //   - Do NOT fail the task: that would trigger a retry causing a duplicate send.
+      // The missing SID is an observability gap, not a billing or delivery failure.
+      console.error(JSON.stringify({
+        event: "sms_twilio_response_parse_failed_but_2xx",
+        task_id,
+        twilio_http_status: twilioRespStatus,
+        raw_body_snippet: rawBody.slice(0, 200),
+        note: "Message was sent (Twilio 2xx). SID not available due to parse error.",
+      }));
+      if (deliveryAttemptId) {
+        await supabase.from("delivery_attempts").update({
+          status: "sent",
+          provider_message_id: null,
+          sent_at: new Date().toISOString(),
+          error_message: `SID_UNAVAILABLE:JSON_PARSE_ERROR:${rawBody.slice(0, 200)}`,
+        }).eq("id", deliveryAttemptId);
+      }
+      // Fall through: twilioJson remains undefined. The finalize block below
+      // uses twilioJson.sid — guard it with nullish coalescing at finalize.
+      twilioJson = { sid: null };
     }
   } catch (networkErr) {
+    // Network error: Twilio was never reached — no message sent. Refund the token.
+    await supabase.rpc("grant_tokens_core_v1", {
+      p_org_id: task.org_id, p_scope: "user", p_user_id: task.actor_user_id,
+      p_token_key: "sentinel.sms", p_amount: 1,
+      p_idempotency_key: `refund:${task_id}:network_error`,
+      p_metadata: { phase: "refund", reason: "twilio_network_error", task_id },
+    });
     if (deliveryAttemptId) {
       await supabase.from("delivery_attempts").update({ status: "failed", error_code: "NETWORK_ERROR", error_message: String(networkErr) }).eq("id", deliveryAttemptId);
     }
@@ -428,17 +530,74 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
       provider_message_id: twilioJson.sid,
       sent_at: new Date().toISOString(),
     }).eq("id", deliveryAttemptId);
+  } else {
+    // Task 5: consistency guard — delivery_attempt should always exist here.
+    // If it's missing, log a structured error for monitoring.
+    console.error(JSON.stringify({
+      event: "sms_delivery_attempt_missing_at_finalize",
+      task_id,
+      attempt_number: attemptNumber,
+      twilio_sid: twilioJson.sid,
+    }));
   }
 
-  // 8) Finalize
-  await supabase.from("execution_tasks").update({
-    status: "succeeded",
-    executed_at: new Date().toISOString(),
-    provider: "twilio",
-    provider_id: twilioJson.sid,
-    locked_by: null,
-    locked_until: null,
-  }).eq("id", task_id);
+  // 8) Finalize.
+  //
+  // Task 5+6 completion: task status MUST derive from delivery_attempts outcome.
+  // Before marking succeeded, verify the delivery_attempt is actually 'sent'.
+  // If it's in any other state, something went wrong — fail the task instead of
+  // marking it succeeded, which would corrupt reporting.
+  if (deliveryAttemptId) {
+    const { data: daCheck } = await supabase
+      .from("delivery_attempts")
+      .select("status")
+      .eq("id", deliveryAttemptId)
+      .maybeSingle();
+
+    if (daCheck?.status !== "sent") {
+      console.error(JSON.stringify({
+        event: "sms_task_success_blocked_delivery_not_sent",
+        task_id,
+        delivery_attempt_id: deliveryAttemptId,
+        delivery_attempt_status: daCheck?.status ?? "unknown",
+        twilio_sid: twilioJson.sid,
+      }));
+      await supabase.from("execution_tasks").update({
+        status: "failed",
+        last_error: `DELIVERY_STATUS_MISMATCH:expected_sent_got_${daCheck?.status ?? "unknown"}`,
+        locked_by: null,
+        locked_until: null,
+      }).eq("id", task_id).in("status", ["running", "pending"]);
+      return new Response("Delivery status mismatch", { status: 500 });
+    }
+  }
+
+  // Guard on status IN ('running','pending') so a dispatcher that timed out and
+  // re-queued this task doesn't end up with two succeeded writes.
+  const { data: finalizedTask } = await supabase
+    .from("execution_tasks")
+    .update({
+      status: "succeeded",
+      executed_at: new Date().toISOString(),
+      provider: "twilio",
+      provider_id: twilioJson.sid,
+      locked_by: null,
+      locked_until: null,
+    })
+    .eq("id", task_id)
+    .in("status", ["running", "pending"])
+    .select("id")
+    .maybeSingle();
+
+  if (!finalizedTask) {
+    // Task was moved to a terminal state by another worker before we got here.
+    // The message was already sent — log this so it can be investigated.
+    console.warn(JSON.stringify({
+      event: "sms_finalize_noop_task_moved",
+      task_id,
+      twilio_sid: twilioJson.sid,
+    }));
+  }
 
   // Log outbound interaction so AI has conversation history on next inbound
   await supabase.from("interactions").insert({
@@ -449,6 +608,13 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     content: messageBody,
     metadata: { task_id, sid: twilioJson.sid },
   }).then(undefined, (e: any) => console.error("[executor_sms] outbound interaction log failed:", e));
+
+  // Task 7: persist conversation state so memory_json is actually populated.
+  // Best-effort — failure here must never block task completion.
+  // source="outbound": preserves stage, only writes last_outbound_intent metadata.
+  // Stage transitions must be driven by inbound customer signals only.
+  await updateConversationState(supabase, task.lead_id, task.org_id, safeIntent, "", "outbound")
+    .then(undefined, (e: any) => console.error("[executor_sms] conversation_state update failed:", e));
 
   return new Response(JSON.stringify({ success: true, sid: twilioJson.sid }), { status: 200 });
 }

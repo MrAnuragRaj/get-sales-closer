@@ -58,12 +58,17 @@ function extractFacts(text: string, currentMemory: any) {
 }
 
 // 🚀 MAIN FUNCTION: UPDATE STATE
+//
+// source: "inbound"  — customer-authored message; full logic applies (stage transitions + fact extraction)
+// source: "outbound" — system-generated send; only last_sent_intent is written, stage is preserved.
+//                      Prevents AI-generated outbound intent from advancing the funnel.
 export async function updateConversationState(
-  supabase: any, 
-  lead_id: string, 
-  org_id: string, 
-  intent: Intent, 
-  content: string
+  supabase: any,
+  lead_id: string,
+  org_id: string,
+  intent: Intent,
+  content: string,
+  source: "inbound" | "outbound" = "inbound"
 ) {
   // 1. Fetch Current State
   const { data: current } = await supabase
@@ -75,7 +80,28 @@ export async function updateConversationState(
   const oldStage = current?.stage || "outreach";
   const oldMemory = current?.memory_json || {};
 
-  // 2. Calculate New Values
+  if (source === "outbound") {
+    // Outbound: record what was sent for observability, but do not mutate stage.
+    // Stage transitions must be driven by inbound customer signals only.
+    const outboundMeta = {
+      ...oldMemory,
+      last_outbound_intent: intent,
+      last_outbound_at: new Date().toISOString(),
+    };
+    const { error } = await supabase
+      .from("conversation_state")
+      .upsert({
+        lead_id,
+        org_id,
+        stage: oldStage,
+        memory_json: outboundMeta,
+        updated_at: new Date().toISOString(),
+      });
+    if (error) console.error("State Update Failed (outbound):", error);
+    return { stage: oldStage, memory: outboundMeta };
+  }
+
+  // 2. Inbound path: full logic — stage transitions + fact extraction
   const newStage = determineNewStage(oldStage as Stage, intent);
   const newMemory = extractFacts(content, oldMemory);
 
