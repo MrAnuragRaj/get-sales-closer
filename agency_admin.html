@@ -219,6 +219,95 @@
                 <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
             </div>
         </div>
+
+        <!-- AI Social Content Engine (SCE) Gate -->
+        <div id="ag-sce-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-pen-nib text-purple-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">AI Social Content Engine</h2>
+                <span id="ag-sce-badge" class="hidden text-xs bg-purple-500/20 border border-purple-500/30 text-purple-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ag-sce-locked">
+                <p class="text-sm text-slate-400 mb-3">Auto-generate LinkedIn posts, email sequences, and social content from closed deals and lead interactions.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">AI Social Content Engine</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $199/mo — turns your pipeline data into LinkedIn & email content automatically.</p>
+                    <a href="billing.html?lock=sce" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ag-sce-active" class="hidden">
+                <p class="text-sm text-slate-400">AI Social Content Engine is active. Content automation workspace is configured for your agency.</p>
+            </div>
+        </div>
+
+        <!-- Engagement Bot (EB) Gate -->
+        <div id="ag-eb-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-robot text-violet-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Engagement Bot</h2>
+                <span id="ag-eb-badge" class="hidden text-xs bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ag-eb-locked">
+                <p class="text-sm text-slate-400 mb-3">Automated follow-up bot that re-engages cold leads, responds to social comments, and qualifies inbound interest on autopilot.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">Engagement Bot</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">Starts at $99/mo — re-engages cold leads and qualifies inbound interest automatically.</p>
+                    <a href="billing.html?lock=eb" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ag-eb-active" class="hidden">
+                <p class="text-sm text-slate-400">Engagement Bot is active. Automated re-engagement is running in the background for your agency.</p>
+            </div>
+        </div>
+
+        <!-- Interactive ChatBot Gate -->
+        <div id="ag-chatbot-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-comments text-cyan-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">Interactive ChatBot</h2>
+                <span id="ag-chatbot-badge" class="hidden text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ag-chatbot-locked">
+                <p class="text-sm text-slate-400 mb-3">Full-featured AI chat interface for your website — branded conversations, lead capture, and instant AI response.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">Interactive ChatBot</p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">$149/mo — branded AI chat widget with full lead capture, conversation history, and instant AI response.</p>
+                    <a href="billing.html?lock=chatbot" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid rgba(6,182,212,0.3)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ag-chatbot-active" class="hidden">
+                <p class="text-sm text-slate-400">Interactive ChatBot is active. Use the Deploy section above to get your embed code and Smart Link.</p>
+            </div>
+        </div>
+
+        <!-- AI Social Growth System Gate -->
+        <div id="ag-ge-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa fa-seedling text-emerald-400 text-lg"></i>
+                <h2 class="text-lg font-bold text-white">AI Social Growth System</h2>
+                <span class="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">Beta</span>
+                <span id="ag-ge-badge" class="hidden text-xs bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+            </div>
+            <div id="ag-ge-locked">
+                <p class="text-sm text-slate-400 mb-3">LinkedIn & Meta content automation, lead attribution, and growth intelligence — all powered by your pipeline data.</p>
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                    <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                    <p class="text-sm font-bold text-white mb-1">AI Social Growth System — Strategy Layer <span class="text-emerald-400">Beta</span></p>
+                    <p class="text-xs text-slate-400 mb-4 text-center px-8">$660/mo — LinkedIn & Meta content, engagement automation, and growth attribution from your pipeline.</p>
+                    <a href="billing.html?lock=growth_engine" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)">Unlock Add-on</a>
+                </div>
+            </div>
+            <div id="ag-ge-active" class="hidden">
+                <p class="text-sm text-slate-400 mb-4">Your AI Social Growth System is active. Open the Growth Dashboard to view insights and configure automation.</p>
+                <a href="growth_dashboard.html" class="flex items-center justify-center gap-2 w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold py-3 rounded-xl transition text-sm">
+                    <i class="fa fa-seedling"></i> Open Growth Dashboard
+                </a>
+            </div>
+        </div>
+
         </div>
     </div>
 
@@ -288,6 +377,7 @@
                 agLoadDeliveryStatus(_orgId, _sb);
                 agLoadInfraStatus(_orgId, _sb);
                 agLoadFbPage(_orgId, _sb);
+                agFetchEntitlements();
             }
         });
 
@@ -1014,6 +1104,34 @@
                 `Hi,\n\nPlease add our AI chat widget to the website.\n\nOption 1 — Zero-code Smart Link (recommended):\nShare this URL on any page or button:\n${link}\n\nOption 2 — Floating Chat Widget:\nPaste this code before the </body> tag on every page:\n\n${script}\n\nThank you!`
             );
             window.open(`mailto:?subject=${subject}&body=${body}`);
+        }
+
+        // ── Add-on Entitlement Gates ──────────────────────────────────────────
+        let _agOrgEntitlements = {};
+
+        async function agFetchEntitlements() {
+            if (!_orgId) return;
+            const { data } = await _sb.from('org_services').select('service_key, status').eq('org_id', _orgId);
+            _agOrgEntitlements = {};
+            if (data) data.forEach(s => { _agOrgEntitlements[s.service_key] = s.status; });
+            agRenderAddonGates();
+        }
+
+        function agRenderAddonGates() {
+            const addons = [
+                { key: 'sce',           lockedId: 'ag-sce-locked',     activeId: 'ag-sce-active',     badgeId: 'ag-sce-badge'     },
+                { key: 'eb',            lockedId: 'ag-eb-locked',      activeId: 'ag-eb-active',      badgeId: 'ag-eb-badge'      },
+                { key: 'chatbot',       lockedId: 'ag-chatbot-locked', activeId: 'ag-chatbot-active', badgeId: 'ag-chatbot-badge' },
+                { key: 'growth_engine', lockedId: 'ag-ge-locked',      activeId: 'ag-ge-active',      badgeId: 'ag-ge-badge'      },
+            ];
+            addons.forEach(({ key, lockedId, activeId, badgeId }) => {
+                const entitled = _agOrgEntitlements[key] === 'active';
+                if (entitled) {
+                    document.getElementById(lockedId)?.classList.add('hidden');
+                    document.getElementById(activeId)?.classList.remove('hidden');
+                    document.getElementById(badgeId)?.classList.remove('hidden');
+                }
+            });
         }
     </script>
 </body>
