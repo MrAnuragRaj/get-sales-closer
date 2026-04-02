@@ -341,7 +341,7 @@ All phases shipped and live at https://www.getsalescloser.com:
 
 ## What's Next (priority order)
 
-1. **Meta OAuth activation** — set `META_APP_ID` + `META_APP_SECRET` in Railway Variables; add callback URI in Meta Developer App; test Facebook + Instagram connect flow on growth_dashboard.html
+1. **Meta OAuth E2E test** — Railway env vars set (`META_APP_ID=1684991566191260`, `META_APP_SECRET` set, redirect URI registered in Meta Developer App). Ready to test: open `growth_dashboard.html` → Connect Facebook → verify `?meta_connected=1` toast and rows in `growth.social_accounts`
 2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
 3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
 4. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
