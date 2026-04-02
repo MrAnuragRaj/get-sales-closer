@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-03-31 (Session 34 — Growth Engine LinkedIn OAuth fixed; Meta OAuth built; all 15 Alembic migrations applied to Supabase growth schema) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-04-02 (Session 37 — billing.html SCE/EB/all-module ?lock= wired; enterprise_admin credits store; dashboard + enterprise_admin pricing alignment; agency_admin unchanged) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -39,7 +39,7 @@
 | `cancel.html` | 3-step subscription cancellation + Delete My Data | ✅ Session 25 |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + conversion probability | ✅ |
 | `pricing.html` | New user plan selector — Email+1 live channel model, SCE/EB plan selectors, GE $660, corrected addon prices, loads localStorage config from index.html. Session 31: yearly badge updated to "2 months free", GE renamed to "AI Social Growth System — Strategy Layer (Beta)" | ✅ Session 31 |
-| `billing.html` | Upgrade/manage plan for existing subscribers (GE toggle, `?lock=growth_engine`) — needs SCE/EB add-ons added | ⬜ Next |
+| `billing.html` | Upgrade/manage plan for existing subscribers — channel menu, yearly toggle, SCE/EB/GE/ChatBot/Install cards, all `?lock=` params wired | ✅ Session 37 |
 | `payment.html` | Razorpay checkout + bank transfer | ✅ |
 | `success.html` | Post-payment verification (polls billing_intents) | ✅ |
 | `Voice Liaison.html` | Call logs + sentiment + Replay button | ✅ |
@@ -342,14 +342,9 @@ All phases shipped and live at https://www.getsalescloser.com:
 ## What's Next (priority order)
 
 1. **Meta OAuth activation** — set `META_APP_ID` + `META_APP_SECRET` in Railway Variables; add callback URI in Meta Developer App; test Facebook + Instagram connect flow on growth_dashboard.html
-2. **billing.html updates** — add SCE (Starter/Growth/Scale) and EB (Starter/Pro) plan selectors; align UI and payload with pricing.html model
-3. **Dashboard redesigns (3 files)** — align all post-login dashboards with the new pricing model and brand style established in index.html
-   - `dashboard.html` (Solo): SCE/EB/GE entitlement gates, channel infrastructure alignment, updated Credit Wallet, consistent visual language
-   - `agency_admin.html`: seat management UI, agency-specific add-ons (SCE/EB/GE), updated pricing display
-   - `enterprise_admin.html`: tier table alignment, leaderboard, overseer — visual consistency with new design system
-4. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
-5. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-6. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
+2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+4. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
 
 ---
 

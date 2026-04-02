@@ -352,11 +352,28 @@
             await fetchOwnedEntitlements();
             lockOwnedUI();
 
-            // Auto-select if redirected from entitlement gate (e.g. billing.html?lock=growth_engine)
+            // Auto-select if redirected from an entitlement gate (e.g. billing.html?lock=sce)
             const lockParam = new URLSearchParams(window.location.search).get('lock');
-            if (lockParam === 'growth_engine' && toggles.GE && !toggles.GE.disabled) {
-                toggles.GE.checked = true;
-                setTimeout(() => document.getElementById('card_GE')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+            const lockMap = {
+                'sentinel':    { key: 'S',         cardId: 'card_S'         },
+                'brain':       { key: 'B',         cardId: 'card_B'         },
+                'architect':   { key: 'A',         cardId: 'card_A'         },
+                'voice':       { key: 'L',         cardId: 'card_L'         },
+                'intake':      { key: 'Intake',    cardId: 'card_Intake'    },
+                'safe_voice':  { key: 'SafeVoice', cardId: 'card_SafeVoice' },
+                'priority':    { key: 'Priority',  cardId: 'card_Priority'  },
+                'chatbot':     { key: 'Chatbot',   cardId: 'card_Chatbot'   },
+                'sce':         { key: 'SCE',       cardId: 'card_SCE'       },
+                'eb':          { key: 'EB',        cardId: 'card_EB'        },
+                'growth_engine': { key: 'GE',      cardId: 'card_GE'        },
+            };
+            if (lockParam && lockMap[lockParam]) {
+                const { key, cardId } = lockMap[lockParam];
+                const toggle = toggles[key];
+                if (toggle && !toggle.disabled) {
+                    toggle.checked = true;
+                    setTimeout(() => document.getElementById(cardId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+                }
             }
 
             // Interaction listeners
