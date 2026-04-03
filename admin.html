@@ -2355,9 +2355,28 @@
             el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
             try {
                 const jwt = getAdminToken();
-                const res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
-                    headers: { 'Authorization': `Bearer ${jwt}` },
-                });
+                let res;
+                try {
+                    res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                        headers: { 'Authorization': `Bearer ${jwt}` },
+                    });
+                } catch (networkErr) {
+                    // TypeError "Failed to fetch" = function not deployed or CORS blocked
+                    el.innerHTML = `<div class="text-center py-6">
+                        <p class="text-yellow-500 text-sm font-semibold mb-1">Growth Flag Proxy not deployed</p>
+                        <p class="text-slate-500 text-xs">Run: <code class="bg-slate-800 px-1 rounded">supabase functions deploy growth-flag-proxy</code></p>
+                        <p class="text-slate-600 text-xs mt-1">Then set secrets: GROWTH_ENGINE_URL and GROWTH_ENGINE_INTERNAL_SECRET</p>
+                    </div>`;
+                    return;
+                }
+                if (res.status === 503) {
+                    const body = await res.json().catch(() => ({}));
+                    el.innerHTML = `<div class="text-center py-6">
+                        <p class="text-yellow-500 text-sm font-semibold mb-1">Growth Engine not configured</p>
+                        <p class="text-slate-500 text-xs">${_geEscape(body.error || 'Set GROWTH_ENGINE_URL and GROWTH_ENGINE_INTERNAL_SECRET in Supabase secrets.')}</p>
+                    </div>`;
+                    return;
+                }
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 const flags = data.flags || [];
@@ -2673,14 +2692,35 @@
             });
 
             try {
-                // All relevant org members (solo + enterprise_admin + agency_admin)
+                // Step 1: org_members + org name (org_id FK exists in public schema — works)
+                // Do NOT use profiles(full_name, email) here — no direct FK from org_members
+                // to public.profiles (org_members.user_id → auth.users, not public.profiles).
                 const { data: allMembers, error: e1 } = await supabase
                     .from('org_members')
-                    .select('org_id, role, organizations(id, name), profiles(full_name, email)')
+                    .select('org_id, role, user_id, organizations(id, name)')
                     .or('role.is.null,role.eq.enterprise_admin,role.eq.agency_admin');
                 if (e1) throw e1;
 
-                // Orgs with active growth_engine
+                // Step 2: fetch profiles separately for all user_ids collected above
+                const userIds = [...new Set((allMembers || []).map(m => m.user_id).filter(Boolean))];
+                let profileMap = {};
+                if (userIds.length) {
+                    const { data: profileRows, error: e3 } = await supabase
+                        .from('profiles')
+                        .select('id, full_name, email')
+                        .in('id', userIds);
+                    if (!e3) {
+                        profileMap = Object.fromEntries((profileRows || []).map(p => [p.id, p]));
+                    }
+                }
+
+                // Step 3: merge profiles into member rows
+                const membersWithProfiles = (allMembers || []).map(m => ({
+                    ...m,
+                    profiles: profileMap[m.user_id] || null,
+                }));
+
+                // Step 4: orgs with active growth_engine
                 const { data: activeRows, error: e2 } = await supabase
                     .from('org_services')
                     .select('org_id')
@@ -2692,7 +2732,7 @@
 
                 // Deduplicate: one row per org, highest-priority role wins
                 const orgMap = new Map();
-                for (const m of (allMembers || [])) {
+                for (const m of membersWithProfiles) {
                     if (!orgMap.has(m.org_id) ||
                         _geRolePriority(m.role) > _geRolePriority(orgMap.get(m.org_id).role)) {
                         orgMap.set(m.org_id, m);
