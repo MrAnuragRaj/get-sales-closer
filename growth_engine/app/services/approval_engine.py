@@ -67,6 +67,7 @@ import asyncpg
 
 from app.logging_config import get_logger
 
+
 log = get_logger(__name__)
 
 
@@ -135,7 +136,9 @@ async def handle_pipeline_completion(
         return
 
     if posting_mode == MODE_AUTO and critic_passed:
-        # Auto-enqueue immediately
+        # Auto-enqueue immediately.
+        # The per-org posting_mode='auto' is the sole gate — no global env flag needed.
+        # Users control this from the Growth Dashboard Settings tab.
         variant = await _fetch_variant_for_queue(pool, org_id, variant_id)
         if not variant:
             log.error("handle_pipeline_completion_variant_missing",

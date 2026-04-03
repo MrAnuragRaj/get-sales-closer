@@ -216,6 +216,9 @@
         <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="analytics" onclick="switchTab('analytics', this)">
             <i class="fa-solid fa-chart-line mr-2 text-xs"></i>Analytics
         </button>
+        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap" data-tab="settings" onclick="switchTab('settings', this)">
+            <i class="fa-solid fa-gear mr-2 text-xs"></i>Settings
+        </button>
     </nav>
 
     <!-- Tab content -->
@@ -575,6 +578,103 @@
             </div>
         </div>
 
+        <!-- ── SETTINGS TAB ── -->
+        <div id="tab-settings" class="tab-panel hidden">
+
+            <!-- Posting Mode -->
+            <div class="glass-panel rounded-xl p-5 mb-5">
+                <div class="mb-4">
+                    <h2 class="text-sm font-semibold text-white">Posting Mode</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Controls how AI-generated content moves from draft to published.</p>
+                </div>
+                <div id="posting-mode-cards" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <label id="mode-card-auto" class="mode-card cursor-pointer rounded-xl border border-white/10 bg-white/5 p-4 hover:border-indigo-500/50 transition-all">
+                        <input type="radio" name="posting_mode" value="auto" class="hidden">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-bolt text-indigo-400 text-xs"></i>
+                            <span class="text-xs font-semibold text-white">Auto Post</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Content publishes automatically once the AI critic approves it. No human review needed.</p>
+                    </label>
+                    <label id="mode-card-approval" class="mode-card cursor-pointer rounded-xl border border-white/10 bg-white/5 p-4 hover:border-indigo-500/50 transition-all">
+                        <input type="radio" name="posting_mode" value="approval" class="hidden">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
+                            <span class="text-xs font-semibold text-white">Review Before Posting</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">Drafts appear in your Drafts tab for review. One click to approve and queue for publishing.</p>
+                    </label>
+                    <label id="mode-card-suggestion_only" class="mode-card cursor-pointer rounded-xl border border-white/10 bg-white/5 p-4 hover:border-indigo-500/50 transition-all">
+                        <input type="radio" name="posting_mode" value="suggestion_only" class="hidden">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-hand text-amber-400 text-xs"></i>
+                            <span class="text-xs font-semibold text-white">Suggestions Only</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">AI drafts content but never queues it. You manually approve and schedule every post.</p>
+                    </label>
+                </div>
+                <div class="flex items-center gap-3 mt-4">
+                    <button onclick="savePostingMode()" id="save-mode-btn" class="btn-primary text-xs">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i>Save Mode
+                    </button>
+                    <span id="save-mode-status" class="text-xs text-slate-500"></span>
+                </div>
+            </div>
+
+            <!-- Brand Profile -->
+            <div class="glass-panel rounded-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-white">Brand Profile</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Used by the AI to generate on-brand content ideas and drafts. Required before daily posting begins.</p>
+                    </div>
+                    <span id="brand-profile-badge" class="hidden text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Configured</span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Brand / Business Name <span class="text-red-400">*</span></label>
+                        <input id="bp-brand-name" type="text" maxlength="120" placeholder="e.g. GetSalesCloser"
+                            class="input-field w-full text-xs">
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Positioning (one-liner)</label>
+                        <input id="bp-positioning" type="text" maxlength="200" placeholder="e.g. AI Sales Automation for high-ticket B2B"
+                            class="input-field w-full text-xs">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Brand Summary</label>
+                        <textarea id="bp-brand-summary" rows="2" maxlength="600" placeholder="What does your business do? Who do you help and how?"
+                            class="input-field w-full text-xs resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Target Audience</label>
+                        <textarea id="bp-audience" rows="2" maxlength="400" placeholder="e.g. B2B sales teams at law firms and medical practices looking to automate follow-ups"
+                            class="input-field w-full text-xs resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Content Tone</label>
+                        <textarea id="bp-tone" rows="2" maxlength="300" placeholder="e.g. Direct, authoritative, occasionally provocative — no fluff"
+                            class="input-field w-full text-xs resize-none"></textarea>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="text-[11px] font-medium text-slate-400 block mb-1">Content Pillars <span class="text-slate-600">(comma-separated topics)</span></label>
+                        <input id="bp-pillars" type="text" maxlength="500" placeholder="e.g. AI in sales, follow-up automation, lead conversion, B2B growth"
+                            class="input-field w-full text-xs">
+                        <p class="text-[10px] text-slate-600 mt-1">The AI will rotate through these topics when generating daily content ideas.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 mt-5">
+                    <button onclick="saveBrandProfile()" id="save-brand-btn" class="btn-primary text-xs">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i>Save Brand Profile
+                    </button>
+                    <span id="save-brand-status" class="text-xs text-slate-500"></span>
+                </div>
+            </div>
+
+        </div>
+
     </main>
 </div>
 
@@ -753,6 +853,7 @@ async function loadTab(name) {
     if (name === 'queue')       loadQueue();
     if (name === 'engagement')  { await loadConnectionHealth(); loadCaps(); loadOpportunities(); }
     if (name === 'analytics')   { loadIntelligence(); loadTopContent(); loadRoi(); }
+    if (name === 'settings')    loadSettings();
 }
 
 function refreshCurrentTab() { loadTab(_currentTab); }
@@ -1764,6 +1865,158 @@ async function loadRoi() {
         `;
     } catch(e) {
         el.innerHTML = `<p class="text-red-400 text-xs text-center py-4">${e.message}</p>`;
+    }
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+
+async function loadSettings() {
+    await Promise.all([loadPostingMode(), loadBrandProfile()]);
+}
+
+// ── Posting Mode ─────────────────────────────────────────────────────────────
+
+async function loadPostingMode() {
+    try {
+        const data = await growthFetch('/settings');
+        _applyPostingModeUI(data.posting_mode || 'suggestion_only');
+    } catch(e) {
+        // 404 = settings not yet created — default to suggestion_only
+        if (e.message.includes('404') || e.message.includes('not configured')) {
+            _applyPostingModeUI('suggestion_only');
+        }
+    }
+}
+
+function _applyPostingModeUI(mode) {
+    document.querySelectorAll('.mode-card').forEach(card => {
+        card.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+        card.classList.add('border-white/10', 'bg-white/5');
+    });
+    const activeCard = document.getElementById(`mode-card-${mode}`);
+    if (activeCard) {
+        activeCard.classList.remove('border-white/10', 'bg-white/5');
+        activeCard.classList.add('border-indigo-500', 'bg-indigo-500/10');
+        const radio = activeCard.querySelector('input[type=radio]');
+        if (radio) radio.checked = true;
+    }
+    // Highlight cards on click too
+    document.querySelectorAll('input[name="posting_mode"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.querySelectorAll('.mode-card').forEach(c => {
+                c.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+                c.classList.add('border-white/10', 'bg-white/5');
+            });
+            const card = document.getElementById(`mode-card-${radio.value}`);
+            if (card) {
+                card.classList.remove('border-white/10', 'bg-white/5');
+                card.classList.add('border-indigo-500', 'bg-indigo-500/10');
+            }
+        });
+    });
+}
+
+async function savePostingMode() {
+    const selected = document.querySelector('input[name="posting_mode"]:checked');
+    if (!selected) { toast('Select a posting mode first', 'error'); return; }
+    const mode = selected.value;
+    const btn = document.getElementById('save-mode-btn');
+    const status = document.getElementById('save-mode-status');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    status.textContent = '';
+    try {
+        // Try PUT first; fall back to POST if 404 (settings don't exist yet)
+        let data;
+        try {
+            data = await growthFetch('/settings', { method: 'PUT', body: JSON.stringify({ posting_mode: mode }) });
+        } catch(e) {
+            if (e.message.includes('404') || e.message.includes('not found')) {
+                data = await growthFetch('/settings', { method: 'POST', body: JSON.stringify({ posting_mode: mode }) });
+            } else throw e;
+        }
+        _applyPostingModeUI(data.posting_mode);
+        status.textContent = 'Saved';
+        status.className = 'text-xs text-emerald-400';
+        toast('Posting mode updated', 'success');
+    } catch(e) {
+        status.textContent = e.message;
+        status.className = 'text-xs text-red-400';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Save Mode';
+        setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+}
+
+// ── Brand Profile ─────────────────────────────────────────────────────────────
+
+async function loadBrandProfile() {
+    try {
+        const data = await growthFetch('/brand');
+        _fillBrandForm(data);
+        document.getElementById('brand-profile-badge').classList.remove('hidden');
+    } catch(e) {
+        if (!e.message.includes('404') && !e.message.includes('not found')) {
+            console.error('loadBrandProfile:', e.message);
+        }
+        // 404 = no profile yet — form stays empty, badge hidden
+    }
+}
+
+function _fillBrandForm(data) {
+    document.getElementById('bp-brand-name').value  = data.brand_name || '';
+    document.getElementById('bp-positioning').value = data.positioning || '';
+    document.getElementById('bp-brand-summary').value = data.brand_summary || '';
+    document.getElementById('bp-audience').value    = data.audience_json?.description || '';
+    document.getElementById('bp-tone').value        = data.tone_json?.description || '';
+    const pillars = data.content_pillars_json?.pillars || [];
+    document.getElementById('bp-pillars').value     = pillars.join(', ');
+}
+
+async function saveBrandProfile() {
+    const brandName = document.getElementById('bp-brand-name').value.trim();
+    if (!brandName) { toast('Brand name is required', 'error'); return; }
+
+    const pillarsRaw = document.getElementById('bp-pillars').value;
+    const pillars = pillarsRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+    const payload = {
+        brand_name:           brandName,
+        positioning:          document.getElementById('bp-positioning').value.trim() || null,
+        brand_summary:        document.getElementById('bp-brand-summary').value.trim() || null,
+        audience_json:        { description: document.getElementById('bp-audience').value.trim() },
+        tone_json:            { description: document.getElementById('bp-tone').value.trim() },
+        content_pillars_json: pillars.length ? { pillars } : null,
+    };
+
+    const btn = document.getElementById('save-brand-btn');
+    const status = document.getElementById('save-brand-status');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    status.textContent = '';
+
+    try {
+        let data;
+        try {
+            data = await growthFetch('/brand', { method: 'PUT', body: JSON.stringify(payload) });
+        } catch(e) {
+            if (e.message.includes('404') || e.message.includes('not found')) {
+                data = await growthFetch('/brand', { method: 'POST', body: JSON.stringify(payload) });
+            } else throw e;
+        }
+        _fillBrandForm(data);
+        document.getElementById('brand-profile-badge').classList.remove('hidden');
+        status.textContent = 'Saved';
+        status.className = 'text-xs text-emerald-400';
+        toast('Brand profile saved', 'success');
+    } catch(e) {
+        status.textContent = e.message;
+        status.className = 'text-xs text-red-400';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i>Save Brand Profile';
+        setTimeout(() => { status.textContent = ''; }, 4000);
     }
 }
 
