@@ -42,7 +42,8 @@ async function requireAuth(options = {}) {
     const {
         requireProfile = true,
         requireOnboarding = true,
-        onAuthenticated = () => {}
+        onAuthenticated = () => {},
+        onOnboarding = () => {}
     } = options;
 
     try {
@@ -82,8 +83,9 @@ async function requireAuth(options = {}) {
                 document.getElementById(AUTH_CONFIG.authLoaderId).style.display = 'none';
                 const modal = document.getElementById(AUTH_CONFIG.onboardingModalId);
                 if (modal) modal.classList.remove('hidden');
+                onOnboarding(profile, user, sb);
                 // We stop here. User must complete onboarding form to proceed.
-                return; 
+                return;
             }
         }
 

@@ -700,6 +700,46 @@
                 </table>
             </div>
         </div>
+
+        <!-- Consent Documents Management -->
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 mt-8">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <div class="h-3 w-3 rounded-full bg-indigo-500"></div>
+                    <h2 class="text-xl font-bold text-white">Onboarding Consent Documents</h2>
+                </div>
+                <button onclick="loadConsentDocs()" class="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition">
+                    <i class="fa-solid fa-rotate-right text-xs"></i> Refresh
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-5">New users must read and accept all active documents before completing onboarding. Changes take effect immediately for new sign-ups.</p>
+
+            <!-- Existing docs table -->
+            <div id="consent-docs-list" class="mb-6">
+                <p class="text-xs text-slate-600 italic">Loading…</p>
+            </div>
+
+            <!-- Upload new doc -->
+            <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4">Add New Document</h3>
+                <div class="space-y-3">
+                    <input type="text" id="cd-title" placeholder="Document Title *" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <input type="text" id="cd-description" placeholder="Short description (shown to user)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="cd-version" placeholder="Version (e.g. 1.0)" value="1.0" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <input type="number" id="cd-order" placeholder="Display order" value="10" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1 font-bold uppercase">PDF or DOCX File *</label>
+                        <input type="file" id="cd-file" accept=".pdf,.docx,.doc" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-500/20 file:text-indigo-400 hover:file:bg-indigo-500/30">
+                    </div>
+                    <p id="cd-upload-err" class="hidden text-xs text-red-400"></p>
+                    <button onclick="uploadConsentDoc()" id="cd-upload-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+                        <i class="fa-solid fa-upload mr-2"></i>Upload & Publish
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -854,6 +894,7 @@
                 loadGrowthFlags();
                 loadGrowthBetaPanel();
                 loadFounderDashboard();
+                loadConsentDocs();
             } catch (err) {
                 setStatus('Error: ' + err.message + '. Redirecting…');
                 console.error('Admin init error:', err);
@@ -2951,6 +2992,120 @@
             if (updErr) { alert('Update failed: ' + updErr.message); }
             btn.textContent = !current ? '🔴 ON' : '🟢 OFF';
             btn.disabled = false;
+        }
+
+        // ── Consent Documents Management ──────────────────────────────────────────
+
+        async function loadConsentDocs() {
+            const el = document.getElementById('consent-docs-list');
+            el.innerHTML = '<p class="text-xs text-slate-600 italic">Loading…</p>';
+            const { data: docs, error } = await supabase
+                .from('onboarding_consent_docs')
+                .select('id, title, description, version, display_order, is_active, created_at, file_url')
+                .order('display_order', { ascending: true });
+            if (error) { el.innerHTML = `<p class="text-xs text-red-400">Error: ${error.message}</p>`; return; }
+            if (!docs || docs.length === 0) { el.innerHTML = '<p class="text-xs text-slate-500 italic">No consent documents yet.</p>'; return; }
+
+            // Count consents per doc
+            const docIds = docs.map(d => d.id);
+            const { data: counts } = await supabase
+                .from('onboarding_consents')
+                .select('doc_id')
+                .in('doc_id', docIds);
+            const countMap = {};
+            (counts || []).forEach(c => { countMap[c.doc_id] = (countMap[c.doc_id] || 0) + 1; });
+
+            el.innerHTML = `
+                <table class="w-full text-xs">
+                    <thead><tr class="border-b border-slate-800">
+                        <th class="text-left p-2 text-slate-500 font-bold uppercase">Title</th>
+                        <th class="text-left p-2 text-slate-500 font-bold uppercase">Version</th>
+                        <th class="text-center p-2 text-slate-500 font-bold uppercase">Order</th>
+                        <th class="text-center p-2 text-slate-500 font-bold uppercase">Consents</th>
+                        <th class="text-center p-2 text-slate-500 font-bold uppercase">Status</th>
+                        <th class="text-center p-2 text-slate-500 font-bold uppercase">Actions</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-slate-800">
+                    ${docs.map(d => `
+                        <tr class="hover:bg-slate-800/30">
+                            <td class="p-2 text-white font-medium">
+                                ${d.title}
+                                ${d.description ? `<br><span class="text-slate-500 font-normal">${d.description}</span>` : ''}
+                            </td>
+                            <td class="p-2 text-slate-400">${d.version}</td>
+                            <td class="p-2 text-center text-slate-400">${d.display_order}</td>
+                            <td class="p-2 text-center text-indigo-400 font-bold">${countMap[d.id] || 0}</td>
+                            <td class="p-2 text-center">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${d.is_active ? 'bg-green-500/15 text-green-400' : 'bg-slate-700 text-slate-500'}">
+                                    ${d.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td class="p-2 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <a href="${d.file_url}" target="_blank" class="text-indigo-400 hover:text-indigo-300 transition" title="View document"><i class="fa-solid fa-eye"></i></a>
+                                    <button onclick="toggleConsentDoc('${d.id}', ${d.is_active})"
+                                        class="text-xs font-bold px-2 py-0.5 rounded ${d.is_active ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-green-500/15 hover:bg-green-500/25 text-green-400'} transition">
+                                        ${d.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        async function toggleConsentDoc(docId, currentActive) {
+            const { error } = await supabase
+                .from('onboarding_consent_docs')
+                .update({ is_active: !currentActive, updated_at: new Date().toISOString() })
+                .eq('id', docId);
+            if (error) { alert('Update failed: ' + error.message); return; }
+            showToast(`Document ${currentActive ? 'deactivated' : 'activated'}`);
+            loadConsentDocs();
+        }
+
+        async function uploadConsentDoc() {
+            const title   = document.getElementById('cd-title').value.trim();
+            const desc    = document.getElementById('cd-description').value.trim();
+            const version = document.getElementById('cd-version').value.trim() || '1.0';
+            const order   = parseInt(document.getElementById('cd-order').value) || 10;
+            const file    = document.getElementById('cd-file').files[0];
+            const errEl   = document.getElementById('cd-upload-err');
+            const btn     = document.getElementById('cd-upload-btn');
+
+            errEl.classList.add('hidden');
+            if (!title) { errEl.textContent = 'Title is required.'; errEl.classList.remove('hidden'); return; }
+            if (!file)  { errEl.textContent = 'Please select a file.'; errEl.classList.remove('hidden'); return; }
+
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Uploading…';
+
+            try {
+                const sb = window.supabase;
+                const ext = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${ext}`;
+
+                const { error: uploadErr } = await sb.storage.from('legal-docs').upload(fileName, file, { cacheControl: '3600', upsert: false });
+                if (uploadErr) throw new Error('Storage upload failed: ' + uploadErr.message);
+
+                const { data: urlData } = sb.storage.from('legal-docs').getPublicUrl(fileName);
+                const fileUrl = urlData.publicUrl;
+
+                const { error: dbErr } = await sb.from('onboarding_consent_docs').insert({
+                    title, description: desc || null, file_url: fileUrl, version, display_order: order,
+                });
+                if (dbErr) throw new Error('DB insert failed: ' + dbErr.message);
+
+                showToast('Document uploaded and published');
+                ['cd-title','cd-description','cd-version','cd-order'].forEach(id => {
+                    const el = document.getElementById(id); if (el) el.value = id === 'cd-version' ? '1.0' : id === 'cd-order' ? '10' : '';
+                });
+                document.getElementById('cd-file').value = '';
+                loadConsentDocs();
+            } catch (e) {
+                errEl.textContent = e.message; errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-upload mr-2"></i>Upload & Publish';
+            }
         }
     </script>
 </body>

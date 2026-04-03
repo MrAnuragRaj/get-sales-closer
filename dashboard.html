@@ -47,20 +47,56 @@
     </div>
 
     <div id="setup-modal" class="modal-overlay hidden">
-        <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden">
+        <div id="onb-modal-inner" class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-y-auto max-h-[92vh]">
 
             <!-- Step indicator -->
-            <div class="flex border-b border-white/5">
-                <div id="onb-tab-1" class="flex-1 py-3 text-center text-xs font-bold text-indigo-400 border-b-2 border-indigo-500 transition-colors">
-                    1 &middot; Your Business
+            <div class="flex border-b border-white/5 sticky top-0 bg-slate-900 z-10">
+                <div id="onb-tab-0" class="flex-1 py-3 text-center text-xs font-bold text-indigo-400 border-b-2 border-indigo-500 transition-colors">
+                    1 &middot; Agreements
+                </div>
+                <div id="onb-tab-1" class="flex-1 py-3 text-center text-xs font-bold text-slate-600 border-b-2 border-transparent transition-colors">
+                    2 &middot; Your Business
                 </div>
                 <div id="onb-tab-2" class="flex-1 py-3 text-center text-xs font-bold text-slate-600 border-b-2 border-transparent transition-colors">
-                    2 &middot; AI Test Drive
+                    3 &middot; AI Test Drive
                 </div>
             </div>
 
+            <!-- Step 0: Legal Consent -->
+            <div id="onb-step-0" class="p-6">
+                <div class="text-center mb-4">
+                    <i class="fa-solid fa-file-contract text-3xl text-indigo-400 mb-2 block"></i>
+                    <h2 class="text-xl font-bold text-white">Legal Agreements</h2>
+                    <p class="text-slate-400 text-xs mt-1">Please read and accept each document to continue. You must scroll through each document before accepting.</p>
+                </div>
+                <!-- Progress -->
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-slate-500">Document <span id="consent-current">1</span> of <span id="consent-total">—</span></span>
+                    <span id="consent-doc-title" class="text-sm font-bold text-white truncate max-w-[60%] text-right">Loading…</span>
+                </div>
+                <!-- Document viewer (must scroll past this to unlock checkbox) -->
+                <div class="rounded-xl overflow-hidden border border-slate-700 mb-3">
+                    <iframe id="consent-doc-frame" src="about:blank" class="w-full" style="height:480px; border:none; display:block;"></iframe>
+                </div>
+                <!-- Reading gate -->
+                <div id="consent-reading-gate" class="flex items-center gap-2 mb-3 px-1">
+                    <i class="fa-solid fa-hourglass-half text-slate-500 text-xs" id="consent-gate-icon"></i>
+                    <span id="consent-timer-text" class="text-xs text-slate-500">Loading document…</span>
+                </div>
+                <!-- Checkbox (locked until read) -->
+                <label id="consent-label" class="flex items-start gap-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700 opacity-40 cursor-not-allowed mb-4">
+                    <input type="checkbox" id="consent-checkbox" disabled class="mt-0.5 h-4 w-4 accent-indigo-500 flex-shrink-0">
+                    <span class="text-sm text-slate-300">I have read and agree to the <strong id="consent-doc-name" class="text-white"></strong></span>
+                </label>
+                <button id="consent-next-btn" onclick="nextConsentDoc()" disabled
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    Continue &rarr;
+                </button>
+                <p class="text-center text-xs text-slate-600 mt-3">You cannot access the platform without accepting all agreements.</p>
+            </div>
+
             <!-- Step 1: Business Setup -->
-            <div id="onb-step-1" class="p-8">
+            <div id="onb-step-1" class="p-8 hidden">
                 <div class="text-center mb-6">
                     <i class="fa-solid fa-rocket text-3xl text-indigo-500 mb-3 block"></i>
                     <h2 class="text-2xl font-bold text-white">Welcome to GetSalesCloser</h2>
@@ -68,6 +104,10 @@
                 </div>
                 <form onsubmit="handleOnboarding(event)" class="space-y-4">
                     <input type="text" id="setup-company" required placeholder="Business Name *" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <input type="tel" id="setup-phone" required placeholder="Your Mobile Number * (e.g. +919876543210)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <p id="setup-phone-err" class="hidden text-xs text-red-400 -mt-2">Please enter a valid phone number with country code (e.g. +919876543210)</p>
+                    <input type="email" id="setup-email" required placeholder="Your Email Address *" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <p id="setup-email-err" class="hidden text-xs text-red-400 -mt-2">Please enter a valid email address</p>
                     <select id="setup-industry" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
                         <option value="law">Law Firm</option>
                         <option value="medical">Medical / Healthcare</option>
@@ -1049,6 +1089,7 @@
             requireAuth({
                 requireProfile: true,
                 requireOnboarding: true,
+                onOnboarding: (profile, user, sb) => { initConsentStep(user.id, sb); },
                 onAuthenticated: async (profile, user, client) => {
                     currentUser = user;
                     currentProfile = profile;
@@ -1227,6 +1268,116 @@
         function applyBrandingUI(mode) { const txt = document.getElementById('brand-text'); const sub = document.getElementById('brand-sub'); const img = document.getElementById('brand-img'); const icon = document.getElementById('brand-icon'); if (mode) { txt.innerText = currentProfile.company || "Company"; sub.innerText = "Powered by GetSalesCloser"; if (currentProfile.logo_url) { icon.classList.add('hidden'); img.classList.remove('hidden'); } } else { txt.innerText = "GetSalesCloser"; sub.innerText = "Autonomous Revenue"; icon.classList.remove('hidden'); img.classList.add('hidden'); } }
         async function handleLogoUpdate(input) { if (isUploading || input.files.length === 0) return; isUploading = true; const loader = document.createElement('div'); loader.id = 'logo-loader'; loader.className = 'absolute inset-0 bg-black/80 flex items-center justify-center text-xs text-white z-50 rounded-md'; loader.innerText = 'Uploading...'; document.getElementById('brand-container').appendChild(loader); try { const file = input.files[0]; const fileExt = file.name.split('.').pop(); const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`; await sbClient.storage.from('logos').upload(fileName, file); const { data } = sbClient.storage.from('logos').getPublicUrl(fileName); await sbClient.from('profiles').update({ logo_url: data.publicUrl }).eq('id', currentUser.id); currentProfile.logo_url = data.publicUrl; document.getElementById('brand-img').src = data.publicUrl; if (document.getElementById('branding-toggle').checked) applyBrandingUI(true); } catch(e) { alert("Upload failed: " + e.message); } finally { document.getElementById('logo-loader').remove(); isUploading = false; } }
         function updateDashboardUI(profile) { document.getElementById('user-name-display').innerText = profile.full_name || "User"; document.getElementById('user-ref-id').innerText = profile.reference_id || "..."; if(profile.logo_url) document.getElementById('brand-img').src = profile.logo_url; const toggle = document.getElementById('branding-toggle'); if (profile.branding_mode) { toggle.checked = true; applyBrandingUI(true); } else { toggle.checked = false; applyBrandingUI(false); } }
+        // ── Legal Consent (Onboarding Step 0) ────────────────────────────────────
+        let _consentDocs = [], _consentDocIndex = 0, _consentUserId = null, _consentSb = null;
+        let _consentTimer = null, _consentUnlocked = false;
+
+        async function initConsentStep(userId, sb) {
+            _consentUserId = userId;
+            _consentSb = sb;
+            const { data: docs } = await sb
+                .from('onboarding_consent_docs')
+                .select('id, title, description, file_url, version')
+                .eq('is_active', true)
+                .order('display_order', { ascending: true });
+            if (!docs || docs.length === 0) { _proceedToStep1(); return; }
+            _consentDocs = docs;
+            document.getElementById('consent-total').textContent = docs.length;
+            _showConsentDoc(0);
+        }
+
+        function _showConsentDoc(index) {
+            _consentDocIndex = index;
+            _consentUnlocked = false;
+            clearInterval(_consentTimer);
+            const doc = _consentDocs[index];
+            document.getElementById('consent-current').textContent = index + 1;
+            document.getElementById('consent-doc-title').textContent = doc.title;
+            document.getElementById('consent-doc-name').textContent = doc.title;
+            // Use Google Docs Viewer for DOCX/PDF rendering
+            const viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(doc.file_url);
+            document.getElementById('consent-doc-frame').src = viewerUrl;
+            _lockConsentCheckbox();
+            // Reading timer: 20 seconds minimum, OR scroll past bottom of modal
+            let s = 20;
+            document.getElementById('consent-gate-icon').className = 'fa-solid fa-hourglass-half text-amber-400 text-xs';
+            document.getElementById('consent-timer-text').textContent = 'Please read the document. You may accept in ' + s + 's';
+            _consentTimer = setInterval(() => {
+                s--;
+                if (s > 0) {
+                    document.getElementById('consent-timer-text').textContent = 'Please read the document. You may accept in ' + s + 's';
+                } else {
+                    clearInterval(_consentTimer);
+                    document.getElementById('consent-gate-icon').className = 'fa-solid fa-circle-check text-green-400 text-xs';
+                    document.getElementById('consent-timer-text').textContent = 'You may now accept this document.';
+                    _unlockConsentCheckbox();
+                }
+            }, 1000);
+            // Also unlock if user scrolls the modal to reveal the checkbox
+            const modal = document.getElementById('onb-modal-inner');
+            modal.onscroll = function() {
+                if (_consentUnlocked) return;
+                const atBottom = modal.scrollTop + modal.clientHeight >= modal.scrollHeight - 80;
+                if (atBottom) {
+                    _consentUnlocked = true;
+                    clearInterval(_consentTimer);
+                    document.getElementById('consent-gate-icon').className = 'fa-solid fa-circle-check text-green-400 text-xs';
+                    document.getElementById('consent-timer-text').textContent = 'You may now accept this document.';
+                    _unlockConsentCheckbox();
+                }
+            };
+            // Reset modal scroll to top for each new doc
+            modal.scrollTop = 0;
+        }
+
+        function _lockConsentCheckbox() {
+            const cb = document.getElementById('consent-checkbox');
+            cb.checked = false; cb.disabled = true;
+            document.getElementById('consent-label').classList.add('opacity-40', 'cursor-not-allowed');
+            document.getElementById('consent-next-btn').disabled = true;
+        }
+
+        function _unlockConsentCheckbox() {
+            _consentUnlocked = true;
+            const cb = document.getElementById('consent-checkbox');
+            cb.disabled = false;
+            document.getElementById('consent-label').classList.remove('opacity-40', 'cursor-not-allowed');
+            document.getElementById('consent-label').classList.add('cursor-pointer');
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'consent-checkbox') {
+                document.getElementById('consent-next-btn').disabled = !e.target.checked;
+            }
+        });
+
+        async function nextConsentDoc() {
+            if (!_consentSb || !_consentUserId) return;
+            const btn = document.getElementById('consent-next-btn');
+            btn.disabled = true; btn.textContent = 'Saving…';
+            const doc = _consentDocs[_consentDocIndex];
+            await _consentSb.from('onboarding_consents').insert({
+                user_id: _consentUserId, doc_id: doc.id, doc_version: doc.version,
+            }).then(undefined, e => console.warn('[consent] record failed:', e));
+            _consentDocIndex++;
+            if (_consentDocIndex < _consentDocs.length) {
+                btn.disabled = false; btn.textContent = 'Continue →';
+                _showConsentDoc(_consentDocIndex);
+            } else {
+                clearInterval(_consentTimer);
+                _proceedToStep1();
+            }
+        }
+
+        function _proceedToStep1() {
+            document.getElementById('onb-step-0').classList.add('hidden');
+            document.getElementById('onb-step-1').classList.remove('hidden');
+            document.getElementById('onb-tab-0').className = 'flex-1 py-3 text-center text-xs font-bold text-green-500 border-b-2 border-green-500 transition-colors';
+            document.getElementById('onb-tab-1').className = 'flex-1 py-3 text-center text-xs font-bold text-indigo-400 border-b-2 border-indigo-500 transition-colors';
+            document.getElementById('onb-modal-inner').scrollTop = 0;
+            document.getElementById('onb-modal-inner').onscroll = null;
+        }
+
         async function handleOnboarding(e) {
             e.preventDefault();
             const nextBtn = document.getElementById('onb-next-btn');
@@ -1236,6 +1387,26 @@
             const { data: { session } } = await sb.auth.getSession();
             if (!session) return;
             const userId = session.user.id;
+
+            // Validate phone
+            const phoneRaw = document.getElementById('setup-phone').value.trim();
+            const phoneDigits = phoneRaw.replace(/\D/g, '');
+            if (phoneDigits.length < 10) {
+                document.getElementById('setup-phone-err').classList.remove('hidden');
+                if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Next: Test Your AI →'; }
+                return;
+            }
+            document.getElementById('setup-phone-err').classList.add('hidden');
+            const phone = phoneRaw.startsWith('+') ? phoneRaw.replace(/\s/g, '') : '+' + phoneDigits;
+
+            // Validate email
+            const email = document.getElementById('setup-email').value.trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                document.getElementById('setup-email-err').classList.remove('hidden');
+                if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Next: Test Your AI →'; }
+                return;
+            }
+            document.getElementById('setup-email-err').classList.add('hidden');
 
             const company     = document.getElementById('setup-company').value.trim();
             const industry    = document.getElementById('setup-industry').value;
@@ -1255,7 +1426,7 @@
                 }
             }
 
-            const profileUpdates = { company, industry };
+            const profileUpdates = { company, industry, phone, email };
             if (logo_url) profileUpdates.logo_url = logo_url;
 
             // Resolve the user's org_id to update org_settings
@@ -1285,7 +1456,7 @@
             // Advance to step 2
             document.getElementById('onb-step-1').classList.add('hidden');
             document.getElementById('onb-step-2').classList.remove('hidden');
-            document.getElementById('onb-tab-1').className = 'flex-1 py-3 text-center text-xs font-bold text-slate-500 border-b-2 border-transparent transition-colors';
+            document.getElementById('onb-tab-1').className = 'flex-1 py-3 text-center text-xs font-bold text-green-500 border-b-2 border-green-500 transition-colors';
             document.getElementById('onb-tab-2').className = 'flex-1 py-3 text-center text-xs font-bold text-indigo-400 border-b-2 border-indigo-500 transition-colors';
 
             const btn = document.getElementById('onb-next-btn');
