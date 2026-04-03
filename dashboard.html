@@ -968,6 +968,20 @@
                     class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
                     <i class="fa-solid fa-paper-plane mr-2"></i>Send AI Instruction
                 </button>
+                <div class="mt-4 pt-4 border-t border-slate-800">
+                    <div id="lap-priority-off">
+                        <button onclick="toggleLeadPriority(true)" class="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold py-2 rounded-lg text-sm transition">
+                            <i class="fa-solid fa-bolt mr-2"></i>Mark as Priority
+                        </button>
+                    </div>
+                    <div id="lap-priority-on" class="hidden">
+                        <div class="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-red-400 text-xs"></i>
+                            <span class="text-xs font-bold text-red-300">Priority Lead — AI will contact immediately</span>
+                        </div>
+                        <button onclick="toggleLeadPriority(false)" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Remove Priority</button>
+                    </div>
+                </div>
             </div>
             <div id="lap-panel-closed_won" class="hidden p-5 space-y-4">
                 <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
@@ -1621,7 +1635,7 @@
         async function loadMyLeads() {
             if (!currentOrgId) return;
             const { data } = await sbClient.from('leads')
-                .select('id, name, phone, email, status, last_interaction_at, source')
+                .select('id, name, phone, email, status, priority, last_interaction_at, source')
                 .eq('org_id', currentOrgId)
                 .order('last_interaction_at', { ascending: false });
             _myLeads = data || [];
@@ -1660,7 +1674,9 @@
                     <td class="p-4 text-xs">${lc}</td>
                     <td class="p-4 text-xs text-slate-500"></td>
                     <td class="p-4 text-right">${['closed_won','closed_lost'].includes(lead.status) ? `<span class="text-slate-600 text-xs italic">Closed</span>` : `<button onclick="openLapPanel('${lead.id}')" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-xs font-bold px-3 py-1.5 rounded-lg transition">Manage</button>`}</td>`;
-                tr.querySelector('td:nth-child(1)').textContent = lead.name;
+                tr.querySelector('td:nth-child(1)').innerHTML =
+                    (lead.priority === 'high' ? '<span class="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 uppercase align-middle">Priority</span>' : '') +
+                    (lead.name || '—');
                 tr.querySelector('td:nth-child(2)').textContent = lead.phone || '—';
                 tr.querySelector('td:nth-child(3) span').textContent = (lead.status || 'new').replace(/_/g, ' ');
                 tr.querySelector('td:nth-child(5)').textContent = lead.source || '—';
@@ -1679,12 +1695,29 @@
             document.getElementById('lap-instruction').value = '';
             document.getElementById('lap-loss-reason').value = '';
             document.getElementById('lap-loss-reason-error').classList.add('hidden');
+            _updateLapPriorityUI(lead.priority === 'high');
             const defaultTab = (_lapCurrentStatus === 'closed_won' || _lapCurrentStatus === 'closed_lost') ? _lapCurrentStatus : 'active';
             selectLapStatus(defaultTab);
             openModal('my-leads-action-panel');
         }
 
         function closeLapPanel() { closeModal('my-leads-action-panel'); }
+
+        function _updateLapPriorityUI(isHigh) {
+            document.getElementById('lap-priority-off').classList.toggle('hidden', isHigh);
+            document.getElementById('lap-priority-on').classList.toggle('hidden', !isHigh);
+        }
+
+        async function toggleLeadPriority(markHigh) {
+            if (!_lapLeadId) return;
+            const newPriority = markHigh ? 'high' : 'standard';
+            const { error } = await sbClient.from('leads').update({ priority: newPriority }).eq('id', _lapLeadId);
+            if (error) { alert('Failed to update priority: ' + error.message); return; }
+            const lead = _myLeads.find(l => l.id === _lapLeadId);
+            if (lead) lead.priority = newPriority;
+            _updateLapPriorityUI(markHigh);
+            renderMyLeads();
+        }
 
         function selectLapStatus(status) {
             _lapSelectedStatus = status;

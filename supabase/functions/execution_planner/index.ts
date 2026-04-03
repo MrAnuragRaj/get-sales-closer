@@ -45,13 +45,22 @@ serve(async (req) => {
       );
     }
 
-    // 3️⃣ Determine Lead Timezone (default for now)
-    const leadTimezone = "America/New_York";
+    // 3️⃣ Fetch lead priority (high-priority leads bypass strike time and fire immediately)
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("priority")
+      .eq("id", plan.lead_id)
+      .maybeSingle();
+    const isHighPriority = lead?.priority === "high";
 
-    // 4️⃣ Compute Strike Time
+    // 4️⃣ Compute Strike Time (skipped for priority leads — they fire now)
     const nowUtcIso = new Date().toISOString();
-    const baseStrikeIso = computeStrikeTime(nowUtcIso, leadTimezone);
-    const baseStrikeMs = new Date(baseStrikeIso).getTime();
+    const baseStrikeIso = isHighPriority
+      ? nowUtcIso
+      : computeStrikeTime(nowUtcIso, "America/New_York");
+    const baseStrikeMs = isHighPriority
+      ? Date.now()
+      : new Date(baseStrikeIso).getTime();
 
     // 5️⃣ Expand Tasks
     let tasks: any[] = [];

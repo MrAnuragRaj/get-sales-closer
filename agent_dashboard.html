@@ -237,6 +237,21 @@
                         </div>
                     </div>
                 </div>
+                <!-- Priority toggle -->
+                <div class="mt-3 pt-3 border-t border-slate-800">
+                    <div id="lap-priority-off">
+                        <button onclick="toggleLeadPriority(true)" class="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold py-2 rounded-lg text-sm transition">
+                            <i class="fa-solid fa-bolt mr-2"></i>Mark as Priority
+                        </button>
+                    </div>
+                    <div id="lap-priority-on" class="hidden">
+                        <div class="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-red-400 text-xs"></i>
+                            <span class="text-xs font-bold text-red-300">Priority Lead — AI will contact immediately</span>
+                        </div>
+                        <button onclick="toggleLeadPriority(false)" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-sm transition">Remove Priority</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Closed Won panel -->
@@ -386,7 +401,7 @@
             const tbody = document.getElementById('leadsTable');
             const { data, error } = await _sb
                 .from('leads')
-                .select('id, name, phone, email, status, ai_paused, last_interaction_at, source, notes')
+                .select('id, name, phone, email, status, priority, ai_paused, last_interaction_at, source, notes')
                 .eq('assigned_to', _userId)
                 .order('last_interaction_at', { ascending: false, nullsFirst: false });
 
@@ -460,7 +475,7 @@
                 const probColor = prob >= 100 ? 'text-emerald-400' : prob > 60 ? 'text-green-400' : prob > 30 ? 'text-yellow-400' : 'text-red-400';
                 const isTerminal = lead.status === 'closed_won' || lead.status === 'closed_lost';
                 tr.innerHTML = `
-                    <td class="p-4 text-white font-medium">${lead.name || '—'}</td>
+                    <td class="p-4 text-white font-medium">${lead.priority === 'high' ? '<span class="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 uppercase align-middle">Priority</span>' : ''}${lead.name || '—'}</td>
                     <td class="p-4 font-mono text-xs">${lead.phone || '—'}</td>
                     <td class="p-4"><span class="px-2 py-0.5 rounded text-xs font-bold uppercase ${sc}">${(lead.status || 'new').replace('_',' ')}</span></td>
                     <td class="p-4 text-xs font-bold ${probColor}">${prob}%</td>
@@ -653,6 +668,8 @@
 
             // Show takeover state based on ai_paused flag
             updateTakeoverUI(!!lead.ai_paused);
+            // Show priority state
+            _updateLapPriorityUI(lead.priority === 'high');
 
             document.getElementById('lead-action-modal').classList.remove('hidden');
             selectStatus(_lapCurrentStatus);
@@ -822,6 +839,22 @@
             const lead = _allLeads.find(l => l.id === _lapLeadId);
             if (lead) lead.ai_paused = false;
             updateTakeoverUI(false);
+        }
+
+        function _updateLapPriorityUI(isHigh) {
+            document.getElementById('lap-priority-off').classList.toggle('hidden', isHigh);
+            document.getElementById('lap-priority-on').classList.toggle('hidden', !isHigh);
+        }
+
+        async function toggleLeadPriority(markHigh) {
+            if (!_lapLeadId) return;
+            const newPriority = markHigh ? 'high' : 'standard';
+            const { error } = await _sb.from('leads').update({ priority: newPriority }).eq('id', _lapLeadId);
+            if (error) { alert('Failed to update priority: ' + error.message); return; }
+            const lead = _allLeads.find(l => l.id === _lapLeadId);
+            if (lead) lead.priority = newPriority;
+            _updateLapPriorityUI(markHigh);
+            renderLeads();
         }
 
         async function sendManualReply() {
