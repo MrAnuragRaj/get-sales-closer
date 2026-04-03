@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getSupabaseClient } from "../_shared/db.ts";
 import { computeStrikeTime } from "../_shared/strike_time.ts";
-import { getRetrySchedule } from "../_shared/retry_policy.ts";
+import { getRetrySchedule, getRetryScheduleHighPriority } from "../_shared/retry_policy.ts";
 
 serve(async (req) => {
   try {
@@ -45,7 +45,7 @@ serve(async (req) => {
       );
     }
 
-    // 3️⃣ Fetch lead priority (high-priority leads bypass strike time and fire immediately)
+    // 3️⃣ Fetch lead priority — determines retry schedule compression
     const { data: lead } = await supabase
       .from("leads")
       .select("priority")
@@ -53,20 +53,25 @@ serve(async (req) => {
       .maybeSingle();
     const isHighPriority = lead?.priority === "high";
 
-    // 4️⃣ Compute Strike Time (skipped for priority leads — they fire now)
+    // 4️⃣ Compute Strike Time
+    // Both standard and high-priority leads respect the TCPA-compliant contact
+    // window (Mon–Sat 08:00–19:59 in the lead's local timezone).  High-priority
+    // leads are NOT exempted from this window — bypassing it would expose the
+    // platform to TCPA liability (47 U.S.C. § 227).  If the current time is
+    // inside the allowed window, computeStrikeTime returns now() immediately
+    // for both lead types.  The priority advantage comes from (a) compressed
+    // retry intervals and (b) queue ordering in fetch_due_tasks.
     const nowUtcIso = new Date().toISOString();
-    const baseStrikeIso = isHighPriority
-      ? nowUtcIso
-      : computeStrikeTime(nowUtcIso, "America/New_York");
-    const baseStrikeMs = isHighPriority
-      ? Date.now()
-      : new Date(baseStrikeIso).getTime();
+    const baseStrikeIso = computeStrikeTime(nowUtcIso, "America/New_York");
+    const baseStrikeMs = new Date(baseStrikeIso).getTime();
 
     // 5️⃣ Expand Tasks
     let tasks: any[] = [];
 
     for (const step of plan.plan.steps) {
-      const offsets = getRetrySchedule(step.channel);
+      const offsets = isHighPriority
+        ? getRetryScheduleHighPriority(step.channel)
+        : getRetrySchedule(step.channel);
 
       const stepTasks = offsets.map((offsetSeconds, index) => ({
         plan_id: plan.id,
