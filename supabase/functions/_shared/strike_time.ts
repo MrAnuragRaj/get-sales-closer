@@ -1,5 +1,20 @@
 import { DateTime } from "npm:luxon@3.4.4";
 
+/**
+ * Returns true when the current moment is inside the TCPA-compliant contact
+ * window (Mon–Sat, 08:00–19:59 in the lead's local timezone).
+ * Use this to detect off-hours situations without duplicating the window logic.
+ */
+export function isWithinContactWindow(
+  nowUtcISO: string,
+  leadTimezone: string = "America/New_York"
+): boolean {
+  const nowLocal = DateTime.fromISO(nowUtcISO).setZone(leadTimezone);
+  const hour    = nowLocal.hour;
+  const weekday = nowLocal.weekday; // 1=Mon … 7=Sun
+  return weekday !== 7 && hour >= 8 && hour < 20;
+}
+
 export function computeStrikeTime(
   nowUtcISO: string,
   leadTimezone: string = "America/New_York" // Default safety
