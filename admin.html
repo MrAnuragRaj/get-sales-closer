@@ -2333,6 +2333,69 @@
             await loadPlatformFlags();
         }
 
+        // ── Growth Engine helpers ──────────────────────────────────────────────────
+
+        /**
+         * Try to refresh the admin session using the refresh_token stored in localStorage.
+         * Updates _adminToken and the localStorage entry with the new access_token.
+         * Returns the new access_token, or null if refresh fails.
+         */
+        async function _refreshAdminSession() {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!(k && k.startsWith('sb-') && k.endsWith('-auth-token'))) continue;
+                try {
+                    const sess = JSON.parse(localStorage.getItem(k) || '{}');
+                    const refreshToken = sess?.refresh_token;
+                    if (!refreshToken) continue;
+
+                    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey },
+                        body: JSON.stringify({ refresh_token: refreshToken }),
+                    });
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    if (!data.access_token) continue;
+
+                    // Persist refreshed session so getAdminToken() picks it up next time
+                    localStorage.setItem(k, JSON.stringify({
+                        ...sess,
+                        access_token:  data.access_token,
+                        refresh_token: data.refresh_token || refreshToken,
+                        expires_at:    data.expires_at,
+                    }));
+                    _adminToken = data.access_token;
+                    return data.access_token;
+                } catch {}
+            }
+            return null;
+        }
+
+        /**
+         * Fetch wrapper for growth-flag-proxy.
+         * Automatically refreshes the session on 401 and retries once.
+         */
+        async function _flagProxyFetch(opts = {}) {
+            let jwt = getAdminToken();
+            let res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                ...opts,
+                headers: { 'Authorization': `Bearer ${jwt}`, ...(opts.headers || {}) },
+            });
+
+            if (res.status === 401) {
+                // Token expired — try to refresh and retry once
+                const freshJwt = await _refreshAdminSession();
+                if (freshJwt) {
+                    res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                        ...opts,
+                        headers: { 'Authorization': `Bearer ${freshJwt}`, ...(opts.headers || {}) },
+                    });
+                }
+            }
+            return res;
+        }
+
         // ── Growth Engine Feature Flags ───────────────────────────────────────────
 
         const GROWTH_FLAG_META = {
@@ -2354,18 +2417,23 @@
 
             el.innerHTML = '<p class="text-slate-500 text-sm italic text-center py-4">Loading...</p>';
             try {
-                const jwt = getAdminToken();
                 let res;
                 try {
-                    res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
-                        headers: { 'Authorization': `Bearer ${jwt}` },
-                    });
+                    res = await _flagProxyFetch();
                 } catch (networkErr) {
                     // TypeError "Failed to fetch" = function not deployed or CORS blocked
                     el.innerHTML = `<div class="text-center py-6">
                         <p class="text-yellow-500 text-sm font-semibold mb-1">Growth Flag Proxy not deployed</p>
                         <p class="text-slate-500 text-xs">Run: <code class="bg-slate-800 px-1 rounded">supabase functions deploy growth-flag-proxy</code></p>
                         <p class="text-slate-600 text-xs mt-1">Then set secrets: GROWTH_ENGINE_URL and GROWTH_ENGINE_INTERNAL_SECRET</p>
+                    </div>`;
+                    return;
+                }
+                if (res.status === 401) {
+                    el.innerHTML = `<div class="text-center py-6">
+                        <p class="text-yellow-500 text-sm font-semibold mb-1">Session expired</p>
+                        <p class="text-slate-500 text-xs">Your admin session has expired. Please reload the page to re-authenticate.</p>
+                        <button onclick="window.location.reload()" class="mt-3 text-xs px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 border border-indigo-500/30">Reload</button>
                     </div>`;
                     return;
                 }
@@ -2422,13 +2490,9 @@
             btn.textContent = '…';
 
             try {
-                const jwt = getAdminToken();
-                const res = await fetch(`${supabaseUrl}/functions/v1/growth-flag-proxy`, {
+                const res = await _flagProxyFetch({
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${jwt}`,
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ key, enabled: enable }),
                 });
                 if (!res.ok) {
