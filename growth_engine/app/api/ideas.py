@@ -32,6 +32,7 @@ from app.models.idea import (
     GenerateIdeasRequest,
     GenerateLadderLevelRequest,
     GenerateVariantsRequest,
+    ManualIdeaCreate,
 )
 from app.services import authority_ladder as ladder_svc
 from app.services import brand_brain
@@ -45,6 +46,37 @@ ladder_router = APIRouter(prefix="/ladders", tags=["ladders"])
 
 
 # ── Idea routes ────────────────────────────────────────────────────────────────
+
+@router.post("", response_model=ContentIdeaOut, status_code=status.HTTP_201_CREATED)
+async def create_idea(
+    body: ManualIdeaCreate,
+    auth: AuthContext = Depends(require_auth),
+    pool: asyncpg.Pool = Depends(get_pool),
+):
+    """
+    Manually create a content idea (source='manual').
+    The idea is saved with status='generated' so the writer job picks it up
+    at the next scheduled run (or can be triggered immediately via /{id}/generate).
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO growth.content_ideas
+                (org_id, source, pillar, topic, angle, hook_seed, score, status, planned_for)
+            VALUES ($1, 'manual', $2, $3, $4, $5, 5.0, 'generated', $6)
+            RETURNING id, org_id, source, pillar, topic, angle, hook_seed, score,
+                      status, planned_for, authority_ladder_id, ladder_level,
+                      hook_candidates_json, created_at
+            """,
+            auth.org_id,
+            body.pillar,
+            body.topic,
+            body.angle or "",
+            body.hook_seed or "",
+            body.planned_for,
+        )
+    return ContentIdeaOut.model_validate(dict(row))
+
 
 @router.get("", response_model=ContentIdeaListResponse)
 async def list_ideas(

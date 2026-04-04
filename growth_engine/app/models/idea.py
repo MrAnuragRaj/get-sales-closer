@@ -40,6 +40,14 @@ class ContentIdeaListResponse(BaseModel):
     total: int
 
 
+class ManualIdeaCreate(BaseModel):
+    topic: str = Field(..., min_length=3, max_length=500)
+    angle: Optional[str] = Field(default=None, max_length=100)
+    hook_seed: Optional[str] = Field(default=None, max_length=500)
+    pillar: str = Field(default="general", max_length=100)
+    planned_for: Optional[date] = None
+
+
 class GenerateIdeasRequest(BaseModel):
     n: int = Field(default=10, ge=1, le=30)
     planned_for: Optional[date] = None

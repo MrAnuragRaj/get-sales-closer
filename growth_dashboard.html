@@ -351,10 +351,12 @@
             <div class="flex items-center gap-3 mb-4">
                 <select id="ideas-status-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
                     <option value="">All Statuses</option>
-                    <option value="idea">Idea</option>
-                    <option value="generating">Generating</option>
-                    <option value="draft">Draft</option>
+                    <option value="generated">Generated</option>
+                    <option value="ready">Ready</option>
+                    <option value="queued">Queued</option>
                     <option value="published">Published</option>
+                    <option value="needs_review">Needs Review</option>
+                    <option value="rejected">Rejected</option>
                 </select>
                 <select id="ideas-platform-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
                     <option value="">All Platforms</option>
@@ -1089,29 +1091,27 @@ async function loadDraftCount() {
 async function loadIdeas() {
     const el = document.getElementById('ideas-list');
     const status = document.getElementById('ideas-status-filter').value;
-    const platform = document.getElementById('ideas-platform-filter').value;
-    let url = '/topics?limit=50';
-    if (status)   url += `&status=${status}`;
-    if (platform) url += `&platform=${platform}`;
+    let url = '/ideas?limit=50';
+    if (status) url += `&status=${status}`;
     try {
         const data = await growthFetch(url);
-        const items = data.topics || data.items || [];
+        const items = data.ideas || [];
         el.innerHTML = items.length === 0
             ? '<p class="text-slate-500 text-sm text-center py-8">No ideas yet. Create one to get started, or try adjusting your filters.</p>'
             : items.map(t => `
                 <div class="list-row px-5 py-3.5 flex items-start gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="text-sm font-medium text-white truncate">${esc(t.title || 'Untitled')}</span>
+                            <span class="text-sm font-medium text-white truncate">${esc(t.topic || 'Untitled')}</span>
                             ${statusBadge(t.status)}
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-500">
-                            ${t.angle_type ? `<span class="text-indigo-400">${t.angle_type}</span>` : ''}
+                            ${t.angle ? `<span class="text-indigo-400">${t.angle}</span>` : ''}
                             <span>${fmtDate(t.created_at)}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        ${t.status === 'idea' ? `<button onclick="triggerGenerate('${t.id}')" class="btn-ghost text-xs">
+                        ${t.status === 'generated' ? `<button onclick="triggerGenerate('${t.id}')" class="btn-ghost text-xs">
                             <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Generate
                         </button>` : ''}
                         <button onclick="viewIdea('${t.id}')" class="btn-ghost text-xs">View</button>
@@ -1130,17 +1130,17 @@ function closeCreateIdea() {
 }
 
 async function submitIdea() {
-    const title = document.getElementById('idea-title').value.trim();
-    if (!title) { toast('Enter a title', 'error'); return; }
+    const topic = document.getElementById('idea-title').value.trim();
+    if (!topic) { toast('Enter a title', 'error'); return; }
     const btn = document.getElementById('submit-idea-btn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
-        await growthFetch('/topics', {
+        await growthFetch('/ideas', {
             method: 'POST',
             body: JSON.stringify({
-                title,
-                angle_type: document.getElementById('idea-angle').value || null,
-                notes: document.getElementById('idea-notes').value || null,
+                topic,
+                angle: document.getElementById('idea-angle').value || null,
+                hook_seed: document.getElementById('idea-notes').value || null,
             }),
         });
         toast('Idea created', 'success');
@@ -1150,9 +1150,9 @@ async function submitIdea() {
     btn.disabled = false; btn.textContent = 'Create Idea';
 }
 
-async function triggerGenerate(topicId) {
+async function triggerGenerate(ideaId) {
     try {
-        await growthFetch(`/topics/${topicId}/generate`, { method: 'POST' });
+        await growthFetch(`/ideas/${ideaId}/generate`, { method: 'POST', body: JSON.stringify({}) });
         toast('Generation started', 'success');
         loadIdeas();
     } catch(e) { toast(e.message, 'error'); }
@@ -1160,12 +1160,13 @@ async function triggerGenerate(topicId) {
 
 async function viewIdea(id) {
     try {
-        const t = await growthFetch(`/topics/${id}`);
-        openModal(`Idea: ${esc(t.title)}`, `
+        const t = await growthFetch(`/ideas/${id}`);
+        openModal(`Idea: ${esc(t.topic)}`, `
             <dl class="space-y-3 text-sm">
                 <div><dt class="text-slate-500 text-xs mb-0.5">Status</dt><dd>${statusBadge(t.status)}</dd></div>
-                <div><dt class="text-slate-500 text-xs mb-0.5">Angle</dt><dd class="text-white">${t.angle_type || '—'}</dd></div>
-                <div><dt class="text-slate-500 text-xs mb-0.5">Notes</dt><dd class="text-slate-300">${esc(t.notes || '—')}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Angle</dt><dd class="text-white">${esc(t.angle || '—')}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Notes</dt><dd class="text-slate-300">${esc(t.hook_seed || '—')}</dd></div>
+                <div><dt class="text-slate-500 text-xs mb-0.5">Pillar</dt><dd class="text-slate-300">${esc(t.pillar || '—')}</dd></div>
                 <div><dt class="text-slate-500 text-xs mb-0.5">Created</dt><dd class="text-slate-400">${fmtDate(t.created_at)}</dd></div>
             </dl>
         `);
