@@ -23,9 +23,9 @@ from typing import Optional
 
 
 PLATFORM_WORD_TARGETS = {
-    "linkedin":  (150, 280),
+    "linkedin":  (200, 350),
     "x":         (30,  100),  # single post; thread handled separately
-    "facebook":  (80,  200),
+    "facebook":  (100, 220),
     "instagram": (50,  150),
 }
 
@@ -34,10 +34,15 @@ def build_writer_system_prompt(platform: str) -> str:
     guides = {
         "linkedin": (
             "You write LinkedIn posts for B2B founders and operators. "
-            "Your posts feel like they come from someone with hard-won business experience. "
-            "Structure: hook → short narrative → concrete insight → takeaway → soft CTA. "
-            "No bullet spam. No corporate language. No 'I am excited to share'. "
-            "Sound like a real person who has done the work."
+            "Your posts feel like they come from someone with hard-won business experience — "
+            "not a copywriter, not an AI, not a marketing agency. "
+            "Structure: hook → short narrative with a specific real-world moment → concrete insight → "
+            "clear takeaway → soft CTA. "
+            "Use specific numbers, timelines, or named decisions when possible. "
+            "No bullet spam. No corporate buzzwords. No 'I am excited to share'. "
+            "No 'game-changer', 'leverage', 'unlock', 'transform', 'scale your business'. "
+            "Write in short punchy paragraphs — max 2 sentences per paragraph. "
+            "The post must make the reader stop scrolling because it says something true and unexpected."
         ),
         "x": (
             "You write X (Twitter) posts for B2B operators. "
@@ -85,8 +90,10 @@ def build_writer_prompt(
     platform_specific = {
         "linkedin": (
             f"Format: narrative prose. {word_min}–{word_max} words. "
-            "Start with the hook. Develop with 1–2 concrete insights. "
-            "End with takeaway + soft CTA. No bullet points unless listing 3+ specifics."
+            "Start with the hook. Build with a specific story, moment, or data point. "
+            "Develop 2 concrete insights — not restating the same idea twice. "
+            "End with a sharp takeaway + soft CTA (a question or follow prompt). "
+            "Short paragraphs (1–2 sentences). No bullet points unless listing 3+ distinct specifics."
         ),
         "x": (
             f"Format: single post OR thread (your choice). {word_min}–{word_max} words for single. "

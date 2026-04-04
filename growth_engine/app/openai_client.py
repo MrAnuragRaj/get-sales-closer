@@ -20,10 +20,12 @@ from app.logging_config import get_logger
 
 log = get_logger(__name__)
 
-# Default models — match existing GSC architecture
+# Default models
+# Writer + Critic use GPT-4o for quality — they directly determine post quality.
+# Planner + Hook use GPT-4o-mini — structured JSON outputs where mini is sufficient.
 PLANNER_MODEL = "gpt-4o-mini"
-WRITER_MODEL = "gpt-4o-mini"
-CRITIC_MODEL = "gpt-4o-mini"   # Models are excellent at critique tasks
+WRITER_MODEL = "gpt-4o"
+CRITIC_MODEL = "gpt-4o"
 HOOK_MODEL = "gpt-4o-mini"
 
 

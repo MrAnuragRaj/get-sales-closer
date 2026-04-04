@@ -106,7 +106,7 @@ async def run_writer_job(pool: asyncpg.Pool) -> None:
             SELECT ci.id AS idea_id, ci.org_id
             FROM growth.content_ideas ci
             JOIN growth.org_growth_settings ogs ON ogs.org_id = ci.org_id
-            WHERE ci.status = 'idea'
+            WHERE ci.status = 'generated'
               AND (ci.planned_for IS NULL OR ci.planned_for <= $1)
               AND ogs.plan_key != 'free'
             ORDER BY ci.org_id, ci.created_at ASC

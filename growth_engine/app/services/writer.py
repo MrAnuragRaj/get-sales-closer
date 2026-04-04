@@ -94,7 +94,7 @@ async def write_draft(
         ],
         model=WRITER_MODEL,
         temperature=0.75,
-        max_tokens=600,
+        max_tokens=900,
     )
 
     if not draft or not draft.strip():

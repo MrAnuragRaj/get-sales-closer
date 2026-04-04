@@ -114,9 +114,10 @@ async def _planner_loop() -> None:
 async def _writer_loop() -> None:
     """
     Daily writer job — runs at 08:00 UTC.
-    Picks up all pending content ideas and runs the full content pipeline
+    Picks up all generated content ideas and runs the full content pipeline
     (angle → hook tournament → draft → critic → save variant).
     """
+    from app.services import brand_brain
     from app.services.content_pipeline import run_pipeline_for_idea
     pool = get_pool()
     log.info("writer_loop_started")
@@ -135,7 +136,7 @@ async def _writer_loop() -> None:
                     """
                     SELECT id, org_id
                     FROM growth.content_ideas
-                    WHERE status = 'pending'
+                    WHERE status = 'generated'
                     ORDER BY planned_for ASC NULLS LAST, created_at ASC
                     LIMIT 50
                     """
@@ -144,9 +145,14 @@ async def _writer_loop() -> None:
 
             for row in rows:
                 try:
+                    brand = await brand_brain.get_brand_profile(pool, row["org_id"])
+                    if not brand:
+                        log.info("writer_job_skip_no_brand", idea_id=str(row["id"]))
+                        continue
                     await run_pipeline_for_idea(
                         pool=pool,
                         org_id=row["org_id"],
+                        brand=brand,
                         idea_id=row["id"],
                     )
                 except asyncio.CancelledError:

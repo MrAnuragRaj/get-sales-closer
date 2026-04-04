@@ -45,6 +45,10 @@ async def init_pool() -> asyncpg.Pool:
         max_size=settings.db_pool_max_size,
         # Ensure asyncpg returns dicts/records with column access by name
         command_timeout=30,
+        # Supabase uses PgBouncer in transaction pool_mode which does not support
+        # prepared statements. Disable asyncpg's statement cache to avoid
+        # "prepared statement does not exist" errors.
+        statement_cache_size=0,
     )
     log.info("db_pool_ready")
     return _pool
