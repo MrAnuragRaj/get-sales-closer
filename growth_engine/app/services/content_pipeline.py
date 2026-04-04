@@ -116,7 +116,7 @@ async def run_pipeline_for_idea(
     # Update idea status based on results
     any_approved = any(r.status in ("approved", "queued") for r in results)
     all_failed = all(not r.succeeded for r in results)
-    new_status = "ready" if any_approved else ("failed" if all_failed else "needs_review")
+    new_status = "drafted" if any_approved else ("rejected" if all_failed else "generated")
     await _update_idea_status(pool, idea_id, new_status)
 
     return results

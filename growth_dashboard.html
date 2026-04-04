@@ -380,13 +380,12 @@
                 <h2 class="text-base font-semibold text-white">Drafts &amp; Approvals</h2>
                 <div class="flex items-center gap-2">
                     <select id="drafts-status-filter" class="select-field w-auto text-xs" onchange="loadDrafts()">
-                        <option value="needs_review">Needs Review</option>
+                        <option value="">All</option>
                         <option value="draft">Draft</option>
                         <option value="approved">Approved</option>
                         <option value="queued">Queued</option>
                         <option value="published">Published</option>
                         <option value="rejected">Rejected</option>
-                        <option value="">All</option>
                     </select>
                 </div>
             </div>
@@ -1083,7 +1082,7 @@ async function loadTopContentPreview() {
 // Load pending drafts count for overview stat
 async function loadDraftCount() {
     try {
-        const data = await growthFetch('/drafts?status=needs_review&limit=100');
+        const data = await growthFetch('/drafts?status=draft&limit=100');
         document.getElementById('stat-drafts').textContent = data.total ?? (data.variants || []).length;
     } catch { document.getElementById('stat-drafts').textContent = '—'; }
 }
@@ -1183,7 +1182,7 @@ async function loadDrafts() {
     try {
         const data = await growthFetch(url);
         const items = data.variants || [];
-        if (status === 'needs_review') document.getElementById('stat-drafts').textContent = data.total ?? items.length;
+        if (status === 'draft') document.getElementById('stat-drafts').textContent = data.total ?? items.length;
         const needsAction = v => v.status === 'draft' || v.status === 'needs_review';
         el.innerHTML = items.length === 0
             ? '<p class="text-slate-500 text-sm text-center py-8">No variants found.</p>'
