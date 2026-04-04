@@ -1153,7 +1153,7 @@ async function submitIdea() {
 async function triggerGenerate(ideaId) {
     try {
         await growthFetch(`/ideas/${ideaId}/generate`, { method: 'POST', body: JSON.stringify({}) });
-        toast('Generation started', 'success');
+        toast('Pipeline started — check Drafts in ~60 seconds', 'success');
         loadIdeas();
     } catch(e) { toast(e.message, 'error'); }
 }

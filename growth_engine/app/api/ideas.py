@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from app.auth_bridge import AuthContext, require_auth
 from app.db import get_pool
@@ -184,52 +185,78 @@ async def get_idea(
     return ContentIdeaOut.model_validate(dict(row))
 
 
-@router.post("/{idea_id}/generate", response_model=list[PipelineResultOut], status_code=status.HTTP_201_CREATED)
+@router.post("/{idea_id}/generate", status_code=status.HTTP_202_ACCEPTED)
 async def generate_variants(
     idea_id: uuid.UUID,
     body: GenerateVariantsRequest,
+    background_tasks: BackgroundTasks,
     auth: AuthContext = Depends(require_auth),
     pool: asyncpg.Pool = Depends(get_pool),
 ):
     """
-    Run the full mandatory pipeline (angle → hook → write → critic → rewrite → save)
-    for all enabled platforms for this idea.
+    Kick off the full content pipeline for this idea in the background.
+
+    Returns 202 immediately — the pipeline (angle → hook → write → critic → save)
+    runs asynchronously. Check the Drafts tab after ~60 seconds for results.
+
+    Background execution is required because gpt-4o pipeline across 3 platforms
+    takes 60-180s, which exceeds HTTP connection timeouts.
     """
     brand = await brand_brain.get_brand_profile(pool, auth.org_id)
     if not brand:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Brand profile required. POST /growth/brand first.",
+            detail="Brand profile required. Set up your Brand profile first.",
         )
 
-    results = await run_pipeline_for_idea(
-        pool=pool,
-        org_id=auth.org_id,
-        brand=brand,
-        idea_id=idea_id,
-        prompt_version=body.prompt_version,
+    # Verify idea exists and belongs to this org before accepting
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT id FROM growth.content_ideas WHERE id = $1 AND org_id = $2",
+            idea_id, auth.org_id,
+        )
+    if not exists:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    org_id   = auth.org_id
+    prompt_v = body.prompt_version
+
+    async def _run():
+        from app.logging_config import get_logger as _gl
+        _log = _gl(__name__)
+        try:
+            results = await run_pipeline_for_idea(
+                pool=pool,
+                org_id=org_id,
+                brand=brand,
+                idea_id=idea_id,
+                prompt_version=prompt_v,
+            )
+            succeeded = sum(1 for r in results if r.succeeded)
+            _log.info(
+                "generate_variants_bg_done",
+                idea_id=str(idea_id),
+                platforms=len(results),
+                succeeded=succeeded,
+            )
+        except Exception as exc:
+            from app.logging_config import get_logger as _gl2
+            _gl2(__name__).error(
+                "generate_variants_bg_error",
+                idea_id=str(idea_id),
+                error=str(exc),
+            )
+
+    background_tasks.add_task(_run)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "processing",
+            "idea_id": str(idea_id),
+            "message": "Pipeline started. Check the Drafts tab in ~60 seconds.",
+        },
     )
-
-    if not results:
-        raise HTTPException(status_code=404, detail="Idea not found or pipeline produced no results")
-
-    return [
-        PipelineResultOut(
-            idea_id=r.idea_id,
-            platform=r.platform,
-            variant_id=r.variant_id,
-            status=r.status,
-            critic_decision=r.critic_decision,
-            generation_attempts=r.generation_attempts,
-            angle_type=r.angle_type,
-            angle_title=r.angle_title,
-            hook_text=r.hook_text,
-            hook_score=r.hook_score,
-            error=r.error,
-            succeeded=r.succeeded,
-        )
-        for r in results
-    ]
 
 
 @router.delete("/{idea_id}", status_code=status.HTTP_204_NO_CONTENT)
