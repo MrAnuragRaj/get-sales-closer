@@ -380,9 +380,11 @@
                 <h2 class="text-base font-semibold text-white">Drafts &amp; Approvals</h2>
                 <div class="flex items-center gap-2">
                     <select id="drafts-status-filter" class="select-field w-auto text-xs" onchange="loadDrafts()">
-                        <option value="pending_review">Pending Review</option>
+                        <option value="needs_review">Needs Review</option>
                         <option value="draft">Draft</option>
                         <option value="approved">Approved</option>
+                        <option value="queued">Queued</option>
+                        <option value="published">Published</option>
                         <option value="rejected">Rejected</option>
                         <option value="">All</option>
                     </select>
@@ -1081,9 +1083,8 @@ async function loadTopContentPreview() {
 // Load pending drafts count for overview stat
 async function loadDraftCount() {
     try {
-        const data = await growthFetch('/drafts?status=pending_review&limit=1');
-        // We don't have this endpoint, approximate from variants list
-        document.getElementById('stat-drafts').textContent = '—';
+        const data = await growthFetch('/drafts?status=needs_review&limit=100');
+        document.getElementById('stat-drafts').textContent = data.total ?? (data.variants || []).length;
     } catch { document.getElementById('stat-drafts').textContent = '—'; }
 }
 
@@ -1177,12 +1178,13 @@ async function viewIdea(id) {
 async function loadDrafts() {
     const el = document.getElementById('drafts-list');
     const status = document.getElementById('drafts-status-filter').value;
-    let url = '/variants?limit=50';
+    let url = '/drafts?limit=50';
     if (status) url += `&status=${status}`;
     try {
         const data = await growthFetch(url);
-        const items = data.variants || data.items || [];
-        if (status === 'pending_review') document.getElementById('stat-drafts').textContent = items.length;
+        const items = data.variants || [];
+        if (status === 'needs_review') document.getElementById('stat-drafts').textContent = data.total ?? items.length;
+        const needsAction = v => v.status === 'draft' || v.status === 'needs_review';
         el.innerHTML = items.length === 0
             ? '<p class="text-slate-500 text-sm text-center py-8">No variants found.</p>'
             : items.map(v => `
@@ -1201,7 +1203,7 @@ async function loadDrafts() {
                         <span class="text-xs text-slate-500">${fmtDate(v.created_at)}</span>
                         <div class="flex items-center gap-2">
                             <button onclick="viewVariant('${v.id}')" class="btn-ghost text-xs">View</button>
-                            ${v.status === 'pending_review' ? `
+                            ${needsAction(v) ? `
                                 <button onclick="confirmApprove('${v.id}')" class="btn-ghost text-xs text-green-400 border-green-500/30 hover:border-green-400/50">Approve</button>
                                 <button onclick="confirmReject('${v.id}')" class="btn-danger text-xs">Reject</button>
                             ` : ''}
@@ -1215,21 +1217,22 @@ async function loadDrafts() {
 
 async function viewVariant(id) {
     try {
-        const v = await growthFetch(`/variants/${id}`);
+        const v = await growthFetch(`/drafts/${id}`);
+        const needsAction = v.status === 'draft' || v.status === 'needs_review';
         openModal('Variant Detail', `
             <div class="space-y-4">
                 <div class="flex items-center gap-2 flex-wrap">${statusBadge(v.status)} ${platformPill(v.platform)} ${v.angle_type ? `<span class="badge badge-blue">${v.angle_type}</span>` : ''}</div>
                 <div class="bg-slate-900/60 rounded-lg p-4">
                     <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">${esc(v.body_text || '')}</p>
                 </div>
-                ${v.status === 'pending_review' ? `
+                ${needsAction ? `
                 <div class="flex gap-2">
                     <button onclick="closeModal();confirmApprove('${v.id}')" class="btn-primary flex-1">Approve</button>
                     <button onclick="closeModal();confirmReject('${v.id}')" class="btn-danger flex-1">Reject</button>
                 </div>` : ''}
                 <dl class="grid grid-cols-2 gap-2 text-xs">
                     <div><dt class="text-slate-500">Created</dt><dd class="text-slate-300">${fmtDate(v.created_at)}</dd></div>
-                    <div><dt class="text-slate-500">Updated</dt><dd class="text-slate-300">${fmtDate(v.updated_at)}</dd></div>
+                    <div><dt class="text-slate-500">Critic</dt><dd class="text-slate-300">${v.critic_decision || '—'}</dd></div>
                 </dl>
             </div>
         `);
@@ -1238,18 +1241,19 @@ async function viewVariant(id) {
 
 function confirmApprove(variantId) {
     showActionModal('Approve Variant', 'This variant will be approved and moved to the publish queue.', false, async () => {
-        await growthFetch(`/variants/${variantId}/approve`, { method: 'POST', body: JSON.stringify({}) });
+        await growthFetch(`/drafts/${variantId}/approve`, { method: 'POST', body: JSON.stringify({}) });
         toast('Variant approved', 'success');
         loadDrafts();
+        loadDraftCount();
     });
 }
 
 function confirmReject(variantId) {
-    showActionModal('Reject Variant', 'This variant will be rejected. Add a note to help the content author improve.', true, async () => {
-        const notes = document.getElementById('action-notes').value.trim();
-        await growthFetch(`/variants/${variantId}/reject`, { method: 'POST', body: JSON.stringify({ notes: notes || null }) });
+    showActionModal('Reject Variant', 'This variant will be rejected.', false, async () => {
+        await growthFetch(`/drafts/${variantId}`, { method: 'DELETE' });
         toast('Variant rejected', 'success');
         loadDrafts();
+        loadDraftCount();
     });
 }
 
