@@ -90,12 +90,15 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/oauth/linkedin", tags=["oauth"])
 
 # ── LinkedIn OAuth 2.0 endpoints ─────────────────────────────────────────────
-_AUTHORIZE_URL = "https://www.linkedin.com/oauth/v2/authorization"
-_TOKEN_URL     = "https://www.linkedin.com/oauth/v2/accessToken"
-_USERINFO_URL  = "https://api.linkedin.com/v2/userinfo"
+_AUTHORIZE_URL   = "https://www.linkedin.com/oauth/v2/authorization"
+_TOKEN_URL       = "https://www.linkedin.com/oauth/v2/accessToken"
+_USERINFO_URL    = "https://api.linkedin.com/v2/userinfo"
+_ORG_ACLS_URL    = "https://api.linkedin.com/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,logoV2(original~:playableStreams))))"
 
-# Scopes we request — must match the products approved on the LinkedIn app
-_SCOPES = "openid profile email w_member_social"
+# Scopes we request — must match the products approved on the LinkedIn app.
+# w_organization_social requires "Marketing Developer Platform" product approval
+# on the LinkedIn Developer App — without it LinkedIn silently ignores this scope.
+_SCOPES = "openid profile email w_member_social w_organization_social r_organization_social"
 
 # ── State encryption / decryption ─────────────────────────────────────────────
 # We use the primary Fernet key (not MultiFernet) for state — state is short-lived
@@ -358,7 +361,7 @@ async def linkedin_callback(
         person_urn_prefix=person_urn[:20],  # partial log only
     )
 
-    # ── 5. Encrypt tokens + upsert social_accounts ────────────────────────────
+    # ── 5. Encrypt tokens ─────────────────────────────────────────────────────
     try:
         access_token_enc  = encrypt_token(access_token)
         refresh_token_enc = encrypt_token(refresh_token) if refresh_token else None
@@ -366,55 +369,122 @@ async def linkedin_callback(
         log.error("linkedin_token_encryption_failed", org_id=str(org_id))
         return RedirectResponse(_dashboard_url(False, "encryption_failed"))
 
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO growth.social_accounts (
-                org_id, platform, platform_account_id, display_name,
-                access_token_enc, refresh_token_enc, token_expires_at,
-                status, publish_capable, engage_capable,
-                publish_status_reason, engage_status_reason,
-                scopes_json, meta_json, updated_at
-            ) VALUES (
-                $1, 'linkedin', $2, $3,
-                $4, $5, $6,
-                'connected', true, true,
-                'ok', 'ok',
-                $7, $8, now()
+    # ── 5b. Fetch managed organization pages (requires w_organization_social) ─
+    # This silently does nothing if the LinkedIn app doesn't have MDP approval yet.
+    managed_orgs: list[dict] = []
+    try:
+        async with AsyncClient(timeout=15.0) as http:
+            orgs_res = await http.get(
+                _ORG_ACLS_URL,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "LinkedIn-Version": "202304",
+                },
             )
-            ON CONFLICT (org_id, platform, platform_account_id)
-            DO UPDATE SET
-                display_name            = EXCLUDED.display_name,
-                access_token_enc        = EXCLUDED.access_token_enc,
-                refresh_token_enc       = COALESCE(EXCLUDED.refresh_token_enc, growth.social_accounts.refresh_token_enc),
-                token_expires_at        = EXCLUDED.token_expires_at,
-                status                  = 'connected',
-                publish_capable         = true,
-                engage_capable          = true,
-                publish_status_reason   = 'ok',
-                engage_status_reason    = 'ok',
-                scopes_json             = EXCLUDED.scopes_json,
-                meta_json               = EXCLUDED.meta_json,
-                updated_at              = now()
-            """,
+        if orgs_res.status_code == 200:
+            orgs_data = orgs_res.json()
+            for element in orgs_data.get("elements", []):
+                org_entity = element.get("organization~", {})
+                org_li_id  = org_entity.get("id")
+                org_name   = org_entity.get("localizedName", "")
+                if org_li_id:
+                    managed_orgs.append({
+                        "urn": f"urn:li:organization:{org_li_id}",
+                        "name": org_name,
+                    })
+            log.info(
+                "linkedin_managed_orgs_found",
+                org_id=str(org_id),
+                count=len(managed_orgs),
+                names=[o["name"] for o in managed_orgs],
+            )
+        else:
+            log.info(
+                "linkedin_managed_orgs_not_available",
+                org_id=str(org_id),
+                status=orgs_res.status_code,
+                hint="LinkedIn MDP approval required for w_organization_social",
+            )
+    except Exception as exc:
+        log.warning("linkedin_org_fetch_error", org_id=str(org_id), error=str(exc))
+
+    # ── 5c. Upsert personal profile + any managed company pages ──────────────
+    _UPSERT_SQL = """
+        INSERT INTO growth.social_accounts (
+            org_id, platform, platform_account_id, display_name,
+            access_token_enc, refresh_token_enc, token_expires_at,
+            status, publish_capable, engage_capable,
+            publish_status_reason, engage_status_reason,
+            scopes_json, meta_json, updated_at
+        ) VALUES (
+            $1, 'linkedin', $2, $3,
+            $4, $5, $6,
+            'connected', $7, true,
+            $8, 'ok',
+            $9, $10, now()
+        )
+        ON CONFLICT (org_id, platform, platform_account_id)
+        DO UPDATE SET
+            display_name            = EXCLUDED.display_name,
+            access_token_enc        = EXCLUDED.access_token_enc,
+            refresh_token_enc       = COALESCE(EXCLUDED.refresh_token_enc, growth.social_accounts.refresh_token_enc),
+            token_expires_at        = EXCLUDED.token_expires_at,
+            status                  = 'connected',
+            publish_capable         = EXCLUDED.publish_capable,
+            engage_capable          = true,
+            publish_status_reason   = EXCLUDED.publish_status_reason,
+            engage_status_reason    = 'ok',
+            scopes_json             = EXCLUDED.scopes_json,
+            meta_json               = EXCLUDED.meta_json,
+            updated_at              = now()
+    """
+
+    async with pool.acquire() as conn:
+        # Personal profile (always stored)
+        await conn.execute(
+            _UPSERT_SQL,
             org_id,
             person_urn,
             display_name,
             access_token_enc,
             refresh_token_enc,
             token_expires_at,
+            True,   # publish_capable
+            "ok",   # publish_status_reason
             json.dumps({"scopes": _SCOPES.split()}),
-            json.dumps({"email": email, "picture": picture_url}),
+            json.dumps({"email": email, "picture": picture_url, "account_type": "person"}),
         )
 
+        # Company pages (stored if MDP scope was granted)
+        for managed_org in managed_orgs:
+            await conn.execute(
+                _UPSERT_SQL,
+                org_id,
+                managed_org["urn"],
+                managed_org["name"],
+                access_token_enc,
+                refresh_token_enc,
+                token_expires_at,
+                True,  # publish_capable — organization URN, w_organization_social
+                "ok",
+                json.dumps({"scopes": _SCOPES.split()}),
+                json.dumps({"account_type": "organization"}),
+            )
+
+    pages_found = len(managed_orgs)
     log.info(
         "linkedin_account_stored",
         org_id=str(org_id),
         person_urn_prefix=person_urn[:20],
+        company_pages=pages_found,
     )
 
     # ── 6. Redirect back to Growth Dashboard ─────────────────────────────────
-    return RedirectResponse(_dashboard_url(True))
+    # Pass pages_found so dashboard can show a "company pages connected" message
+    redirect_url = _dashboard_url(True)
+    if pages_found > 0:
+        redirect_url += f"&linkedin_pages={pages_found}"
+    return RedirectResponse(redirect_url)
 
 
 # ── Route 3: DELETE /growth/oauth/linkedin — disconnect ─────────────────────
