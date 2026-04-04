@@ -341,6 +341,14 @@ async def _fetch_idea(
     return dict(row) if row else None
 
 
+_PLATFORM_FORMAT = {
+    "linkedin":  "post",
+    "facebook":  "post",
+    "instagram": "image_caption",
+    "x":         "post",
+}
+
+
 async def _save_variant(
     pool: asyncpg.Pool,
     org_id: uuid.UUID,
@@ -366,11 +374,13 @@ async def _save_variant(
         critic_scores_json = json.dumps(critic_result.scores)
         revision_brief = critic_result.revision_brief
 
+    fmt = _PLATFORM_FORMAT.get(platform, "post")
+
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
             INSERT INTO growth.content_variants (
-                org_id, idea_id, platform, status,
+                org_id, idea_id, platform, status, format,
                 body_text, original_body_text,
                 angle_type, angle_title, core_claim,
                 hook_text, hook_rank,
@@ -378,12 +388,12 @@ async def _save_variant(
                 critic_decision, critic_scores_json, revision_brief,
                 is_user_edited
             ) VALUES (
-                $1, $2, $3, $4,
-                $5, $6,
-                $7, $8, $9,
-                $10, $11,
-                $12, $13,
-                $14, $15::jsonb, $16,
+                $1, $2, $3, $4, $5,
+                $6, $7,
+                $8, $9, $10,
+                $11, $12,
+                $13, $14,
+                $15, $16::jsonb, $17,
                 false
             )
             RETURNING id
@@ -392,6 +402,7 @@ async def _save_variant(
             idea_id,
             platform,
             save_status,
+            fmt,
             body_text,
             original_body_text,
             angle.angle_type,
