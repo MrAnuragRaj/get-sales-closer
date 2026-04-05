@@ -352,10 +352,8 @@
                 <select id="ideas-status-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
                     <option value="">All Statuses</option>
                     <option value="generated">Generated</option>
-                    <option value="ready">Ready</option>
-                    <option value="queued">Queued</option>
-                    <option value="published">Published</option>
-                    <option value="needs_review">Needs Review</option>
+                    <option value="drafting">Drafting</option>
+                    <option value="drafted">Drafted</option>
                     <option value="rejected">Rejected</option>
                 </select>
                 <select id="ideas-platform-filter" class="select-field w-auto text-xs" onchange="loadIdeas()">
@@ -1040,14 +1038,23 @@ async function loadOverview() {
     const days = document.getElementById('overview-period').value;
     const el = document.getElementById('platform-breakdown');
     try {
-        const data = await growthFetch(`/analytics/overview?period_days=${days}`);
+        // Fetch engagement metrics and published count in parallel.
+        // "Posts Published" comes from publish_queue (accurate even before
+        // LinkedIn engagement data is ingested into content_metrics).
+        const [data, queueData] = await Promise.all([
+            growthFetch(`/analytics/overview?period_days=${days}`),
+            growthFetch(`/queue?status=published&limit=1`).catch(() => null),
+        ]);
 
-        document.getElementById('stat-posts').textContent = fmt(data.total_posts);
+        const publishedCount = queueData?.total ?? data.total_posts;
+        document.getElementById('stat-posts').textContent = fmt(publishedCount);
         document.getElementById('stat-impressions').textContent = fmtK(data.total_impressions);
-        document.getElementById('stat-er').textContent = fmtPct(data.avg_engagement_rate);
+        document.getElementById('stat-er').textContent = data.total_impressions > 0
+            ? fmtPct(data.avg_engagement_rate)
+            : '—';
 
         el.innerHTML = data.platforms.length === 0
-            ? '<p class="text-slate-500 text-sm text-center py-4">No metrics yet. Ingest some data first.</p>'
+            ? '<p class="text-slate-500 text-sm text-center py-4">No engagement data yet — metrics will appear here once LinkedIn starts reporting impressions on published posts.</p>'
             : data.platforms.map(p => `
                 <div class="flex items-center gap-3">
                     <div class="w-24 text-xs font-medium text-slate-300">${platformPill(p.platform)}</div>
@@ -1073,8 +1080,14 @@ async function loadIntelligenceSummaryForOverview() {
         document.getElementById('health-score-text').textContent = Math.round(score);
         document.getElementById('health-label').textContent = healthLabel(score);
     } catch {
-        document.getElementById('health-score-text').textContent = '?';
-        document.getElementById('health-label').textContent = 'No summary yet';
+        document.getElementById('health-score-text').textContent = '—';
+        document.getElementById('health-label').textContent = 'No summary generated yet';
+        // Show generate button more prominently
+        const btn = document.getElementById('gen-intel-btn');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Generate now';
+            btn.classList.add('text-indigo-300');
+        }
     }
 }
 
