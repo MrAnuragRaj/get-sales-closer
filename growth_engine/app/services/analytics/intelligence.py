@@ -213,7 +213,12 @@ async def get_latest_summary(
     if not row:
         return None
     result = dict(row)
-    result["health_score"] = result["summary_json"].get("health_score", 0.0)
+    # asyncpg may return jsonb columns as a raw string — parse defensively
+    summary_json = result["summary_json"]
+    if isinstance(summary_json, str):
+        summary_json = json.loads(summary_json)
+        result["summary_json"] = summary_json
+    result["health_score"] = summary_json.get("health_score", 0.0)
     return result
 
 
