@@ -116,9 +116,10 @@ async def resolve_linkedin_account(
     """
     Resolve a connected LinkedIn account for publishing.
 
-    Prefers company page (urn:li:organization:) over personal profile
-    (urn:li:person:) so that if both are connected, content goes to the
-    company page automatically.
+    Prefers personal profile (urn:li:person:) over company page
+    (urn:li:organization:). Company page posting requires the LinkedIn
+    Community Management API on a SEPARATE Developer App — not yet approved.
+    Until that app is ready, all posts go to the personal profile.
     """
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -129,7 +130,7 @@ async def resolve_linkedin_account(
               AND platform = 'linkedin'
               AND status   = 'connected'
             ORDER BY
-                CASE WHEN platform_account_id LIKE 'urn:li:organization:%' THEN 0 ELSE 1 END ASC,
+                CASE WHEN platform_account_id LIKE 'urn:li:person:%' THEN 0 ELSE 1 END ASC,
                 created_at DESC
             LIMIT 1
             """,

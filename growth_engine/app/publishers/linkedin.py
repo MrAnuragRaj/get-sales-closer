@@ -1,39 +1,37 @@
 """
 LinkedIn publisher adapter.
 
-API: LinkedIn Posts API (v2 replacement — posts endpoint)
-Endpoint: POST https://api.linkedin.com/rest/posts
-LinkedIn-Version: 202501
+API: LinkedIn UGC Posts v2 (personal profile posting)
+Endpoint: POST https://api.linkedin.com/v2/ugcPosts
 Auth: Bearer {access_token}
+Scope required: w_member_social (granted by "Share on LinkedIn" product)
+
+NOTE ON COMPANY PAGE POSTING
+Company/org page posting via urn:li:organization requires the
+"Community Management API" product on a SEPARATE LinkedIn Developer App
+(LinkedIn enforces 1-product-per-app for Community Management API).
+Until that new app is created and approved, ALL posts go to the
+authenticated user's personal profile (urn:li:person:).
 
 Text post payload:
   {
-    "author": "urn:li:person:{id}" or "urn:li:organization:{id}",
-    "commentary": "<body_text>",
-    "visibility": "PUBLIC",
-    "distribution": {
-      "feedDistribution": "MAIN_FEED",
-      "targetEntities": [],
-      "thirdPartyDistributionChannels": []
-    },
+    "author": "urn:li:person:{id}",
     "lifecycleState": "PUBLISHED",
-    "isReshareDisabledByAuthor": false
+    "specificContent": {
+      "com.linkedin.ugc.ShareContent": {
+        "shareCommentary": {"text": "<body_text>"},
+        "shareMediaCategory": "NONE"
+      }
+    },
+    "visibility": {
+      "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+    }
   }
 
 Image post (2-step upload then reference):
-  Step 1: POST /rest/images?action=initializeUpload
-          body: {"initializeUploadRequest": {"owner": "<author_urn>"}}
-          → uploadUrl + image URN
-  Step 2: PUT uploadUrl with raw image bytes
-  Step 3: posts payload with content block referencing image URN
-
-The platform_account_id in social_accounts stores the full URN
-(e.g., "urn:li:person:ABC123" or "urn:li:organization:12345").
-If it is bare (no "urn:li:" prefix), it is treated as a person ID.
-
-Scope required:
-  w_member_social   — post as person
-  w_organization_social — post as organization (requires MDP approval)
+  Step 1: POST /v2/assets?action=registerUpload → upload_url + asset URN
+  Step 2: PUT upload_url with image bytes
+  Step 3: UGC post with shareMediaCategory="IMAGE" + media reference
 
 Idempotency: LinkedIn has no request-level idempotency key.
 The queue worker checks publish_logs for prior success before calling the API.
@@ -51,9 +49,9 @@ from app.publishers.error_normalizer import normalize_error
 
 log = get_logger(__name__)
 
-_POSTS_URL   = "https://api.linkedin.com/rest/posts"
-_IMAGES_URL  = "https://api.linkedin.com/rest/images?action=initializeUpload"
-_LI_VERSION  = "202501"
+_UGC_URL             = "https://api.linkedin.com/v2/ugcPosts"
+_REGISTER_UPLOAD_URL = "https://api.linkedin.com/v2/assets?action=registerUpload"
+_API_VERSION_HEADER  = {"LinkedIn-Version": "202304"}
 
 
 class LinkedInPublisher(BasePublisher):
@@ -72,31 +70,33 @@ class LinkedInPublisher(BasePublisher):
             )
 
     async def _publish(self, req: PublishRequest) -> PublishResult:
-        author_urn = _ensure_urn(req.platform_account_id)
+        # Always post as personal profile — org posting requires Community
+        # Management API on a separate app (not yet approved).
+        author_urn = _personal_urn(req.platform_account_id)
+
         headers = {
-            "Authorization":    f"Bearer {req.access_token}",
-            "Content-Type":     "application/json",
-            "LinkedIn-Version": _LI_VERSION,
-            # NOTE: do NOT include X-Restli-Protocol-Version for /rest/* endpoints
-            # That header is only for the legacy /v2/ RestLi API
+            "Authorization": f"Bearer {req.access_token}",
+            "Content-Type":  "application/json",
+            "X-Restli-Protocol-Version": "2.0.0",
+            **_API_VERSION_HEADER,
         }
 
-        # Upload image if asset is present
-        li_image_urn: Optional[str] = None
+        # Upload image to LinkedIn if asset is present
+        li_asset_urn: Optional[str] = None
         if req.asset_url:
-            li_image_urn = await self._upload_image(req.asset_url, author_urn, headers)
-            if li_image_urn is None:
+            li_asset_urn = await self._upload_image(req.asset_url, author_urn, headers)
+            if li_asset_urn is None:
                 log.warning("linkedin_image_upload_failed_fallback_text",
                             queue_id=str(req.queue_id))
 
-        payload = _build_post_payload(
+        payload = _build_ugc_payload(
             author_urn=author_urn,
             body_text=req.body_text,
-            li_image_urn=li_image_urn,
+            li_asset_urn=li_asset_urn,
         )
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(_POSTS_URL, json=payload, headers=headers)
+            resp = await client.post(_UGC_URL, json=payload, headers=headers)
 
         http_status = resp.status_code
         try:
@@ -105,9 +105,7 @@ class LinkedInPublisher(BasePublisher):
             body = {"raw": resp.text[:500]}
 
         if http_status in (200, 201):
-            # Posts API returns the post URN in the `id` field or X-RestLi-Id header
-            post_urn = (body.get("id") if isinstance(body, dict) else None) \
-                       or resp.headers.get("x-restli-id", "")
+            post_urn = body.get("id") or resp.headers.get("x-restli-id", "")
             return PublishResult(
                 success=True,
                 platform_post_id=post_urn,
@@ -133,38 +131,43 @@ class LinkedInPublisher(BasePublisher):
         author_urn: str,
         auth_headers: dict,
     ) -> Optional[str]:
-        """
-        Upload image to LinkedIn using the Images API (new endpoint).
-        Returns LinkedIn image URN on success, None on failure.
-        """
-        # Step 1: initialize upload
-        init_payload = {
-            "initializeUploadRequest": {
+        """Upload image to LinkedIn in two steps. Returns asset URN or None."""
+        register_payload = {
+            "registerUploadRequest": {
+                "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
                 "owner": author_urn,
+                "serviceRelationships": [
+                    {
+                        "relationshipType": "OWNER",
+                        "identifier": "urn:li:userGeneratedContent",
+                    }
+                ],
             }
         }
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            init_resp = await client.post(
-                _IMAGES_URL,
-                json=init_payload,
+            reg_resp = await client.post(
+                _REGISTER_UPLOAD_URL,
+                json=register_payload,
                 headers=auth_headers,
             )
 
-        if init_resp.status_code not in (200, 201):
-            log.warning("linkedin_image_init_failed", status=init_resp.status_code,
-                        body=init_resp.text[:200])
+        if reg_resp.status_code not in (200, 201):
+            log.warning("linkedin_register_upload_failed", status=reg_resp.status_code)
             return None
 
         try:
-            init_body   = init_resp.json()
-            upload_url  = init_body["value"]["uploadUrl"]
-            image_urn   = init_body["value"]["image"]
+            reg_body   = reg_resp.json()
+            upload_url = (
+                reg_body["value"]["uploadMechanism"]
+                ["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]
+                ["uploadUrl"]
+            )
+            asset_urn = reg_body["value"]["asset"]
         except (KeyError, TypeError):
-            log.warning("linkedin_image_init_parse_failed")
+            log.warning("linkedin_register_parse_failed")
             return None
 
-        # Step 2: fetch image bytes from Supabase Storage, PUT to LinkedIn
         async with httpx.AsyncClient(timeout=60.0) as client:
             img_resp = await client.get(asset_url)
             if img_resp.status_code != 200:
@@ -181,49 +184,71 @@ class LinkedInPublisher(BasePublisher):
             log.warning("linkedin_image_upload_put_failed", status=up_resp.status_code)
             return None
 
-        return image_urn
+        return asset_urn
 
 
 # ── Payload builders ───────────────────────────────────────────────────────────
 
-def _build_post_payload(
+def _build_ugc_payload(
     author_urn: str,
     body_text: str,
-    li_image_urn: Optional[str],
+    li_asset_urn: Optional[str],
 ) -> dict:
-    payload: dict = {
+    if li_asset_urn:
+        media_category = "IMAGE"
+        media = [
+            {
+                "status": "READY",
+                "description": {"text": body_text[:200]},
+                "media":  li_asset_urn,
+                "title":  {"text": body_text[:80]},
+            }
+        ]
+    else:
+        media_category = "NONE"
+        media = []
+
+    content: dict = {
+        "shareCommentary": {"text": body_text},
+        "shareMediaCategory": media_category,
+    }
+    if media:
+        content["media"] = media
+
+    return {
         "author": author_urn,
-        "commentary": body_text,
-        "visibility": "PUBLIC",
-        "distribution": {
-            "feedDistribution": "MAIN_FEED",
-            "targetEntities": [],
-            "thirdPartyDistributionChannels": [],
-        },
         "lifecycleState": "PUBLISHED",
-        "isReshareDisabledByAuthor": False,
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": content,
+        },
+        "visibility": {
+            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+        },
     }
 
-    if li_image_urn:
-        payload["content"] = {
-            "media": {
-                "altText": body_text[:200],
-                "id": li_image_urn,
-            }
-        }
 
-    return payload
+def _personal_urn(platform_account_id: str) -> str:
+    """
+    Return a personal profile URN (urn:li:person:).
 
-
-def _ensure_urn(platform_account_id: str) -> str:
-    """Return a proper LinkedIn URN. Adds urn:li:person: prefix if bare ID."""
-    if platform_account_id.startswith("urn:li:"):
+    If the stored account ID is an org URN (urn:li:organization:), we cannot
+    post to it — Community Management API (separate app) is required for that.
+    In that case, fall back gracefully by logging a warning. The caller should
+    ensure resolve_linkedin_account always returns a person URN for now.
+    """
+    if platform_account_id.startswith("urn:li:person:"):
         return platform_account_id
+    if platform_account_id.startswith("urn:li:organization:"):
+        # Org posting not supported yet — log and use as-is (will fail at LinkedIn
+        # with a clear error). resolve_linkedin_account should prevent this case.
+        log.warning("linkedin_org_urn_not_supported_fallback",
+                    urn=platform_account_id[:40])
+        return platform_account_id
+    # Bare ID — treat as person URN
     return f"urn:li:person:{platform_account_id}"
 
 
 def _li_urn_to_url(post_urn: str) -> Optional[str]:
-    """Convert a LinkedIn post URN to a permalink where possible."""
     if not post_urn:
         return None
     return f"https://www.linkedin.com/feed/update/{post_urn}"
