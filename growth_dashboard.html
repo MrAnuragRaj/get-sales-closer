@@ -742,6 +742,14 @@ requireAuth({
         await checkApiHealth();
         switchTab('overview', document.querySelector('[data-tab=overview]'));
 
+        // Auto-refresh Drafts and Queue tabs every 15 seconds so new content
+        // appears without a manual page reload.
+        setInterval(() => {
+            const active = document.querySelector('.tab-btn.active')?.dataset?.tab;
+            if (active === 'drafts') loadDrafts();
+            else if (active === 'queue') loadQueue();
+        }, 15000);
+
         // Handle OAuth return — show feedback toast and clean up URL
         const _oauthParams = new URLSearchParams(window.location.search);
         if (_oauthParams.get('linkedin_connected') === '1') {
