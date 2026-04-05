@@ -74,10 +74,11 @@ class LinkedInPublisher(BasePublisher):
     async def _publish(self, req: PublishRequest) -> PublishResult:
         author_urn = _ensure_urn(req.platform_account_id)
         headers = {
-            "Authorization":  f"Bearer {req.access_token}",
-            "Content-Type":   "application/json",
+            "Authorization":    f"Bearer {req.access_token}",
+            "Content-Type":     "application/json",
             "LinkedIn-Version": _LI_VERSION,
-            "X-Restli-Protocol-Version": "2.0.0",
+            # NOTE: do NOT include X-Restli-Protocol-Version for /rest/* endpoints
+            # That header is only for the legacy /v2/ RestLi API
         }
 
         # Upload image if asset is present
@@ -147,7 +148,7 @@ class LinkedInPublisher(BasePublisher):
             init_resp = await client.post(
                 _IMAGES_URL,
                 json=init_payload,
-                headers={**auth_headers, "Content-Type": "application/json"},
+                headers=auth_headers,
             )
 
         if init_resp.status_code not in (200, 201):

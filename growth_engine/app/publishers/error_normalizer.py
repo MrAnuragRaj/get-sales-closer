@@ -108,11 +108,9 @@ def _normalize_linkedin(status: int, body: Optional[dict]) -> str:
         return "AUTH_FAILED"
 
     if status == 403:
-        # Check if it's a token/auth issue or a permissions issue
-        msg = _extract_linkedin_message(body).lower()
-        if any(kw in msg for kw in _LINKEDIN_AUTH_MSG):
-            return "AUTH_FAILED"
-        return "PERMANENT"
+        # LinkedIn 403 always means a permission/scope problem — treat as auth
+        # so items go to blocked_auth (recoverable) not failed (terminal)
+        return "AUTH_FAILED"
 
     if status == 422:
         return "CONTENT_REJECTED"

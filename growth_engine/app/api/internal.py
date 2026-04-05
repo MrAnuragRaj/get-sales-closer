@@ -82,6 +82,33 @@ def _check_secret(x_internal_secret: str | None) -> None:
         )
 
 
+@router.post("/reset-failed-queue")
+async def reset_failed_queue(
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    """
+    Reset all failed/blocked publish queue items back to pending so they are retried.
+    Use after fixing a publisher bug to re-process items that previously failed.
+    """
+    _check_secret(x_internal_secret)
+
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """
+            UPDATE growth.publish_queue
+            SET status       = 'pending',
+                attempt_count = 0,
+                last_error    = NULL,
+                scheduled_for = NOW(),
+                updated_at    = NOW()
+            WHERE status IN ('failed', 'blocked_auth', 'blocked_approval')
+            """
+        )
+    count = int(result.split()[-1]) if result else 0
+    return {"status": "ok", "reset": count}
+
+
 @router.post("/run-publish-cycle")
 async def trigger_publish_cycle(
     x_internal_secret: str | None = Header(default=None),
