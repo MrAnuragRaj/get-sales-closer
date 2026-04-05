@@ -41,8 +41,13 @@ async def _publish_worker_loop() -> None:
     Runs as a background asyncio task alongside the API server so the single
     Railway service handles both HTTP requests and background publishing.
     """
-    from app.services.queue_worker import POLL_INTERVAL_S, run_publish_cycle
-    pool = get_pool()
+    try:
+        from app.services.queue_worker import POLL_INTERVAL_S, run_publish_cycle
+        pool = get_pool()
+    except Exception as exc:
+        log.error("publish_worker_startup_failed", error=str(exc), exc_info=True)
+        return  # task dies but the reason is logged
+
     log.info("publish_worker_loop_started", poll_interval_s=POLL_INTERVAL_S)
     while True:
         try:
@@ -52,7 +57,7 @@ async def _publish_worker_loop() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            log.error("publish_worker_cycle_error", error=str(exc))
+            log.error("publish_worker_cycle_error", error=str(exc), exc_info=True)
         await asyncio.sleep(POLL_INTERVAL_S)
 
 

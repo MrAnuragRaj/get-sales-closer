@@ -82,6 +82,30 @@ def _check_secret(x_internal_secret: str | None) -> None:
         )
 
 
+@router.post("/run-publish-cycle")
+async def trigger_publish_cycle(
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    """
+    Manually trigger one publish cycle — leases and processes all pending queue items.
+
+    Use this when the background publish worker may not be running (e.g., during
+    Railway cold-start or after a deploy). Safe to call repeatedly — idempotent.
+
+    Returns count of items processed in this cycle.
+    """
+    _check_secret(x_internal_secret)
+
+    from app.services.queue_worker import run_publish_cycle
+    pool = get_pool()
+    processed = await run_publish_cycle(pool)
+
+    return {
+        "status": "ok",
+        "items_processed": processed,
+    }
+
+
 @router.post("/sweep")
 async def run_sweep(
     x_internal_secret: str | None = Header(default=None),
