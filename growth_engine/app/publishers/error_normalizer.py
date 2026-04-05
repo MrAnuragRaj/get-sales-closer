@@ -108,8 +108,13 @@ def _normalize_linkedin(status: int, body: Optional[dict]) -> str:
         return "AUTH_FAILED"
 
     if status == 403:
-        # LinkedIn 403 always means a permission/scope problem — treat as auth
-        # so items go to blocked_auth (recoverable) not failed (terminal)
+        # LinkedIn 403 = permission/scope problem — recoverable after reconnect
+        return "AUTH_FAILED"
+
+    if status == 426:
+        # LinkedIn 426 "Upgrade Required" = app missing required product
+        # (e.g. "Share on LinkedIn" not enabled on the Developer App).
+        # Treat as AUTH_FAILED so items go to blocked_auth, not terminal failed.
         return "AUTH_FAILED"
 
     if status == 422:
