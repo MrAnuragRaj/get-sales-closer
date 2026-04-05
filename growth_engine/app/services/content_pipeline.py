@@ -95,7 +95,18 @@ async def run_pipeline_for_idea(
     # Fetch posting_mode once per idea (same for all platforms)
     posting_mode = await get_posting_mode(pool, org_id)
 
-    platforms = settings.enabled_platforms()
+    # Only generate for platforms where the org has a connected social account.
+    # Generating content for disconnected platforms wastes OpenAI tokens and
+    # creates drafts the user can never publish.
+    enabled = settings.enabled_platforms()
+    connected = await _get_connected_platforms(pool, org_id)
+    platforms = [p for p in enabled if p in connected]
+
+    if not platforms:
+        log.warning("pipeline_no_connected_platforms", org_id=str(org_id), idea_id=str(idea_id))
+        await _update_idea_status(pool, idea_id, "generated")  # leave for later
+        return []
+
     results = []
 
     for platform in platforms:
@@ -464,6 +475,23 @@ async def _update_idea_status(
             status,
             idea_id,
         )
+
+
+async def _get_connected_platforms(
+    pool: asyncpg.Pool,
+    org_id: uuid.UUID,
+) -> set[str]:
+    """Return the set of platforms that have a connected social account for this org."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT DISTINCT platform
+            FROM growth.social_accounts
+            WHERE org_id = $1 AND status = 'connected'
+            """,
+            org_id,
+        )
+    return {r["platform"] for r in rows}
 
 
 def _error_result(

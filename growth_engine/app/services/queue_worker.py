@@ -68,6 +68,7 @@ from typing import Optional
 
 import asyncpg
 
+from app.launch_flags import X_PUBLISHING_ENABLED
 from app.logging_config import get_logger
 from app.publishers.base import PublishRequest, sanitize_for_log
 from app.publishers.error_normalizer import normalize_error, queue_status_for_category
@@ -224,9 +225,12 @@ async def execute_queue_item(pool: asyncpg.Pool, item: dict) -> None:
                           last_error=None, published_platform_id=None)
         return
 
-    # ── Guard 2: variant must be approved ─────────────────────────────────────
+    # ── Guard 2: variant must be approved or queued ───────────────────────────
+    # 'queued' is the normal state after human approval — the approval engine
+    # sets status='approved' then immediately transitions to 'queued' when it
+    # creates the publish_queue entry. We must allow both.
     variant = await _fetch_variant(pool, org_id, variant_id)
-    if not variant or variant["status"] not in ("approved", "force_approved"):
+    if not variant or variant["status"] not in ("approved", "force_approved", "queued"):
         log.warning("publish_blocked_variant_not_approved",
                     queue_id=str(queue_id), status=variant.get("status") if variant else "missing")
         await _transition(pool, queue_id, "blocked_approval",
@@ -260,6 +264,14 @@ async def execute_queue_item(pool: asyncpg.Pool, item: dict) -> None:
     )
 
     # ── Publish ───────────────────────────────────────────────────────────────
+    # Check launch flags before attempting platform-specific publishers.
+    if platform == "x" and not X_PUBLISHING_ENABLED:
+        log.warning("x_publishing_disabled_by_flag",
+                    queue_id=str(queue_id), platform=platform)
+        await _transition(pool, queue_id, "failed",
+                          last_error="x_publishing_disabled:set GE_X_PUBLISHING_ENABLED=true to enable")
+        return
+
     publisher = _PUBLISHERS.get(platform)
     if not publisher:
         await _transition(pool, queue_id, "failed", last_error=f"no_publisher:{platform}")
@@ -312,6 +324,19 @@ async def execute_queue_item(pool: asyncpg.Pool, item: dict) -> None:
         extra["scheduled_for"] = next_scheduled_for(category, attempt)
 
     await _transition(pool, queue_id, next_status, **extra)
+
+    # Task 11: when the queue item is permanently failed (all retries exhausted),
+    # also mark the variant itself as failed so the UI reflects the real state
+    # instead of showing "queued" indefinitely.
+    if next_status == "failed":
+        await _mark_variant_failed(pool, variant_id)
+        log.warning(
+            "variant_marked_failed_after_queue_exhausted",
+            variant_id=str(variant_id),
+            queue_id=str(queue_id),
+            platform=platform,
+            attempts=attempt,
+        )
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────────────
@@ -466,7 +491,26 @@ async def _finalize_variant(pool: asyncpg.Pool, variant_id: uuid.UUID) -> None:
             """
             UPDATE growth.content_variants
             SET status = 'published', finalized_at = NOW()
-            WHERE id = $1 AND status = 'approved'
+            WHERE id = $1 AND status IN ('approved', 'queued')
+            """,
+            variant_id,
+        )
+
+
+async def _mark_variant_failed(pool: asyncpg.Pool, variant_id: uuid.UUID) -> None:
+    """
+    Mark a variant as failed when its publish queue entry exhausted all retries.
+
+    Guards against overwriting terminal states (published, failed) so this is
+    safe to call even if the variant was published via a different queue entry.
+    """
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE growth.content_variants
+            SET status = 'failed'
+            WHERE id = $1
+              AND status NOT IN ('published', 'failed', 'rejected')
             """,
             variant_id,
         )
