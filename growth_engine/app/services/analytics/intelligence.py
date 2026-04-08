@@ -84,6 +84,21 @@ async def build_intelligence_summary(
     top_content  = await get_top_content(pool, org_id, None, period_start, period_end, limit=10)
     engagement   = await get_engagement_roi_summary(pool, org_id, period_start, period_end)
 
+    # Actual published post count from publish_queue — used by health score
+    # when content_metrics is empty (no engagement data ingested yet).
+    async with pool.acquire() as conn:
+        pub_row = await conn.fetchrow(
+            """
+            SELECT COUNT(*) AS n
+            FROM growth.publish_queue
+            WHERE org_id = $1
+              AND status = 'published'
+              AND updated_at >= $2
+            """,
+            org_id, period_start,
+        )
+    queue_published_count = int(pub_row["n"]) if pub_row else 0
+
     # Prior period for trend comparison
     delta = period_end - period_start
     prior_start = period_start - delta - timedelta(days=1)
@@ -144,7 +159,9 @@ async def build_intelligence_summary(
         })
 
     # ── Health score ──────────────────────────────────────────────────────────
-    health_score = _compute_health_score(overview, engagement, prior_overview)
+    health_score = _compute_health_score(
+        overview, engagement, prior_overview, queue_published_count
+    )
 
     # ── LLM recommendations ───────────────────────────────────────────────────
     recommendations = await _generate_recommendations(
@@ -236,17 +253,30 @@ def _compute_health_score(
     overview: list[dict],
     engagement: dict,
     prior_overview: list[dict],
+    queue_published_count: int = 0,
 ) -> float:
-    """Compute composite health score 0-100."""
+    """
+    Compute composite health score 0-100.
+
+    queue_published_count: actual published posts from publish_queue for the
+    period. Used to give partial publishing credit when content_metrics is
+    still empty (no engagement data ingested from the platform yet).
+    """
     score = 0.0
 
-    # Publishing consistency (0-30): posted at least 50% of recommended
+    # Publishing consistency (0-30): posted at least 50% of recommended.
+    # Falls back to queue_published_count when content_metrics is empty so
+    # a brand-new org that has published posts scores > 0.
     if overview:
         on_track = sum(
             1 for r in overview
             if r["posts_published"] >= _recommended_frequency(r["platform"], "weekly") * 0.5
         )
         score += (on_track / len(overview)) * 30
+    elif queue_published_count > 0:
+        # No engagement metrics yet — give partial credit proportional to
+        # posts published (caps at 15 pts; full 30 requires engagement data).
+        score += min(queue_published_count / 3, 1.0) * 15
 
     # Engagement quality (0-25): any platform at "good" or better
     if overview:

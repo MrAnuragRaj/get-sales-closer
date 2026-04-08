@@ -1074,11 +1074,19 @@ async function loadOverview() {
 async function loadIntelligenceSummaryForOverview() {
     try {
         const data = await growthFetch('/analytics/intelligence?period_type=weekly');
-        const score = data.health_score || 0;
-        const offset = 213.6 - (213.6 * score / 100);
-        document.getElementById('health-ring').style.strokeDashoffset = offset;
-        document.getElementById('health-score-text').textContent = Math.round(score);
-        document.getElementById('health-label').textContent = healthLabel(score);
+        const score = typeof data.health_score === 'number' ? data.health_score : 0;
+        if (score === 0) {
+            // Stored score of exactly 0 means no engagement data has been
+            // ingested yet — distinguish from a genuinely poor score.
+            document.getElementById('health-ring').style.strokeDashoffset = 213.6;
+            document.getElementById('health-score-text').textContent = '—';
+            document.getElementById('health-label').textContent = 'No engagement data yet';
+        } else {
+            const offset = 213.6 - (213.6 * score / 100);
+            document.getElementById('health-ring').style.strokeDashoffset = offset;
+            document.getElementById('health-score-text').textContent = Math.round(score);
+            document.getElementById('health-label').textContent = healthLabel(score);
+        }
     } catch {
         document.getElementById('health-score-text').textContent = '—';
         document.getElementById('health-label').textContent = 'No summary generated yet';
