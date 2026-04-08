@@ -1075,9 +1075,8 @@ async function loadIntelligenceSummaryForOverview() {
     try {
         const data = await growthFetch('/analytics/intelligence?period_type=weekly');
         const score = typeof data.health_score === 'number' ? data.health_score : 0;
-        if (score === 0) {
-            // Stored score of exactly 0 means no engagement data has been
-            // ingested yet — distinguish from a genuinely poor score.
+        if (score < 1) {
+            // Score < 1 means no published posts and no engagement data yet.
             document.getElementById('health-ring').style.strokeDashoffset = 213.6;
             document.getElementById('health-score-text').textContent = '—';
             document.getElementById('health-label').textContent = 'No engagement data yet';

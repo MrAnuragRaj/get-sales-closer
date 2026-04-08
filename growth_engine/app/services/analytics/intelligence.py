@@ -88,14 +88,8 @@ async def build_intelligence_summary(
     # when content_metrics is empty (no engagement data ingested yet).
     async with pool.acquire() as conn:
         pub_row = await conn.fetchrow(
-            """
-            SELECT COUNT(*) AS n
-            FROM growth.publish_queue
-            WHERE org_id = $1
-              AND status = 'published'
-              AND updated_at >= $2
-            """,
-            org_id, period_start,
+            "SELECT COUNT(*) AS n FROM growth.publish_queue WHERE org_id = $1 AND status = 'published'",
+            org_id,
         )
     queue_published_count = int(pub_row["n"]) if pub_row else 0
 
