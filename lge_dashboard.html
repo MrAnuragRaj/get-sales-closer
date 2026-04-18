@@ -557,6 +557,9 @@
         <button class="tab-btn" onclick="switchTab('providers',this)">API Keys</button>
         <button class="tab-btn" onclick="switchTab('analytics',this)">Analytics</button>
         <button class="tab-btn" onclick="switchTab('imports-history',this)">Import History</button>
+        <button class="tab-btn" onclick="switchTab('alerts',this)" id="alerts-tab-btn">
+            Alerts <span id="alerts-badge" class="hidden ml-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span>
+        </button>
     </div>
 
     <!-- Pipeline Status Strip -->
@@ -1146,6 +1149,108 @@
 
         </div><!-- /tab-imports-history -->
 
+        <!-- ── Alerts Tab (Phase 12) ─────────────────────────────────────── -->
+        <div id="tab-alerts" class="tab-body hidden p-6 space-y-6">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">LGE Alerts <span class="ml-1 badge badge-red">Phase 12</span></p>
+                    <p class="text-[10px] text-slate-600 mt-0.5">Rule-based operational alerts with deduplication and cooldowns.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="alerts-status-filter" class="select-field py-1.5 text-xs" style="width:auto" onchange="loadAlerts()">
+                        <option value="open">Open</option>
+                        <option value="acknowledged">Acknowledged</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="all">All</option>
+                    </select>
+                    <select id="alerts-severity-filter" class="select-field py-1.5 text-xs" style="width:auto" onchange="loadAlerts()">
+                        <option value="">All severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                    <button onclick="loadAlerts()" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                    <button onclick="triggerDigest()" id="digest-btn" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-envelope text-[10px]"></i> Send Digest</button>
+                    <span id="alerts-loading" class="hidden"><span class="spinner"></span></span>
+                </div>
+            </div>
+
+            <!-- Unread summary -->
+            <div id="alerts-unread-bar" class="grid grid-cols-3 gap-3 hidden">
+                <div class="stat-tile border border-red-800/30 bg-red-900/10">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Critical</p>
+                    <p id="alerts-count-critical" class="text-2xl font-bold text-red-400">0</p>
+                </div>
+                <div class="stat-tile border border-amber-800/30 bg-amber-900/10">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Warning</p>
+                    <p id="alerts-count-warning" class="text-2xl font-bold text-amber-400">0</p>
+                </div>
+                <div class="stat-tile border border-indigo-800/30 bg-indigo-900/10">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">Info</p>
+                    <p id="alerts-count-info" class="text-2xl font-bold text-indigo-400">0</p>
+                </div>
+            </div>
+
+            <!-- Alert list -->
+            <div id="alerts-list" class="space-y-3">
+                <div class="text-center py-8 text-slate-600 text-sm">Loading alerts...</div>
+            </div>
+
+            <!-- Notification Preferences -->
+            <div class="glass-panel rounded-xl p-5">
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Notification Preferences</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="notif-prefs-form">
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">In-App Alerts</label>
+                        <select id="pref-in-app" class="select-field text-xs py-1.5">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Email Alerts</label>
+                        <select id="pref-email" class="select-field text-xs py-1.5">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Digest Frequency</label>
+                        <select id="pref-digest" class="select-field text-xs py-1.5">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Minimum Severity to Email</label>
+                        <select id="pref-min-sev" class="select-field text-xs py-1.5">
+                            <option value="info">Info and above</option>
+                            <option value="warning" selected>Warning and above</option>
+                            <option value="critical">Critical only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center gap-3">
+                    <button onclick="saveNotifPrefs()" class="btn-primary text-xs py-1.5 px-4">Save Preferences</button>
+                    <span id="prefs-saved-msg" class="hidden text-xs text-green-400"><i class="fa-solid fa-check mr-1"></i>Saved</span>
+                </div>
+            </div>
+
+            <!-- Digest History -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Digest History</p>
+                </div>
+                <div id="digest-history-list" class="divide-y divide-white/4">
+                    <div class="px-5 py-4 text-xs text-slate-600">No digests sent yet.</div>
+                </div>
+            </div>
+
+        </div><!-- /tab-alerts -->
+
     </div><!-- /overflow-y-auto -->
 </div><!-- /page-content -->
 
@@ -1205,6 +1310,7 @@ requireAuth({
         loadProviderStatus();
         loadPipelineStatus();
         startPolling();
+        pollAlertBadge();
     }
 });
 
@@ -1234,6 +1340,7 @@ function switchTab(name, btn) {
     if (name === 'import') populateImportSelect();
     if (name === 'analytics') { populateAnalyticsFilter(); loadAnalytics(); loadScorecard(); loadCalibration(); }
     if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
+    if (name === 'alerts') { loadAlerts(); loadNotifPrefs(); loadDigestHistory(); }
 }
 
 // ── Campaigns ─────────────────────────────────────────────────────────────────
@@ -3423,6 +3530,226 @@ function scoreFillColor(s) {
     if (s >= 80) return 'bg-green-500';
     if (s >= 60) return 'bg-yellow-400';
     return 'bg-slate-600';
+}
+
+// ── Phase 12 — Alerts & Notifications ────────────────────────────────────────
+
+async function callNotif(body) {
+    return callFn('lge_notifications_manage', body);
+}
+
+async function loadAlerts() {
+    document.getElementById('alerts-loading').classList.remove('hidden');
+    const statusFilter   = document.getElementById('alerts-status-filter')?.value ?? 'open';
+    const severityFilter = document.getElementById('alerts-severity-filter')?.value ?? '';
+    const body = { action: 'list_alerts', status: statusFilter, limit: 50 };
+    if (severityFilter) body.severity = severityFilter;
+    try {
+        const res = await callNotif(body);
+        if (res.error) throw new Error(res.error);
+        renderAlertList(res.alerts ?? []);
+        renderAlertUnreadBar(res.unread ?? {});
+        // Update tab badge
+        const total = res.unread?.total ?? 0;
+        const badge = document.getElementById('alerts-badge');
+        if (badge) {
+            badge.textContent = total;
+            badge.classList.toggle('hidden', total === 0);
+        }
+    } catch (e) {
+        document.getElementById('alerts-list').innerHTML =
+            `<div class="text-center py-8 text-red-400 text-sm">Failed to load alerts: ${escHtml(e.message)}</div>`;
+    } finally {
+        document.getElementById('alerts-loading').classList.add('hidden');
+    }
+}
+
+function renderAlertUnreadBar(unread) {
+    const bar = document.getElementById('alerts-unread-bar');
+    if (!unread.total) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    document.getElementById('alerts-count-critical').textContent = unread.critical ?? 0;
+    document.getElementById('alerts-count-warning').textContent  = unread.warning  ?? 0;
+    document.getElementById('alerts-count-info').textContent     = unread.info      ?? 0;
+}
+
+function renderAlertList(alerts) {
+    const el = document.getElementById('alerts-list');
+    if (!alerts.length) {
+        el.innerHTML = `<div class="text-center py-10 text-slate-600 text-sm">
+            <i class="fa-solid fa-circle-check text-3xl mb-3 text-slate-700"></i>
+            <p>No alerts. System is healthy.</p>
+        </div>`;
+        return;
+    }
+    const sevConfig = {
+        critical: { bg: 'bg-red-900/15',   border: 'border-red-800/30',   icon: 'fa-circle-exclamation text-red-400',         badge: 'bg-red-900/40 text-red-400',   label: 'Critical' },
+        warning:  { bg: 'bg-amber-900/15', border: 'border-amber-800/30', icon: 'fa-triangle-exclamation text-amber-400',     badge: 'bg-amber-900/40 text-amber-400', label: 'Warning' },
+        info:     { bg: 'bg-slate-800/40', border: 'border-white/8',      icon: 'fa-circle-info text-indigo-400',             badge: 'bg-indigo-900/40 text-indigo-400', label: 'Info' },
+    };
+    el.innerHTML = alerts.map(a => {
+        const s = sevConfig[a.severity] ?? sevConfig.info;
+        const statusBadge = a.status === 'acknowledged'
+            ? `<span class="badge badge-blue ml-2">Acknowledged</span>`
+            : a.status === 'resolved'
+            ? `<span class="badge badge-green ml-2">Resolved</span>`
+            : a.status === 'suppressed'
+            ? `<span class="badge badge-slate ml-2">Suppressed</span>` : '';
+        const seenAgo = a.last_seen_at ? `Last seen ${relTime(a.last_seen_at)}` : '';
+        const firstSeen = a.first_seen_at ? `First seen ${relTime(a.first_seen_at)}` : '';
+        const campTag = a.campaign_name ? `<span class="text-indigo-400">${escHtml(a.campaign_name)}</span> · ` : '';
+        const actions = [];
+        if (a.status === 'open') {
+            actions.push(`<button onclick="acknowledgeAlert('${a.id}')" class="btn-ghost text-[11px] py-1 px-2">Acknowledge</button>`);
+            actions.push(`<button onclick="openResolveModal('${a.id}')" class="btn-ghost text-[11px] py-1 px-2">Resolve</button>`);
+            actions.push(`<button onclick="suppressAlert('${a.id}')" class="btn-ghost text-[11px] py-1 px-2">Suppress 24h</button>`);
+        } else if (a.status === 'acknowledged') {
+            actions.push(`<button onclick="openResolveModal('${a.id}')" class="btn-ghost text-[11px] py-1 px-2">Resolve</button>`);
+        }
+        return `<div class="glass-panel rounded-xl p-4 border ${s.border} ${s.bg}">
+            <div class="flex items-start gap-3">
+                <i class="fa-solid ${s.icon} mt-0.5 flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center flex-wrap gap-2 mb-1">
+                        <span class="font-semibold text-sm text-slate-200">${escHtml(a.title)}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${s.badge}">${s.label}</span>
+                        ${statusBadge}
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed mb-2">${escHtml(a.message)}</p>
+                    <div class="flex items-center gap-4 text-[10px] text-slate-600">
+                        <span>${campTag}${firstSeen}</span>
+                        <span>${seenAgo}</span>
+                    </div>
+                    ${a.resolution_note ? `<p class="text-[10px] text-slate-600 mt-1.5"><b class="text-slate-500">Resolution note:</b> ${escHtml(a.resolution_note)}</p>` : ''}
+                </div>
+                ${actions.length ? `<div class="flex items-center gap-1.5 flex-shrink-0">${actions.join('')}</div>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function relTime(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+}
+
+async function acknowledgeAlert(alertId) {
+    try {
+        const res = await callNotif({ action: 'acknowledge_alert', alert_id: alertId });
+        if (res.error) throw new Error(res.error);
+        toast('Alert acknowledged', 'success');
+        loadAlerts();
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+async function suppressAlert(alertId) {
+    try {
+        const res = await callNotif({ action: 'suppress_alert', alert_id: alertId, suppress_hours: 24 });
+        if (res.error) throw new Error(res.error);
+        toast('Alert suppressed for 24h', 'success');
+        loadAlerts();
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// Resolve modal
+let resolvingAlertId = null;
+function openResolveModal(alertId) {
+    resolvingAlertId = alertId;
+    const note = prompt('Resolution note (required):');
+    if (!note || !note.trim()) return;
+    resolveAlert(alertId, note.trim());
+}
+
+async function resolveAlert(alertId, note) {
+    try {
+        const res = await callNotif({ action: 'resolve_alert', alert_id: alertId, resolution_note: note });
+        if (res.error) throw new Error(res.error);
+        toast('Alert resolved', 'success');
+        loadAlerts();
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+// Notification prefs
+async function loadNotifPrefs() {
+    try {
+        const res = await callNotif({ action: 'get_notification_prefs' });
+        if (res.error || !res.prefs) return;
+        const p = res.prefs;
+        const s = v => el => { if (el) el.value = String(v); };
+        s(p.channel_in_app)(document.getElementById('pref-in-app'));
+        s(p.channel_email)(document.getElementById('pref-email'));
+        s(p.digest_frequency)(document.getElementById('pref-digest'));
+        s(p.min_severity)(document.getElementById('pref-min-sev'));
+    } catch (e) { /* silent */ }
+}
+
+async function saveNotifPrefs() {
+    try {
+        const res = await callNotif({
+            action: 'update_notification_prefs',
+            channel_in_app: document.getElementById('pref-in-app')?.value === 'true',
+            channel_email:  document.getElementById('pref-email')?.value === 'true',
+            digest_frequency: document.getElementById('pref-digest')?.value,
+            min_severity:     document.getElementById('pref-min-sev')?.value,
+        });
+        if (res.error) throw new Error(res.error);
+        const msg = document.getElementById('prefs-saved-msg');
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 3000);
+    } catch (e) { toast('Failed to save: ' + e.message, 'error'); }
+}
+
+async function triggerDigest() {
+    const btn = document.getElementById('digest-btn');
+    if (btn) btn.disabled = true;
+    try {
+        const res = await callNotif({ action: 'trigger_digest' });
+        if (res.error) throw new Error(res.error);
+        toast(`Digest sent to ${res.sent_to}`, 'success');
+        loadDigestHistory();
+    } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    finally { if (btn) btn.disabled = false; }
+}
+
+async function loadDigestHistory() {
+    try {
+        const res = await callNotif({ action: 'get_digest_history', limit: 20 });
+        if (res.error) return;
+        const el = document.getElementById('digest-history-list');
+        const digests = res.digests ?? [];
+        if (!digests.length) { el.innerHTML = '<div class="px-5 py-4 text-xs text-slate-600">No digests sent yet.</div>'; return; }
+        el.innerHTML = digests.map(d => {
+            const color = d.delivery_status === 'sent' ? 'text-green-400' : d.delivery_status === 'failed' ? 'text-red-400' : 'text-slate-400';
+            return `<div class="px-5 py-3 flex items-center justify-between text-xs">
+                <div>
+                    <span class="font-medium text-slate-300">${d.digest_type} digest</span>
+                    <span class="text-slate-600 ml-2">${d.period_start ? new Date(d.period_start).toLocaleDateString() : ''}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="font-bold ${color}">${d.delivery_status}</span>
+                    <span class="text-slate-600">${d.sent_at ? relTime(d.sent_at) : relTime(d.created_at)}</span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { /* silent */ }
+}
+
+// Poll alerts count on page load (for badge)
+async function pollAlertBadge() {
+    try {
+        const res = await callNotif({ action: 'list_alerts', status: 'open', limit: 1 });
+        const total = res.unread?.total ?? 0;
+        const badge = document.getElementById('alerts-badge');
+        if (badge) {
+            badge.textContent = total;
+            badge.classList.toggle('hidden', total === 0);
+        }
+    } catch (_) {}
 }
 
 // ── Phase 11 — Score Calibration ─────────────────────────────────────────────
