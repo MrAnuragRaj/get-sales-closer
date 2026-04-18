@@ -1,0 +1,3341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GetSalesCloser | Lead Generation Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 30px rgba(0,0,0,0.3); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .hidden { display: none !important; }
+        .tab-btn { transition: all 0.2s; border-bottom: 2px solid transparent; padding: 0.75rem 1rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; white-space: nowrap; }
+        .tab-btn.active { border-bottom-color: #6366f1; color: white; }
+        .tab-btn:not(.active) { color: #64748b; }
+        .tab-btn:not(.active):hover { color: #94a3b8; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em; }
+        .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; }
+        .badge-yellow { background: rgba(234,179,8,0.15); color: #facc15; }
+        .badge-orange { background: rgba(249,115,22,0.15); color: #fb923c; }
+        .badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
+        .badge-blue { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+        .badge-slate { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        .badge-purple { background: rgba(168,85,247,0.15); color: #c084fc; }
+        .badge-teal { background: rgba(20,184,166,0.15); color: #2dd4bf; }
+        .list-row { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+        .list-row:hover { background: rgba(255,255,255,0.02); }
+        .list-row:last-child { border-bottom: none; }
+        .btn-primary { background: #6366f1; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 600; transition: background 0.2s; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; padding: 0.4rem 0.85rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; transition: all 0.15s; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: white; }
+        .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; padding: 0.4rem 0.85rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+        .btn-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #4ade80; padding: 0.4rem 0.85rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .btn-success:hover { background: rgba(34,197,94,0.25); }
+        .input-field { width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 0.6rem 0.85rem; color: white; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+        .input-field:focus { border-color: #6366f1; }
+        .input-field::placeholder { color: #475569; }
+        .select-field { width: 100%; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 0.6rem 0.85rem; color: white; font-size: 0.85rem; outline: none; cursor: pointer; }
+        .select-field option { background: #1e293b; }
+        .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(99,102,241,0.3); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 99999; animation: slideIn 0.3s ease; max-width: 360px; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
+        .tag-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.2); }
+        .tag-pill .remove-tag { cursor: pointer; opacity: 0.6; }
+        .tag-pill .remove-tag:hover { opacity: 1; }
+        .score-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.07); overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+        .upload-zone { border: 2px dashed rgba(99,102,241,0.3); border-radius: 0.75rem; padding: 2.5rem; text-align: center; transition: all 0.2s; cursor: pointer; }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: rgba(99,102,241,0.7); background: rgba(99,102,241,0.05); }
+        .stat-tile { background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 0.75rem; padding: 1rem 1.25rem; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- Auth loader -->
+<div id="auth-loader" class="modal-overlay">
+    <div class="flex flex-col items-center">
+        <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 text-4xl mb-4"></i>
+        <p class="text-slate-400 text-sm font-bold">Loading Lead Generation Engine...</p>
+    </div>
+</div>
+
+<!-- Locked preview -->
+<div id="locked-preview" class="modal-overlay hidden" style="background:linear-gradient(135deg,#0f172a 0%,#0d1525 100%);">
+    <div class="w-full max-w-md mx-4 text-center">
+        <div class="flex items-center justify-center gap-3 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-900/60 border border-indigo-700/40 flex items-center justify-center">
+                <i class="fa-solid fa-rocket text-indigo-400 text-2xl"></i>
+            </div>
+        </div>
+        <div class="mb-2 flex items-center justify-center gap-2">
+            <h1 class="text-2xl font-bold text-white">Lead Generation Engine</h1>
+        </div>
+        <p class="text-slate-400 text-sm mb-8">Find, enrich, score, and auto-qualify leads before they hit your CRM.</p>
+        <div class="text-left bg-slate-800/40 border border-white/5 rounded-2xl p-5 mb-8 space-y-3">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-indigo-400 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">CSV import + Apollo enrichment</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-indigo-400 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Fit + Confidence scoring against your ICP</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-indigo-400 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">GPT-4o-mini context: why reach out, pitch angle</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-indigo-400 text-sm w-4 flex-shrink-0"></i>
+                <span class="text-slate-300 text-sm">Auto-push high-score leads into GSC AI pipeline</span>
+            </div>
+        </div>
+        <a href="billing.html?lock=lead_gen" class="btn-primary w-full justify-center py-3 text-sm font-semibold">
+            Unlock Lead Generation Engine
+        </a>
+        <a href="dashboard.html" class="block mt-4 text-slate-500 text-xs hover:text-slate-400 transition-colors">Back to Dashboard</a>
+    </div>
+</div>
+
+<!-- Campaign edit modal -->
+<div id="campaign-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-lg mx-4 glass-panel rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-5">
+            <h3 id="campaign-modal-title" class="text-base font-semibold text-white">New Campaign</h3>
+            <button onclick="closeCampaignModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form id="campaign-form" onsubmit="saveCampaign(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Campaign Name</label>
+                    <input id="cf-name" type="text" class="input-field" placeholder="e.g. SaaS Founders Q3" required>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">Mode</label>
+                        <select id="cf-mode" class="select-field">
+                            <option value="off">Off</option>
+                            <option value="shadow">Shadow (observe only)</option>
+                            <option value="active">Active (auto-route)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1.5">Max Leads / Day</label>
+                        <input id="cf-max-leads" type="number" class="input-field" value="100" min="1" max="1000">
+                    </div>
+                </div>
+
+                <!-- ICP Config -->
+                <div class="border-t border-white/5 pt-4">
+                    <p class="text-xs font-semibold text-slate-300 mb-3">Ideal Customer Profile (ICP)</p>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Industries <span class="text-slate-600">(press Enter to add)</span></label>
+                            <div id="industry-tags" class="flex flex-wrap gap-1.5 mb-1.5"></div>
+                            <input id="icp-industry-input" type="text" class="input-field" placeholder="e.g. SaaS, FinTech" onkeydown="addTag(event,'industry')">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Company Size</label>
+                            <div id="size-tags" class="flex flex-wrap gap-1.5 mb-1.5"></div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button type="button" onclick="toggleSizeTag('1-10')" class="size-btn tag-pill cursor-pointer text-xs">1-10</button>
+                                <button type="button" onclick="toggleSizeTag('11-50')" class="size-btn tag-pill cursor-pointer text-xs">11-50</button>
+                                <button type="button" onclick="toggleSizeTag('51-200')" class="size-btn tag-pill cursor-pointer text-xs">51-200</button>
+                                <button type="button" onclick="toggleSizeTag('201-500')" class="size-btn tag-pill cursor-pointer text-xs">201-500</button>
+                                <button type="button" onclick="toggleSizeTag('500+')" class="size-btn tag-pill cursor-pointer text-xs">500+</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Geographies <span class="text-slate-600">(press Enter)</span></label>
+                            <div id="geo-tags" class="flex flex-wrap gap-1.5 mb-1.5"></div>
+                            <input id="icp-geo-input" type="text" class="input-field" placeholder="e.g. US, UK, India" onkeydown="addTag(event,'geo')">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Target Designations <span class="text-slate-600">(press Enter)</span></label>
+                            <div id="designation-tags" class="flex flex-wrap gap-1.5 mb-1.5"></div>
+                            <input id="icp-designation-input" type="text" class="input-field" placeholder="e.g. CEO, Founder, VP Sales" onkeydown="addTag(event,'designation')">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Fit Weight</label>
+                                <input id="icp-fit-weight" type="number" class="input-field" value="0.6" min="0" max="1" step="0.1">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Confidence Weight</label>
+                                <input id="icp-conf-weight" type="number" class="input-field" value="0.4" min="0" max="1" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Routing Thresholds -->
+                <div class="border-t border-white/5 pt-4">
+                    <p class="text-xs font-semibold text-slate-300 mb-1">Routing Thresholds</p>
+                    <p class="text-[11px] text-slate-500 mb-3">Control when leads are auto-pushed vs. sent to review vs. discarded.</p>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs text-slate-400">Auto-Push Threshold</label>
+                                <span id="apt-display" class="text-xs font-semibold text-green-400">80</span>
+                            </div>
+                            <input id="cf-auto-push-threshold" type="range" min="51" max="100" value="80" step="1"
+                                class="w-full accent-green-500 cursor-pointer"
+                                oninput="document.getElementById('apt-display').textContent=this.value; updateThresholdPreview()">
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs text-slate-400">Review Threshold</label>
+                                <span id="rt-display" class="text-xs font-semibold text-yellow-400">60</span>
+                            </div>
+                            <input id="cf-review-threshold" type="range" min="0" max="99" value="60" step="1"
+                                class="w-full accent-yellow-500 cursor-pointer"
+                                oninput="document.getElementById('rt-display').textContent=this.value; updateThresholdPreview()">
+                        </div>
+                        <p id="threshold-preview" class="text-[11px] text-slate-500 bg-slate-800/40 rounded-lg px-3 py-2">
+                            Score &ge;80: auto-push &nbsp;&middot;&nbsp; Score 60–79: review queue &nbsp;&middot;&nbsp; Score &lt;60: discarded
+                        </p>
+                        <!-- Threshold change reason — shown only when editing and thresholds changed -->
+                        <div id="threshold-reason-wrap" class="hidden">
+                            <label class="block text-xs text-slate-400 mb-1">Reason for threshold change <span class="text-slate-600">(optional, logged)</span></label>
+                            <input id="cf-threshold-reason" type="text" maxlength="500" class="input-field text-xs" placeholder="e.g. Reply rate was low, raising push threshold">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review Queue TTL -->
+                <div class="border-t border-white/5 pt-4">
+                    <p class="text-xs font-semibold text-slate-300 mb-1">Review Queue TTL</p>
+                    <p class="text-[11px] text-slate-500 mb-2">Leads in review queue older than this are auto-discarded daily.</p>
+                    <div class="flex items-center gap-2">
+                        <input id="cf-review-ttl-days" type="number" class="input-field w-24" value="10" min="1" max="365">
+                        <span class="text-xs text-slate-500">days</span>
+                    </div>
+                </div>
+
+                <!-- Outreach Template -->
+                <div class="border-t border-white/5 pt-4">
+                    <p class="text-xs font-semibold text-slate-300 mb-1">Opening Message Template <span class="text-slate-600 font-normal">(optional)</span></p>
+                    <p class="text-[11px] text-slate-500 mb-2">When set, this exact message is sent instead of AI-generated outreach. Leave blank to let the AI write it.</p>
+                    <textarea id="cf-outreach-template" rows="3" maxlength="2000"
+                        class="input-field text-xs resize-none"
+                        placeholder="Hi {name}, I came across your profile and thought our AI sales system could help {company}..."></textarea>
+                    <p class="text-[10px] text-slate-600 mt-1">Tip: use natural language — short, direct, specific to your ICP.</p>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button type="submit" class="btn-primary flex-1 justify-center" id="campaign-save-btn">
+                    <span id="campaign-save-label">Save Campaign</span>
+                    <span id="campaign-save-spinner" class="spinner hidden"></span>
+                </button>
+                <button type="button" onclick="closeCampaignModal()" class="btn-ghost">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Push Confirm Modal -->
+<div id="push-confirm-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.85);">
+    <div class="w-full max-w-sm mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-xl bg-green-900/40 border border-green-700/30 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-check text-green-400 text-sm"></i>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Push to GSC</p>
+                <p class="text-xs text-slate-500">AI outreach will start immediately</p>
+            </div>
+        </div>
+        <div class="mb-4">
+            <label class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5 block">Note <span class="normal-case font-normal text-slate-600">(optional)</span></label>
+            <input type="text" id="push-confirm-note" maxlength="500" placeholder="e.g. High intent signal, met at conference..." class="input-field text-xs">
+        </div>
+        <div class="flex gap-2 justify-end">
+            <button onclick="closePushConfirm()" class="btn-ghost text-xs py-1.5 px-4">Cancel</button>
+            <button onclick="executePush()" class="btn-success text-xs py-1.5 px-4"><i class="fa-solid fa-check text-xs"></i> Push Lead</button>
+        </div>
+    </div>
+</div>
+
+<!-- Re-process Modal (Phase 7) -->
+<div id="reprocess-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.85);">
+    <div class="w-full max-w-md mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <p class="text-sm font-semibold text-white">Re-process Leads</p>
+                <p id="rp-campaign-name" class="text-xs text-slate-500 mt-0.5"></p>
+            </div>
+            <button onclick="closeReprocessModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Mode selector -->
+        <div class="space-y-2 mb-4">
+            <label class="block text-xs font-medium text-slate-400 mb-2">Re-process Mode</label>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-white/5 bg-slate-800/40 cursor-pointer hover:border-indigo-500/30 transition-colors">
+                <input type="radio" name="rp-mode" value="score_only" checked class="mt-0.5 accent-indigo-500" onchange="updateReprocessPreview()">
+                <div>
+                    <p class="text-xs font-semibold text-white">Score Only <span class="text-indigo-400">(recommended)</span></p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Re-run scoring using existing enrichment data. No provider API calls. Fast and free.</p>
+                </div>
+            </label>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-white/5 bg-slate-800/40 cursor-pointer hover:border-orange-500/30 transition-colors">
+                <input type="radio" name="rp-mode" value="full" class="mt-0.5 accent-orange-500" onchange="updateReprocessPreview()">
+                <div>
+                    <p class="text-xs font-semibold text-white">Full Re-enrichment</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Clears all enrichment data and re-runs the full pipeline. Uses Apollo + Hunter API credits.</p>
+                </div>
+            </label>
+        </div>
+
+        <!-- Preview panel -->
+        <div id="rp-preview" class="bg-slate-800/40 rounded-xl px-4 py-3 mb-4 text-[11px] text-slate-400">
+            <span class="spinner inline-block w-3 h-3"></span> Loading preview...
+        </div>
+
+        <!-- Reason -->
+        <div class="mb-5">
+            <label class="block text-xs font-medium text-slate-400 mb-1.5">Reason <span class="text-slate-600 font-normal">(optional)</span></label>
+            <input id="rp-reason" type="text" maxlength="500" class="input-field text-xs" placeholder="e.g. Updated ICP thresholds, re-scoring against new weights">
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="runReprocess()" id="rp-run-btn" class="btn-primary flex-1 justify-center">
+                <span id="rp-run-label">Start Re-process</span>
+                <span id="rp-run-spinner" class="spinner hidden"></span>
+            </button>
+            <button onclick="closeReprocessModal()" class="btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Score Override Modal (Phase 9) -->
+<div id="override-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.88);">
+    <div class="w-full max-w-sm mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-orange-900/40 border border-orange-700/30 flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-sliders text-orange-400 text-sm"></i>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-white">Override Score</p>
+                <p class="text-xs text-slate-500">Machine score = default truth. This is a controlled exception.</p>
+            </div>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-medium text-slate-400">New Score</label>
+                    <span id="ov-score-display" class="text-sm font-bold text-orange-400">75</span>
+                </div>
+                <input id="ov-score" type="range" min="0" max="100" value="75" step="1"
+                    class="w-full accent-orange-500 cursor-pointer"
+                    oninput="document.getElementById('ov-score-display').textContent=this.value">
+                <p id="ov-delta-warn" class="text-[11px] text-yellow-400 mt-1 hidden"></p>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Reason <span class="text-red-400">*</span></label>
+                <input id="ov-reason" type="text" maxlength="500" class="input-field text-xs" placeholder="e.g. Direct referral — Apollo data was incomplete" required>
+            </div>
+            <p class="text-[11px] text-slate-600 bg-slate-800/40 rounded-lg px-3 py-2">
+                Max change: &plusmn;30 points from system score. Override is logged and attributed to your account.
+            </p>
+        </div>
+        <div class="flex gap-3 mt-5">
+            <button onclick="submitOverride()" id="ov-submit-btn" class="btn-primary flex-1 justify-center">
+                <span id="ov-submit-label">Apply Override</span>
+                <span id="ov-submit-spinner" class="spinner hidden"></span>
+            </button>
+            <button onclick="closeOverrideModal()" class="btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Lead Detail Modal -->
+<div id="lead-detail-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-xl mx-4 glass-panel rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-5 border-b border-white/5">
+            <div>
+                <h3 id="ldm-name" class="text-base font-semibold text-white">Lead Details</h3>
+                <p id="ldm-sub" class="text-xs text-slate-500 mt-0.5"></p>
+            </div>
+            <button onclick="closeLeadDetail()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="ldm-body" class="p-5 space-y-5">
+            <div class="flex items-center justify-center py-8"><span class="spinner"></span></div>
+        </div>
+        <div id="ldm-actions" class="px-5 pb-0 flex gap-2 flex-wrap"></div>
+
+        <!-- Notes Thread (Phase 8) -->
+        <div class="p-5 border-t border-white/5 mt-0 space-y-3">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Notes</p>
+            <div id="ldm-notes" class="space-y-2 max-h-48 overflow-y-auto">
+                <p class="text-xs text-slate-600 text-center py-3">Loading notes...</p>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <input id="ldm-note-input" type="text" maxlength="2000" placeholder="Add a note..." class="input-field flex-1 text-xs py-1.5">
+                <button onclick="submitNote()" class="btn-ghost text-xs py-1.5 px-3 flex-shrink-0"><i class="fa-solid fa-paper-plane text-[10px]"></i> Add</button>
+            </div>
+        </div>
+        <!-- Processing Timeline (Phase 10) -->
+        <div class="px-5 pb-5 border-t border-white/5 space-y-3">
+            <div class="flex items-center justify-between mt-4">
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Processing Timeline</p>
+                <button onclick="loadLeadTimeline(_currentDetailLeadId)" class="text-[10px] text-slate-600 hover:text-slate-400 transition-colors"><i class="fa-solid fa-rotate-right text-[9px]"></i> Refresh</button>
+            </div>
+            <div id="ldm-timeline" class="space-y-1.5">
+                <p class="text-xs text-slate-600 text-center py-3">Loading timeline...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Campaign Audit History Modal (Phase 10) -->
+<div id="audit-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-2xl mx-4 glass-panel rounded-2xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-semibold text-white">Campaign History</h3>
+                <p id="audit-modal-sub" class="text-xs text-slate-500 mt-0.5"></p>
+            </div>
+            <button onclick="closeAuditModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <!-- Filter tabs -->
+        <div class="flex items-center px-5 pt-4 gap-2 flex-shrink-0">
+            <button class="audit-filter-btn text-xs px-3 py-1.5 rounded-full font-medium bg-indigo-600/30 text-indigo-300 border border-indigo-500/40" onclick="setAuditFilter('all',this)">All Events</button>
+            <button class="audit-filter-btn text-xs px-3 py-1.5 rounded-full font-medium text-slate-500 border border-white/5 hover:border-white/20" onclick="setAuditFilter('threshold',this)">Threshold Changes</button>
+            <button class="audit-filter-btn text-xs px-3 py-1.5 rounded-full font-medium text-slate-500 border border-white/5 hover:border-white/20" onclick="setAuditFilter('lifecycle',this)">Lifecycle</button>
+            <button onclick="exportAuditCsv()" class="btn-ghost text-xs py-1 px-3 ml-auto flex-shrink-0"><i class="fa-solid fa-download text-[10px] mr-1"></i> Export CSV</button>
+        </div>
+        <div id="audit-body" class="overflow-y-auto flex-1 p-5">
+            <div class="flex items-center justify-center py-8"><span class="spinner"></span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Outcome Modal (Phase 10) -->
+<div id="outcome-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-md mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-base font-semibold text-white">Mark Outcome</h3>
+            <button onclick="closeOutcomeModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">Record the current outcome for this lead. Forward-only: you cannot move backwards on the outcome ladder without admin access.</p>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-2">Outcome Stage</label>
+                <div class="grid grid-cols-4 gap-2" id="outcome-ladder">
+                    <!-- rendered by JS -->
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Reason <span class="text-slate-600">(required, min 5 chars)</span></label>
+                <input id="outcome-reason" type="text" maxlength="500" class="input-field" placeholder="e.g. Booked confirmed via phone">
+            </div>
+        </div>
+        <p id="outcome-error" class="hidden text-xs text-red-400 mt-3"></p>
+        <div class="flex gap-3 mt-5">
+            <button onclick="submitOutcome()" id="outcome-btn" class="btn-primary flex-1 justify-center">
+                <span id="outcome-btn-label">Save Outcome</span>
+                <span id="outcome-btn-spinner" class="spinner hidden"></span>
+            </button>
+            <button onclick="closeOutcomeModal()" class="btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Re-enrich Reason Modal (Phase 10) -->
+<div id="reenrich-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-md mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold text-white">Re-enrich Lead</h3>
+            <button onclick="closeReenrichModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">Prior enrichment data is preserved. A new version is queued. Cooldown: 5 minutes between attempts.</p>
+        <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5">Reason <span class="text-slate-600">(required)</span></label>
+            <input id="reenrich-reason" type="text" maxlength="500" class="input-field" placeholder="e.g. Provider key rotated, Lead data corrected">
+        </div>
+        <p id="reenrich-error" class="hidden text-xs text-red-400 mt-3"></p>
+        <div class="flex gap-3 mt-5">
+            <button onclick="submitReenrich()" id="reenrich-btn" class="btn-primary flex-1 justify-center">
+                <span id="reenrich-btn-label">Re-enrich</span>
+                <span id="reenrich-btn-spinner" class="spinner hidden"></span>
+            </button>
+            <button onclick="closeReenrichModal()" class="btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Single Lead Modal -->
+<div id="add-lead-modal" class="modal-overlay hidden" style="background:rgba(15,23,42,0.92);">
+    <div class="w-full max-w-md mx-4 glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="text-base font-semibold text-white">Add Single Lead</h3>
+            <button onclick="closeAddLeadModal()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Campaign</label>
+                <select id="al-campaign" class="select-field"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Name</label>
+                    <input id="al-name" type="text" class="input-field" placeholder="Full name">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Company</label>
+                    <input id="al-company" type="text" class="input-field" placeholder="Company">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+                <input id="al-email" type="email" class="input-field" placeholder="email@company.com">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Phone</label>
+                <input id="al-phone" type="tel" class="input-field" placeholder="+1 555 000 0000">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
+                <input id="al-title" type="text" class="input-field" placeholder="CEO, Founder, VP Sales...">
+            </div>
+        </div>
+        <p id="al-error" class="hidden text-xs text-red-400 mt-3"></p>
+        <div class="flex gap-3 mt-5">
+            <button onclick="addSingleLead()" id="al-btn" class="btn-primary flex-1 justify-center">
+                <span id="al-label">Add Lead</span>
+                <span id="al-spinner" class="spinner hidden"></span>
+            </button>
+            <button onclick="closeAddLeadModal()" class="btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Page content -->
+<div id="page-content" class="hidden flex flex-col h-screen overflow-hidden">
+
+    <!-- Top bar -->
+    <header class="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-slate-900/80 backdrop-blur-sm">
+        <div class="flex items-center gap-3">
+            <a href="dashboard.html" class="text-slate-500 hover:text-white transition-colors text-sm"><i class="fa-solid fa-arrow-left mr-1"></i></a>
+            <h1 class="text-sm font-semibold text-white">Lead Generation Engine</h1>
+            <span class="badge badge-blue">Beta</span>
+            <span id="campaign-mode-badge" class="badge badge-slate hidden"></span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="active-campaign-label" class="text-xs text-slate-500 hidden">Campaign: <span id="active-campaign-name" class="text-slate-300 font-medium"></span></span>
+            <button onclick="openAddLeadModal()" class="btn-ghost text-xs py-1.5 px-3">
+                <i class="fa-solid fa-user-plus text-xs"></i> Add Lead
+            </button>
+            <button onclick="openNewCampaignModal()" class="btn-primary text-xs py-1.5 px-3">
+                <i class="fa-solid fa-plus text-xs"></i> New Campaign
+            </button>
+        </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex-shrink-0 flex items-center px-6 border-b border-white/5 bg-slate-900/50">
+        <button class="tab-btn active" onclick="switchTab('campaigns',this)">Campaigns</button>
+        <button class="tab-btn" onclick="switchTab('import',this)">Import</button>
+        <button class="tab-btn" onclick="switchTab('leads',this)" id="leads-tab-btn">Leads</button>
+        <button class="tab-btn" onclick="switchTab('providers',this)">API Keys</button>
+        <button class="tab-btn" onclick="switchTab('analytics',this)">Analytics</button>
+        <button class="tab-btn" onclick="switchTab('imports-history',this)">Import History</button>
+    </div>
+
+    <!-- Pipeline Status Strip -->
+    <div id="pipeline-strip" class="flex-shrink-0 hidden border-b border-white/5 bg-slate-950/60 px-6 py-2 flex items-center gap-5 overflow-x-auto">
+        <span class="text-[10px] text-slate-600 uppercase tracking-wider font-bold flex-shrink-0">Pipeline</span>
+        <div class="flex items-center gap-5 text-xs">
+            <span class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                <span class="text-slate-500">Pending</span>
+                <span id="ps-pending" class="font-bold text-slate-300">—</span>
+            </span>
+            <span class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                <span class="text-slate-500">Enriching</span>
+                <span id="ps-enriching" class="font-bold text-indigo-300">—</span>
+            </span>
+            <span class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                <span class="text-slate-500">Review</span>
+                <span id="ps-review" class="font-bold text-yellow-300">—</span>
+            </span>
+            <span class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                <span class="text-slate-500">Pushed</span>
+                <span id="ps-pushed" class="font-bold text-green-300">—</span>
+            </span>
+            <span class="flex items-center gap-1.5 flex-shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                <span class="text-slate-500">Failed</span>
+                <span id="ps-failed" class="font-bold text-red-300">—</span>
+            </span>
+        </div>
+        <span id="ps-last-updated" class="text-[10px] text-slate-700 ml-auto flex-shrink-0"></span>
+    </div>
+
+    <!-- Tab bodies -->
+    <div class="flex-1 overflow-y-auto">
+
+        <!-- ─── CAMPAIGNS TAB ─────────────────────────────────────────────── -->
+        <div id="tab-campaigns" class="tab-body p-6">
+            <div id="campaigns-loading" class="flex items-center gap-2 text-slate-500 text-sm"><span class="spinner"></span> Loading campaigns...</div>
+            <div id="campaigns-empty" class="hidden text-center py-16">
+                <i class="fa-solid fa-folder-open text-slate-700 text-3xl mb-3"></i>
+                <p class="text-slate-500 text-sm">No campaigns yet.</p>
+                <p class="text-slate-600 text-xs mt-1">Create one to start importing and scoring leads.</p>
+                <button onclick="openNewCampaignModal()" class="btn-primary mt-4 text-xs">Create your first campaign</button>
+            </div>
+
+            <div id="campaigns-list" class="hidden space-y-3"></div>
+
+            <!-- Show archived toggle -->
+            <div class="mt-4 flex items-center gap-2">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-500 hover:text-slate-400 select-none">
+                    <input type="checkbox" id="show-archived-toggle" class="accent-indigo-500" onchange="renderCampaigns()">
+                    Show archived campaigns
+                </label>
+            </div>
+        </div>
+
+        <!-- ─── IMPORT TAB ─────────────────────────────────────────────────── -->
+        <div id="tab-import" class="tab-body hidden p-6">
+            <div class="max-w-2xl">
+                <!-- Campaign selector -->
+                <div class="mb-5">
+                    <label class="block text-xs font-medium text-slate-400 mb-2">Target Campaign</label>
+                    <select id="import-campaign-select" class="select-field" style="max-width:360px" onchange="onImportCampaignChange()">
+                        <option value="">Select a campaign...</option>
+                    </select>
+                    <p id="import-mode-note" class="mt-1.5 text-xs text-slate-500 hidden"></p>
+                </div>
+
+                <!-- Upload zone -->
+                <div id="upload-zone" class="upload-zone" onclick="document.getElementById('csv-file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+                    <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="onFileSelect(event)">
+                    <i class="fa-solid fa-cloud-arrow-up text-indigo-500 text-3xl mb-3"></i>
+                    <p class="text-slate-300 text-sm font-medium">Drop CSV here or click to browse</p>
+                    <p class="text-slate-500 text-xs mt-1">Required columns: <code class="bg-slate-800 px-1 rounded">email</code> or <code class="bg-slate-800 px-1 rounded">phone</code> — Optional: name, company, title</p>
+                </div>
+
+                <!-- Preview -->
+                <div id="csv-preview" class="hidden mt-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm font-medium text-white"><span id="csv-row-count">0</span> leads detected</p>
+                        <div class="flex gap-2">
+                            <button onclick="clearCsv()" class="btn-ghost text-xs py-1">Clear</button>
+                            <button id="import-btn" onclick="importLeads()" class="btn-primary text-xs py-1.5">
+                                <i class="fa-solid fa-upload text-xs"></i> Import
+                                <span id="import-spinner" class="spinner hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Column mapping hint -->
+                    <div id="column-hints" class="bg-slate-800/40 border border-white/5 rounded-lg p-3 mb-3 text-xs text-slate-400"></div>
+
+                    <!-- First 5 rows preview -->
+                    <div class="glass-panel rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr id="csv-preview-head" class="border-b border-white/5 text-slate-400"></tr>
+                                </thead>
+                                <tbody id="csv-preview-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result banner -->
+                <div id="import-result" class="hidden mt-4 p-4 bg-slate-800/40 border border-white/5 rounded-xl">
+                    <p class="text-sm font-semibold text-white mb-2">Import Complete</p>
+                    <div id="import-result-body" class="text-xs text-slate-400 space-y-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── LEADS TAB ──────────────────────────────────────────────────── -->
+        <div id="tab-leads" class="tab-body hidden p-6">
+
+            <!-- Bulk action bar (appears when leads are selected) -->
+            <div id="bulk-bar" class="hidden mb-4 flex items-center gap-3 bg-indigo-900/30 border border-indigo-500/30 rounded-xl px-4 py-2.5">
+                <span id="bulk-count" class="text-xs font-semibold text-indigo-300"></span>
+                <button onclick="bulkPush()" class="btn-success text-xs py-1 px-3"><i class="fa-solid fa-check text-xs"></i> Push Selected</button>
+                <button onclick="bulkDiscard()" class="btn-danger text-xs py-1 px-3"><i class="fa-solid fa-xmark text-xs"></i> Discard Selected</button>
+                <button onclick="clearSelection()" class="btn-ghost text-xs py-1 ml-auto">Clear</button>
+            </div>
+
+            <!-- Filters row -->
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <!-- Search -->
+                <div class="relative flex-1" style="min-width:200px;max-width:280px">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none"></i>
+                    <input id="leads-search" type="text" placeholder="Search name, email, company..." class="input-field pl-8 text-xs py-1.5" oninput="debouncedLeadSearch()">
+                </div>
+                <select id="leads-campaign-filter" class="select-field" style="max-width:200px" onchange="saveFilterState(); loadLeads()">
+                    <option value="">All Campaigns</option>
+                </select>
+                <select id="leads-status-filter" class="select-field" style="max-width:150px" onchange="saveFilterState(); loadLeads()">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="enriching">Enriching</option>
+                    <option value="scored">Scored</option>
+                    <option value="review_queue">Review Queue</option>
+                    <option value="pushed">Pushed</option>
+                    <option value="discarded">Discarded</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <select id="leads-score-filter" class="select-field" style="max-width:150px" onchange="saveFilterState(); loadLeads()">
+                    <option value="">Any Score</option>
+                    <option value="high">High (≥80)</option>
+                    <option value="medium">Medium (60–79)</option>
+                    <option value="low">Low (&lt;60)</option>
+                </select>
+                <button onclick="loadLeads()" class="btn-ghost text-xs py-1.5"><i class="fa-solid fa-rotate-right text-xs"></i></button>
+                <button onclick="exportLeadsCsv()" class="btn-ghost text-xs py-1.5 ml-auto"><i class="fa-solid fa-download text-xs"></i> Export</button>
+            </div>
+
+            <!-- Pipeline stats row -->
+            <div id="leads-stats" class="grid grid-cols-4 gap-3 mb-3 hidden">
+                <div class="stat-tile">
+                    <p class="text-xs text-slate-500 mb-0.5">Pending</p>
+                    <p id="stat-pending" class="text-xl font-bold text-indigo-400">0</p>
+                </div>
+                <div class="stat-tile">
+                    <p class="text-xs text-slate-500 mb-0.5">Review Queue</p>
+                    <p id="stat-review" class="text-xl font-bold text-yellow-400">0</p>
+                </div>
+                <div class="stat-tile">
+                    <p class="text-xs text-slate-500 mb-0.5">Pushed to GSC</p>
+                    <p id="stat-pushed" class="text-xl font-bold text-green-400">0</p>
+                </div>
+                <div class="stat-tile">
+                    <p class="text-xs text-slate-500 mb-0.5">Discarded</p>
+                    <p id="stat-discarded" class="text-xl font-bold text-slate-500">0</p>
+                </div>
+            </div>
+
+            <!-- Outcome stats row (from lge_outcomes — filled by GSC outcome sync) -->
+            <div id="outcome-stats" class="hidden mb-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">GSC Outcomes</p>
+                    <span class="text-[10px] text-slate-700">synced daily</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="stat-tile border border-indigo-900/40">
+                        <p class="text-xs text-slate-500 mb-0.5">Replied</p>
+                        <p id="outcome-replied" class="text-xl font-bold text-indigo-400">0</p>
+                    </div>
+                    <div class="stat-tile border border-yellow-900/40">
+                        <p class="text-xs text-slate-500 mb-0.5">Booked</p>
+                        <p id="outcome-booked" class="text-xl font-bold text-yellow-400">0</p>
+                    </div>
+                    <div class="stat-tile border border-green-900/40">
+                        <p class="text-xs text-slate-500 mb-0.5">Won</p>
+                        <p id="outcome-won" class="text-xl font-bold text-green-400">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="leads-loading" class="flex items-center gap-2 text-slate-500 text-sm"><span class="spinner"></span> Loading leads...</div>
+            <div id="leads-empty" class="hidden text-center py-16">
+                <i class="fa-solid fa-users text-slate-700 text-3xl mb-3"></i>
+                <p class="text-slate-500 text-sm">No leads found.</p>
+                <p class="text-slate-600 text-xs mt-1">Import a CSV to get started.</p>
+            </div>
+
+            <!-- Leads table -->
+            <div id="leads-table-wrap" class="hidden glass-panel rounded-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-white/5 text-slate-500 text-left">
+                                <th class="px-3 py-3 font-medium w-8"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)" class="accent-indigo-500 cursor-pointer"></th>
+                                <th class="px-4 py-3 font-medium">Lead</th>
+                                <th class="px-4 py-3 font-medium">Company</th>
+                                <th class="px-4 py-3 font-medium">Score</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">Context</th>
+                                <th class="px-4 py-3 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leads-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="leads-pagination" class="border-t border-white/5 px-4 py-2.5 flex items-center justify-between text-xs text-slate-500">
+                    <span id="leads-count-label"></span>
+                    <div class="flex gap-2">
+                        <button id="leads-prev-btn" onclick="leadsPage('prev')" class="btn-ghost py-1 text-xs" disabled>Prev</button>
+                        <button id="leads-next-btn" onclick="leadsPage('next')" class="btn-ghost py-1 text-xs" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── PROVIDERS / API KEYS TAB ───────────────────────────────────── -->
+        <div id="tab-providers" class="tab-body hidden p-6">
+            <div class="max-w-lg space-y-5">
+                <div class="glass-panel rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-1">
+                        <img src="https://www.apollo.io/favicon.ico" class="w-4 h-4 rounded" onerror="this.style.display='none'">
+                        <h3 class="text-sm font-semibold text-white">Apollo.io</h3>
+                        <span id="apollo-status" class="badge badge-slate ml-auto">Not configured</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Used for contact enrichment — industry, company size, designation, email verification.</p>
+                    <div class="flex gap-2">
+                        <input id="apollo-key-input" type="password" class="input-field text-xs" placeholder="Apollo API key" autocomplete="off">
+                        <button onclick="saveProviderKey('apollo')" class="btn-primary py-2 px-3 text-xs flex-shrink-0">Save</button>
+                        <button onclick="testProviderKey('apollo')" id="apollo-test-btn" class="btn-ghost py-2 px-3 text-xs flex-shrink-0">Test</button>
+                    </div>
+                    <p id="apollo-test-result" class="hidden text-xs mt-2"></p>
+                    <p class="text-xs text-slate-600 mt-2">Keys are encrypted at rest. We never return your key after saving.</p>
+                </div>
+
+                <div class="glass-panel rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-envelope-open-text text-orange-400 text-sm"></i>
+                        <h3 class="text-sm font-semibold text-white">Hunter.io</h3>
+                        <span id="hunter-status" class="badge badge-slate ml-auto">Not configured</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Email verification + domain firmographics — confirms deliverability and fills industry/company size when Apollo has no data.</p>
+                    <div class="flex gap-2">
+                        <input id="hunter-key-input" type="password" class="input-field text-xs" placeholder="Hunter API key" autocomplete="off">
+                        <button onclick="saveProviderKey('hunter')" class="btn-primary py-2 px-3 text-xs flex-shrink-0">Save</button>
+                        <button onclick="testProviderKey('hunter')" id="hunter-test-btn" class="btn-ghost py-2 px-3 text-xs flex-shrink-0">Test</button>
+                    </div>
+                    <p id="hunter-test-result" class="hidden text-xs mt-2"></p>
+                    <p class="text-xs text-slate-600 mt-2">Keys are encrypted at rest. We never return your key after saving.</p>
+                </div>
+
+                <div class="glass-panel rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-phone-volume text-emerald-400 text-sm"></i>
+                        <h3 class="text-sm font-semibold text-white">AbstractAPI — Phone Validation</h3>
+                        <span id="abstract_phone-status" class="badge badge-slate ml-auto">Not configured</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Validates phone numbers and identifies line type (mobile / landline / VoIP). Mobile numbers score higher — VoIP numbers are partial credit. Free tier: 500 lookups/month.</p>
+                    <div class="flex gap-2">
+                        <input id="abstract_phone-key-input" type="password" class="input-field text-xs" placeholder="AbstractAPI Phone API key" autocomplete="off">
+                        <button onclick="saveProviderKey('abstract_phone')" class="btn-primary py-2 px-3 text-xs flex-shrink-0">Save</button>
+                        <button onclick="testProviderKey('abstract_phone')" id="abstract_phone-test-btn" class="btn-ghost py-2 px-3 text-xs flex-shrink-0">Test</button>
+                    </div>
+                    <p id="abstract_phone-test-result" class="hidden text-xs mt-2"></p>
+                    <p class="text-xs text-slate-600 mt-2">Keys are encrypted at rest. We never return your key after saving.</p>
+                </div>
+
+                <div class="bg-slate-800/40 border border-white/5 rounded-xl p-4 text-xs text-slate-400">
+                    <i class="fa-solid fa-circle-info mr-1.5 text-indigo-400"></i>
+                    <span class="text-slate-300 font-medium">All providers are optional.</span> Website reachability is checked automatically with no API key required. These are your own API keys — GetSalesCloser never shares or bills for enrichment calls.
+                </div>
+
+                <!-- Webhook / API Ingest -->
+                <div class="glass-panel rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-webhook text-violet-400 text-sm"></i>
+                        <h3 class="text-sm font-semibold text-white">Webhook / API Ingest</h3>
+                        <span class="badge badge-green ml-auto">No key needed</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Send leads directly from Zapier, Make, or any HTTP tool using your GSC API key. Same dedup and scoring pipeline as CSV import.</p>
+
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Endpoint</p>
+                            <div class="flex items-center gap-2 bg-slate-900/60 rounded-lg px-3 py-2 font-mono">
+                                <span class="text-slate-300 break-all" id="webhook-url-display">https://klbwigcvrdfeeeeotehu.supabase.co/functions/v1/lge_ingest</span>
+                                <button onclick="copyWebhookUrl()" class="flex-shrink-0 text-slate-500 hover:text-white transition-colors" title="Copy"><i class="fa-solid fa-copy text-[10px]"></i></button>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Auth header</p>
+                            <code class="block bg-slate-900/60 rounded-lg px-3 py-2 text-violet-300">X-Api-Key: &lt;your GSC API key&gt;</code>
+                            <p class="text-[10px] text-slate-600 mt-1">Find your API keys in the main Dashboard under API Keys section.</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Single lead (POST body)</p>
+                            <pre class="bg-slate-900/60 rounded-lg px-3 py-2 text-slate-300 overflow-x-auto text-[11px]">{
+  "campaign_id": "your-campaign-uuid",
+  "name": "John Smith",
+  "email": "john@acme.com",
+  "phone": "+14155551234",
+  "company": "Acme Corp"
+}</pre>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Batch (up to 500 leads)</p>
+                            <pre class="bg-slate-900/60 rounded-lg px-3 py-2 text-slate-300 overflow-x-auto text-[11px]">{
+  "campaign_id": "your-campaign-uuid",
+  "leads": [
+    { "name": "Jane Doe", "email": "jane@corp.com" },
+    { "name": "Bob Lee",  "phone": "+14155559999" }
+  ]
+}</pre>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Response</p>
+                            <code class="block bg-slate-900/60 rounded-lg px-3 py-2 text-green-400 text-[11px]">{"ok":true,"accepted":2,"duplicates":0,"invalid":0,"total":2}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Analytics Tab ──────────────────────────────────────────────── -->
+        <div id="tab-analytics" class="tab-body hidden p-6 space-y-6">
+
+            <!-- Campaign filter -->
+            <div class="flex items-center gap-3">
+                <select id="analytics-campaign-filter" class="select-field max-w-xs" onchange="loadAnalytics()">
+                    <option value="">All Campaigns</option>
+                </select>
+                <button onclick="loadAnalytics()" class="btn-ghost py-1.5 px-3 text-xs"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                <button onclick="sendReport()" id="send-report-btn" class="btn-ghost py-1.5 px-3 text-xs ml-auto"><i class="fa-solid fa-envelope text-[10px]"></i> Email Report</button>
+                <span id="analytics-loading" class="hidden"><span class="spinner"></span></span>
+            </div>
+
+            <!-- ICP Calibration Scorecard (Phase 7) -->
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">ICP Calibration Scorecard</p>
+                    <button onclick="loadScorecard()" class="btn-ghost text-xs py-1 px-2"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                </div>
+                <div id="scorecard-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="stat-tile animate-pulse col-span-full"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                </div>
+            </div>
+
+            <!-- Score Distribution -->
+            <div>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-3">Score Distribution</p>
+                <div id="analytics-score-dist" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                    <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                    <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                </div>
+            </div>
+
+            <!-- Operator Decisions + Outcomes side by side -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                <!-- Operator Decisions -->
+                <div class="glass-panel rounded-xl p-5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Operator Decisions</p>
+                    <div id="analytics-operator" class="space-y-3 text-sm">
+                        <div class="animate-pulse h-4 bg-slate-700 rounded w-3/4"></div>
+                    </div>
+                </div>
+
+                <!-- Outcomes by Score Tier -->
+                <div class="glass-panel rounded-xl p-5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Outcomes by Score Tier <span class="text-slate-600 font-normal normal-case">(pushed leads only)</span></p>
+                    <div id="analytics-outcomes" class="space-y-2">
+                        <div class="animate-pulse h-4 bg-slate-700 rounded w-3/4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Campaign Performance -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Campaign Performance</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-white/5">
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Campaign</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Total</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Pushed</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Review</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Discarded</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Avg Score</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Replied</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Booked</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analytics-campaigns-tbody">
+                            <tr><td colspan="8" class="px-4 py-6 text-center text-slate-600">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Source Intelligence -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Source Intelligence</p>
+                        <p class="text-[10px] text-slate-600 mt-0.5">Reliability score feeds back into confidence scoring. Updated daily or on demand.</p>
+                    </div>
+                    <button onclick="refreshSourceStats()" id="refresh-source-btn" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh Stats</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-white/5">
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Source</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Total</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Push Rate</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Enrich Rate</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Reply Rate</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Duplicates</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Last Upload</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Reliability</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Score Nudge</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analytics-source-tbody">
+                            <tr><td colspan="8" class="px-4 py-6 text-center text-slate-600">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-5 py-3 border-t border-white/5 text-[10px] text-slate-600">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    Score Nudge is applied to the Confidence score of new leads from that source (-10 to +10 pts). Sources with fewer than 5 leads show no nudge until more data accumulates.
+                </div>
+            </div>
+
+        </div><!-- /tab-analytics -->
+
+        <!-- Import History Tab (Phase 8) -->
+        <div id="tab-imports-history" class="tab-body hidden p-6 space-y-5">
+
+            <!-- Filters -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <select id="ih-campaign-filter" class="select-field max-w-xs" onchange="loadImportHistory()">
+                    <option value="">All Campaigns</option>
+                </select>
+                <button onclick="loadImportHistory()" class="btn-ghost py-1.5 px-3 text-xs"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                <span id="ih-total" class="text-xs text-slate-500 ml-auto"></span>
+            </div>
+
+            <!-- Table -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-white/5">
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Date</th>
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Campaign</th>
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Source</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Total</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Accepted</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Duplicates</th>
+                                <th class="px-4 py-3 text-right text-slate-500 font-medium">Invalid</th>
+                                <th class="px-4 py-3 text-left text-slate-500 font-medium">Imported By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ih-tbody">
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-slate-600">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <div id="ih-pagination" class="hidden px-5 py-3 border-t border-white/5 flex items-center justify-between">
+                    <button id="ih-prev-btn" onclick="ihPrevPage()" class="btn-ghost text-xs py-1 px-3 disabled:opacity-40"><i class="fa-solid fa-chevron-left text-[10px]"></i> Prev</button>
+                    <span id="ih-page-info" class="text-xs text-slate-500"></span>
+                    <button id="ih-next-btn" onclick="ihNextPage()" class="btn-ghost text-xs py-1 px-3 disabled:opacity-40">Next <i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+                </div>
+            </div>
+
+        </div><!-- /tab-imports-history -->
+
+    </div><!-- /overflow-y-auto -->
+</div><!-- /page-content -->
+
+<script>
+// SUPABASE_URL is provided by auth.js (same scope) — do not redeclare
+
+let sb, currentUser, currentOrgId, currentAccessToken;
+let campaigns = [];
+let campaignStats = {}; // keyed by campaign_id
+let scorecardData = {}; // keyed by campaign_id — Phase 7
+let editingCampaignId = null;
+let _originalThresholds = { apt: 80, rt: 60 }; // for threshold change detection
+let _pollInterval = null;
+
+// ICP tag state
+const icpTags = { industry: [], geo: [], designation: [], size: [] };
+
+// Leads pagination
+let leadsOffset = 0;
+const LEADS_PAGE = 25;
+let leadsTotal = 0;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+requireAuth({
+    requireOnboarding: true,
+    onAuthenticated: async (profile, user, sbClient) => {
+        sb = sbClient;
+        currentUser = user;
+
+        // Get session token
+        const { data: { session } } = await sb.auth.getSession();
+        currentAccessToken = session?.access_token;
+
+        // Resolve org_id
+        const { data: memRow } = await sb.from('org_members').select('org_id').eq('user_id', user.id).limit(1).maybeSingle();
+        if (memRow) {
+            currentOrgId = memRow.org_id;
+        } else {
+            const { data: orgRow } = await sb.from('organizations').select('id').limit(1).maybeSingle();
+            currentOrgId = orgRow?.id;
+        }
+
+        // Check lead_gen entitlement
+        const { data: svc } = await sb.from('org_services').select('status')
+            .eq('org_id', currentOrgId).eq('service_key', 'lead_gen').maybeSingle();
+
+        if (svc?.status !== 'active') {
+            document.getElementById('auth-loader').classList.add('hidden');
+            document.getElementById('locked-preview').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('page-content').classList.remove('hidden');
+        await loadCampaigns();
+        populateFilters();
+        loadProviderStatus();
+        loadPipelineStatus();
+        startPolling();
+    }
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function toast(msg, type = 'info') {
+    const t = document.createElement('div');
+    const colors = { info:'bg-slate-800 border-white/10 text-slate-300', success:'bg-green-900/80 border-green-700/40 text-green-300', error:'bg-red-900/80 border-red-700/40 text-red-300', warn:'bg-yellow-900/80 border-yellow-700/40 text-yellow-300' };
+    t.className = `toast glass-panel border rounded-xl px-4 py-3 text-sm ${colors[type]||colors.info}`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-body').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.remove('hidden');
+    btn.classList.add('active');
+
+    if (name === 'leads') {
+        leadsOffset = 0;
+        loadLeads();
+    }
+    if (name === 'import') populateImportSelect();
+    if (name === 'analytics') { populateAnalyticsFilter(); loadAnalytics(); loadScorecard(); }
+    if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
+}
+
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+
+async function loadCampaigns() {
+    try {
+        const [res, statsRes, scorecardRes] = await Promise.all([
+            callFn('lge_campaign_manage', { action: 'list' }),
+            sb.rpc('get_lge_campaign_stats', { p_org_id: currentOrgId }),
+            callFn('lge_campaign_manage', { action: 'get_scorecard' }).catch(() => ({ scorecard: [] })),
+        ]);
+        campaigns = res.campaigns ?? [];
+        if (statsRes.data) {
+            campaignStats = {};
+            statsRes.data.forEach(r => { campaignStats[r.campaign_id] = r; });
+        }
+        scorecardData = {};
+        (scorecardRes.scorecard ?? []).forEach(sc => { scorecardData[sc.campaign_id] = sc; });
+        renderCampaigns();
+    } catch(e) {
+        toast('Failed to load campaigns: ' + e.message, 'error');
+    }
+}
+
+function renderCampaigns() {
+    const loading = document.getElementById('campaigns-loading');
+    const empty = document.getElementById('campaigns-empty');
+    const list = document.getElementById('campaigns-list');
+
+    loading.classList.add('hidden');
+
+    if (campaigns.length === 0) {
+        empty.classList.remove('hidden');
+        list.classList.add('hidden');
+        return;
+    }
+
+    empty.classList.add('hidden');
+    list.classList.remove('hidden');
+
+    const showArchived = document.getElementById('show-archived-toggle')?.checked ?? false;
+    const visibleCampaigns = showArchived ? campaigns : campaigns.filter(c => c.status !== 'archived');
+
+    if (visibleCampaigns.length === 0 && campaigns.length > 0 && !showArchived) {
+        list.innerHTML = '<p class="text-xs text-slate-600 text-center py-4">All campaigns are archived. Toggle "Show archived" to view them.</p>';
+        list.classList.remove('hidden');
+        empty.classList.add('hidden');
+        return;
+    }
+
+    list.innerHTML = visibleCampaigns.map(c => {
+        const modeBadge = {
+            off: '<span class="badge badge-slate">Off</span>',
+            shadow: '<span class="badge badge-yellow">Shadow</span>',
+            active: '<span class="badge badge-green">Active</span>',
+        }[c.mode] || '';
+        const statusBadge = c.status === 'paused' ? '<span class="badge badge-orange">Paused</span>' :
+                            c.status === 'archived' ? '<span class="badge badge-red">Archived</span>' : '';
+        const icp = c.icp_config || {};
+        const industries = (icp.industry||[]).slice(0,3).join(', ') || '—';
+        const s = campaignStats[c.id] || {};
+        const sc = scorecardData[c.id] || {};
+        // Backlog age warning badge
+        const ttl = c.review_ttl_days ?? 10;
+        const oldestDays = sc.oldest_review_days ?? 0;
+        const reviewBadge = (s.review_count > 0 && oldestDays > ttl * 0.70)
+            ? `<span class="badge badge-orange ml-1" title="Oldest review lead: ${oldestDays.toFixed(0)}d (TTL: ${ttl}d)"><i class="fa-solid fa-clock mr-1 text-[9px]"></i>${oldestDays.toFixed(0)}d old</span>`
+            : '';
+        const statsHtml = (s.total > 0) ? `
+            <div class="flex items-center gap-3 mt-2 text-[11px]">
+                ${s.pending_count > 0 ? `<span class="text-slate-500"><span class="text-slate-300 font-semibold">${s.pending_count}</span> pending</span>` : ''}
+                ${s.enriching_count > 0 ? `<span class="text-indigo-400"><span class="font-semibold">${s.enriching_count}</span> enriching</span>` : ''}
+                ${s.review_count > 0 ? `<span class="text-yellow-400"><span class="font-semibold">${s.review_count}</span> review${reviewBadge}</span>` : ''}
+                ${s.pushed_count > 0 ? `<span class="text-green-400"><span class="font-semibold">${s.pushed_count}</span> pushed</span>` : ''}
+                ${s.failed_count > 0 ? `<span class="text-red-400"><span class="font-semibold">${s.failed_count}</span> failed</span>` : ''}
+                <span class="text-slate-600">${s.total} total</span>
+            </div>` : '<p class="text-xs text-slate-600 mt-1.5">No leads imported yet</p>';
+        return `
+        <div class="glass-panel rounded-xl p-4 flex items-start gap-4">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                    <p class="text-sm font-semibold text-white truncate">${escHtml(c.name)}</p>
+                    ${modeBadge} ${statusBadge}
+                </div>
+                <p class="text-xs text-slate-500">ICP: ${escHtml(industries)} &nbsp;·&nbsp; Max ${c.max_leads_per_day}/day &nbsp;·&nbsp; TTL ${ttl}d</p>
+                ${statsHtml}
+            </div>
+            <div class="flex-shrink-0 flex gap-2 mt-0.5 flex-wrap justify-end">
+                ${c.status !== 'archived' ? `<button onclick="switchToLeadsForCampaign('${c.id}')" class="btn-ghost text-xs py-1"><i class="fa-solid fa-list text-xs"></i> Leads</button>` : ''}
+                ${c.status !== 'archived' ? `<button onclick="editCampaign('${c.id}')" class="btn-ghost text-xs py-1"><i class="fa-solid fa-pen text-xs"></i> Edit</button>` : ''}
+                <button onclick="cloneCampaign('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-indigo-400 hover:text-indigo-300"><i class="fa-solid fa-copy text-xs"></i> Clone</button>
+                ${c.status === 'active' ? `<button onclick="pauseCampaign('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-yellow-400 hover:text-yellow-300"><i class="fa-solid fa-pause text-xs"></i> Pause</button>` : ''}
+                ${c.status === 'paused' ? `<button onclick="resumeCampaign('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-green-400 hover:text-green-300"><i class="fa-solid fa-play text-xs"></i> Resume</button>` : ''}
+                ${c.status === 'paused' ? `<button onclick="archiveCampaign('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-red-400 hover:text-red-300"><i class="fa-solid fa-box-archive text-xs"></i> Archive</button>` : ''}
+                ${s.total > 0 && c.status !== 'archived' ? `<button onclick="openReprocessModal('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-orange-400 hover:text-orange-300"><i class="fa-solid fa-rotate-right text-xs"></i> Re-process</button>` : ''}
+                <button onclick="openCampaignAudit('${c.id}','${escHtml(c.name)}')" class="btn-ghost text-xs py-1 text-slate-400 hover:text-white"><i class="fa-solid fa-clock-rotate-left text-xs"></i> History</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openNewCampaignModal() {
+    editingCampaignId = null;
+    document.getElementById('campaign-modal-title').textContent = 'New Campaign';
+    document.getElementById('campaign-save-label').textContent = 'Create Campaign';
+    document.getElementById('cf-name').value = '';
+    document.getElementById('cf-mode').value = 'off';
+    document.getElementById('cf-max-leads').value = '100';
+    document.getElementById('icp-fit-weight').value = '0.6';
+    document.getElementById('icp-conf-weight').value = '0.4';
+    // Reset tags
+    for (const k of ['industry','geo','designation','size']) { icpTags[k] = []; renderTags(k); }
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('bg-indigo-600/30','text-indigo-300','border-indigo-500/40'));
+    // Reset thresholds + template + TTL
+    document.getElementById('cf-auto-push-threshold').value = 80;
+    document.getElementById('apt-display').textContent = '80';
+    document.getElementById('cf-review-threshold').value = 60;
+    document.getElementById('rt-display').textContent = '60';
+    document.getElementById('cf-review-ttl-days').value = 10;
+    document.getElementById('cf-outreach-template').value = '';
+    document.getElementById('threshold-reason-wrap').classList.add('hidden');
+    document.getElementById('cf-threshold-reason').value = '';
+    _originalThresholds = { apt: 80, rt: 60 };
+    updateThresholdPreview();
+    document.getElementById('campaign-modal').classList.remove('hidden');
+}
+
+function updateThresholdPreview() {
+    const apt = parseInt(document.getElementById('cf-auto-push-threshold').value);
+    const rt  = parseInt(document.getElementById('cf-review-threshold').value);
+    const preview = document.getElementById('threshold-preview');
+    if (apt <= rt) {
+        preview.innerHTML = '<span class="text-red-400">Auto-push threshold must be above review threshold.</span>';
+        return;
+    }
+    preview.textContent = `Score \u2265${apt}: auto-push \u00b7 Score ${rt}\u2013${apt-1}: review queue \u00b7 Score <${rt}: discarded`;
+    // Show reason field when editing and thresholds differ from saved
+    const reasonWrap = document.getElementById('threshold-reason-wrap');
+    if (editingCampaignId && (apt !== _originalThresholds.apt || rt !== _originalThresholds.rt)) {
+        reasonWrap.classList.remove('hidden');
+    } else {
+        reasonWrap.classList.add('hidden');
+    }
+}
+
+function editCampaign(id) {
+    const c = campaigns.find(x => x.id === id);
+    if (!c) return;
+    editingCampaignId = id;
+    document.getElementById('campaign-modal-title').textContent = 'Edit Campaign';
+    document.getElementById('campaign-save-label').textContent = 'Save Changes';
+    document.getElementById('cf-name').value = c.name;
+    document.getElementById('cf-mode').value = c.mode;
+    document.getElementById('cf-max-leads').value = c.max_leads_per_day;
+
+    const icp = c.icp_config || {};
+    document.getElementById('icp-fit-weight').value = icp.fit_weight ?? 0.6;
+    document.getElementById('icp-conf-weight').value = icp.confidence_weight ?? 0.4;
+
+    icpTags.industry = icp.industry || [];
+    icpTags.geo = icp.geography || [];
+    icpTags.designation = icp.designations || [];
+    icpTags.size = icp.company_size || [];
+
+    for (const k of ['industry','geo','designation','size']) renderTags(k);
+
+    // Highlight size buttons
+    document.querySelectorAll('.size-btn').forEach(b => {
+        const val = b.textContent.trim();
+        if (icpTags.size.includes(val)) {
+            b.classList.add('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+        } else {
+            b.classList.remove('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+        }
+    });
+
+    // Routing thresholds
+    const apt = c.auto_push_threshold ?? 80;
+    const rt  = c.review_threshold    ?? 60;
+    const aptEl = document.getElementById('cf-auto-push-threshold');
+    const rtEl  = document.getElementById('cf-review-threshold');
+    aptEl.value = apt; document.getElementById('apt-display').textContent = apt;
+    rtEl.value  = rt;  document.getElementById('rt-display').textContent  = rt;
+    _originalThresholds = { apt, rt };
+    document.getElementById('threshold-reason-wrap').classList.add('hidden');
+    document.getElementById('cf-threshold-reason').value = '';
+    updateThresholdPreview();
+
+    // Review TTL
+    document.getElementById('cf-review-ttl-days').value = c.review_ttl_days ?? 10;
+
+    // Outreach template
+    document.getElementById('cf-outreach-template').value = c.outreach_template ?? '';
+
+    document.getElementById('campaign-modal').classList.remove('hidden');
+}
+
+function closeCampaignModal() {
+    document.getElementById('campaign-modal').classList.add('hidden');
+}
+
+async function saveCampaign(e) {
+    e.preventDefault();
+    const name = document.getElementById('cf-name').value.trim();
+    const mode = document.getElementById('cf-mode').value;
+    const maxLeads = parseInt(document.getElementById('cf-max-leads').value) || 100;
+    const fitWeight = parseFloat(document.getElementById('icp-fit-weight').value) || 0.6;
+    const confWeight = parseFloat(document.getElementById('icp-conf-weight').value) || 0.4;
+    const auto_push_threshold = parseInt(document.getElementById('cf-auto-push-threshold').value) || 80;
+    const review_threshold    = parseInt(document.getElementById('cf-review-threshold').value)    || 60;
+    const review_ttl_days     = parseInt(document.getElementById('cf-review-ttl-days').value)     || 10;
+    const outreach_template   = document.getElementById('cf-outreach-template').value.trim() || null;
+    const threshold_change_reason = document.getElementById('cf-threshold-reason').value.trim() || null;
+
+    if (!name) return toast('Campaign name required', 'warn');
+    if (auto_push_threshold <= review_threshold) return toast('Auto-push threshold must be above review threshold', 'warn');
+
+    const icp_config = {
+        industry: icpTags.industry,
+        company_size: icpTags.size,
+        geography: icpTags.geo,
+        designations: icpTags.designation,
+        fit_weight: fitWeight,
+        confidence_weight: confWeight,
+    };
+
+    const btn = document.getElementById('campaign-save-btn');
+    btn.disabled = true;
+    document.getElementById('campaign-save-spinner').classList.remove('hidden');
+
+    try {
+        if (editingCampaignId) {
+            const thresholdsChanged = auto_push_threshold !== _originalThresholds.apt || review_threshold !== _originalThresholds.rt;
+            await callFn('lge_campaign_manage', { action: 'update', campaign_id: editingCampaignId, name, mode, icp_config, max_leads_per_day: maxLeads, auto_push_threshold, review_threshold, review_ttl_days, outreach_template, ...(thresholdsChanged && threshold_change_reason ? { threshold_change_reason } : {}) });
+            toast('Campaign updated', 'success');
+        } else {
+            await callFn('lge_campaign_manage', { action: 'create', name, mode, icp_config, max_leads_per_day: maxLeads, auto_push_threshold, review_threshold, review_ttl_days, outreach_template });
+            toast('Campaign created', 'success');
+        }
+        closeCampaignModal();
+        await loadCampaigns();
+        populateFilters();
+    } catch(err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        document.getElementById('campaign-save-spinner').classList.add('hidden');
+    }
+}
+
+// ── ICP Tags ──────────────────────────────────────────────────────────────────
+
+function addTag(e, type) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const input = e.target;
+    const val = input.value.trim();
+    if (!val) return;
+    if (!icpTags[type].includes(val)) {
+        icpTags[type].push(val);
+        renderTags(type);
+    }
+    input.value = '';
+}
+
+function removeTag(type, val) {
+    icpTags[type] = icpTags[type].filter(t => t !== val);
+    renderTags(type);
+}
+
+function toggleSizeTag(val) {
+    if (icpTags.size.includes(val)) {
+        icpTags.size = icpTags.size.filter(s => s !== val);
+    } else {
+        icpTags.size.push(val);
+    }
+    document.querySelectorAll('.size-btn').forEach(b => {
+        const v = b.textContent.trim();
+        if (icpTags.size.includes(v)) {
+            b.classList.add('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+        } else {
+            b.classList.remove('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+        }
+    });
+}
+
+function renderTags(type) {
+    const containerIds = { industry:'industry-tags', geo:'geo-tags', designation:'designation-tags', size:'size-tags' };
+    const el = document.getElementById(containerIds[type]);
+    if (!el) return;
+    el.innerHTML = icpTags[type].map(t =>
+        `<span class="tag-pill">${escHtml(t)} <span class="remove-tag" onclick="removeTag('${type}','${escHtml(t)}')"><i class="fa-solid fa-xmark text-[10px]"></i></span></span>`
+    ).join('');
+}
+
+// ── Import Tab ────────────────────────────────────────────────────────────────
+
+let parsedRows = [], csvHeaders = [];
+
+function populateImportSelect() {
+    const sel = document.getElementById('import-campaign-select');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Select a campaign...</option>' +
+        campaigns.filter(c => c.status !== 'archived').map(c =>
+            `<option value="${c.id}">${escHtml(c.name)} (${c.mode})</option>`
+        ).join('');
+    if (current) sel.value = current;
+    onImportCampaignChange();
+}
+
+function onImportCampaignChange() {
+    const sel = document.getElementById('import-campaign-select');
+    const note = document.getElementById('import-mode-note');
+    const c = campaigns.find(x => x.id === sel.value);
+    if (c) {
+        const msgs = { off:'Campaign is Off — leads will be ingested but not processed until mode is set to Shadow or Active.', shadow:'Shadow mode — leads will be enriched and scored but NOT pushed to GSC.', active:'Active mode — leads scoring ≥80 will be automatically pushed to GSC and trigger AI outreach.' };
+        note.textContent = msgs[c.mode] || '';
+        note.classList.remove('hidden');
+    } else {
+        note.classList.add('hidden');
+    }
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('upload-zone').classList.remove('drag-over'); }
+function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+}
+function onFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+}
+
+function processFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) return toast('Please upload a .csv file', 'warn');
+    const reader = new FileReader();
+    reader.onload = ev => parseCsv(ev.target.result);
+    reader.readAsText(file);
+}
+
+function parseCsv(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return toast('CSV must have a header row and at least one data row', 'warn');
+
+    csvHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+    parsedRows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        if (vals.length < 1 || vals.every(v => !v)) continue;
+        const row = {};
+        csvHeaders.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+        parsedRows.push(row);
+    }
+
+    document.getElementById('csv-row-count').textContent = parsedRows.length;
+    renderCsvPreview();
+    document.getElementById('csv-preview').classList.remove('hidden');
+    document.getElementById('import-result').classList.add('hidden');
+}
+
+function renderCsvPreview() {
+    const SHOW_COLS = ['name','email','phone','company','title','organization'].filter(h => csvHeaders.includes(h));
+    const displayCols = SHOW_COLS.length > 0 ? SHOW_COLS : csvHeaders.slice(0,5);
+
+    // Column hints
+    const hasEmail = csvHeaders.includes('email');
+    const hasPhone = csvHeaders.includes('phone') || csvHeaders.includes('phone_number');
+    const hints = [];
+    if (!hasEmail && !hasPhone) hints.push('<span class="text-red-400">No email or phone column found — leads without a contact method will be skipped.</span>');
+    else if (!hasEmail) hints.push('No <code>email</code> column — phone will be used as contact.');
+    else if (!hasPhone) hints.push('No <code>phone</code> column — email will be used as contact.');
+    document.getElementById('column-hints').innerHTML = hints.length ? hints.join(' ') : 'Columns look good. Email/phone detected.';
+
+    const head = document.getElementById('csv-preview-head');
+    head.innerHTML = displayCols.map(c => `<th class="px-3 py-2 font-medium">${escHtml(c)}</th>`).join('');
+
+    const body = document.getElementById('csv-preview-body');
+    body.innerHTML = parsedRows.slice(0,5).map(row =>
+        `<tr class="list-row">${displayCols.map(c => `<td class="px-3 py-2 text-slate-300">${escHtml(row[c]||'')}</td>`).join('')}</tr>`
+    ).join('');
+}
+
+function clearCsv() {
+    parsedRows = []; csvHeaders = [];
+    document.getElementById('csv-preview').classList.add('hidden');
+    document.getElementById('csv-file-input').value = '';
+}
+
+async function importLeads() {
+    const campaignId = document.getElementById('import-campaign-select').value;
+    if (!campaignId) return toast('Select a campaign first', 'warn');
+    if (parsedRows.length === 0) return toast('No leads to import', 'warn');
+
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    document.getElementById('import-spinner').classList.remove('hidden');
+
+    try {
+        const CHUNK = 200;
+        let totalAccepted = 0, totalDup = 0, totalInvalid = 0;
+
+        for (let i = 0; i < parsedRows.length; i += CHUNK) {
+            const batch = parsedRows.slice(i, i + CHUNK);
+            const res = await callFn('lge_ingest', { campaign_id: campaignId, leads: batch });
+            totalAccepted += res.accepted || 0;
+            totalDup += res.duplicates || 0;
+            totalInvalid += res.invalid || 0;
+        }
+
+        const resultBody = document.getElementById('import-result-body');
+        resultBody.innerHTML = [
+            `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-green-400"></i> <span>${totalAccepted} leads queued for enrichment</span></div>`,
+            totalDup > 0 ? `<div class="flex items-center gap-2 text-slate-500"><i class="fa-solid fa-copy text-xs"></i> <span>${totalDup} duplicates skipped</span></div>` : '',
+            totalInvalid > 0 ? `<div class="flex items-center gap-2 text-slate-500"><i class="fa-solid fa-ban text-xs"></i> <span>${totalInvalid} invalid (no email or phone)</span></div>` : '',
+        ].filter(Boolean).join('');
+
+        document.getElementById('import-result').classList.remove('hidden');
+        clearCsv();
+        toast(`${totalAccepted} leads imported — switching to Leads tab`, 'success');
+
+        // Auto-navigate to Leads tab filtered to this campaign
+        if (totalAccepted > 0) {
+            setTimeout(() => {
+                switchToLeadsForCampaign(campaignId);
+                loadPipelineStatus();
+            }, 800);
+        }
+    } catch(e) {
+        toast(e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        document.getElementById('import-spinner').classList.add('hidden');
+    }
+}
+
+// ── Leads Tab ─────────────────────────────────────────────────────────────────
+
+function populateFilters() {
+    const sel = document.getElementById('leads-campaign-filter');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Campaigns</option>' +
+        campaigns.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+    if (current) sel.value = current;
+    restoreFilterState();
+}
+
+function saveFilterState() {
+    try {
+        sessionStorage.setItem('lge_filters', JSON.stringify({
+            campaign: document.getElementById('leads-campaign-filter').value,
+            status:   document.getElementById('leads-status-filter').value,
+            score:    document.getElementById('leads-score-filter').value,
+        }));
+    } catch(_) {}
+}
+
+function restoreFilterState() {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem('lge_filters') || '{}');
+        const campaignSel = document.getElementById('leads-campaign-filter');
+        const statusSel   = document.getElementById('leads-status-filter');
+        const scoreSel    = document.getElementById('leads-score-filter');
+        // Only restore if option actually exists in the select
+        if (saved.campaign && campaignSel.querySelector(`option[value="${saved.campaign}"]`)) {
+            campaignSel.value = saved.campaign;
+        }
+        if (saved.status) statusSel.value = saved.status;
+        if (saved.score)  scoreSel.value  = saved.score;
+    } catch(_) {}
+}
+
+let _leadSearchTimer = null;
+function debouncedLeadSearch() {
+    clearTimeout(_leadSearchTimer);
+    _leadSearchTimer = setTimeout(() => { leadsOffset = 0; loadLeads(); }, 350);
+}
+
+async function loadLeads() {
+    const campaignId  = document.getElementById('leads-campaign-filter').value;
+    const statusFilter = document.getElementById('leads-status-filter').value;
+    const scoreFilter  = document.getElementById('leads-score-filter').value;
+    const searchQ      = (document.getElementById('leads-search')?.value ?? '').trim();
+
+    document.getElementById('leads-loading').classList.remove('hidden');
+    document.getElementById('leads-empty').classList.add('hidden');
+    document.getElementById('leads-table-wrap').classList.add('hidden');
+    document.getElementById('leads-stats').classList.add('hidden');
+
+    try {
+        let query = sb.from('lge_raw_leads')
+            .select(`
+                id, name, email, phone, company, status, created_at,
+                lge_scores(total_score, fit_score, confidence_score, is_manual_override),
+                lge_context(reason_to_reach_out, recommended_pitch_angle)
+            `, { count: 'exact' })
+            .eq('org_id', currentOrgId)
+            .order('created_at', { ascending: false })
+            .range(leadsOffset, leadsOffset + LEADS_PAGE - 1);
+
+        if (campaignId)  query = query.eq('campaign_id', campaignId);
+        if (statusFilter) query = query.eq('status', statusFilter);
+        if (scoreFilter === 'high')   query = query.gte('lge_scores.total_score', 80);
+        if (scoreFilter === 'medium') query = query.gte('lge_scores.total_score', 60).lt('lge_scores.total_score', 80);
+        if (scoreFilter === 'low')    query = query.lt('lge_scores.total_score', 60);
+
+        // Server-side search across name, email, company
+        if (searchQ) {
+            const like = `%${searchQ}%`;
+            query = query.or(`name.ilike.${like},email.ilike.${like},company.ilike.${like}`);
+        }
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+
+        leadsTotal = count ?? 0;
+        renderLeads(data ?? []);
+        loadLeadStats(campaignId);
+    } catch(e) {
+        toast('Failed to load leads: ' + e.message, 'error');
+        document.getElementById('leads-loading').classList.add('hidden');
+    }
+}
+
+async function loadLeadStats(campaignId) {
+    try {
+        const { data, error } = await sb.rpc('get_lge_campaign_stats', { p_org_id: currentOrgId });
+        if (error || !data) return;
+
+        const rows = campaignId ? data.filter(r => r.campaign_id === campaignId) : data;
+        const sum = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+
+        document.getElementById('stat-pending').textContent = sum('pending_count') + sum('enriching_count');
+        document.getElementById('stat-review').textContent = sum('review_count');
+        document.getElementById('stat-pushed').textContent = sum('pushed_count');
+        document.getElementById('stat-discarded').textContent = sum('discarded_count');
+        document.getElementById('leads-stats').classList.remove('hidden');
+    } catch(_) {}
+
+    loadOutcomeStats(campaignId);
+}
+
+async function loadOutcomeStats(campaignId) {
+    try {
+        // Get raw_lead_ids for this org (and optionally campaign) that have been pushed
+        let leadsQuery = sb.from('lge_raw_leads').select('id').eq('org_id', currentOrgId).eq('status', 'pushed');
+        if (campaignId) leadsQuery = leadsQuery.eq('campaign_id', campaignId);
+        const { data: leads } = await leadsQuery;
+        if (!leads || leads.length === 0) return;
+
+        const ids = leads.map(l => l.id);
+        const { data } = await sb.from('lge_outcomes').select('outcome_stage').in('raw_lead_id', ids);
+        if (!data || data.length === 0) return;
+
+        const counts = { replied: 0, booked: 0, won: 0 };
+        data.forEach(r => {
+            const s = r.outcome_stage;
+            if (s === 'won') counts.won++;
+            else if (s === 'booked' || s === 'qualified') counts.booked++;
+            else if (s === 'replied') counts.replied++;
+        });
+
+        if (counts.replied + counts.booked + counts.won > 0) {
+            document.getElementById('outcome-replied').textContent = counts.replied;
+            document.getElementById('outcome-booked').textContent = counts.booked;
+            document.getElementById('outcome-won').textContent = counts.won;
+            document.getElementById('outcome-stats').classList.remove('hidden');
+        }
+    } catch(_) {}
+}
+
+async function loadPipelineStatus() {
+    try {
+        const { data } = await sb.rpc('get_lge_campaign_stats', { p_org_id: currentOrgId });
+        if (!data) return;
+
+        const sum = (key) => data.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+        const pending   = sum('pending_count');
+        const enriching = sum('enriching_count');
+        const review    = sum('review_count');
+        const pushed    = sum('pushed_count');
+        const failed    = sum('failed_count');
+        const total     = data.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
+
+        if (total === 0) return; // no leads yet — keep strip hidden
+
+        document.getElementById('ps-pending').textContent   = pending;
+        document.getElementById('ps-enriching').textContent = enriching;
+        document.getElementById('ps-review').textContent    = review;
+        document.getElementById('ps-pushed').textContent    = pushed;
+        document.getElementById('ps-failed').textContent    = failed;
+
+        const now = new Date();
+        document.getElementById('ps-last-updated').textContent = `updated ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+        document.getElementById('pipeline-strip').classList.remove('hidden');
+
+        // Update campaign stats cache for card rendering
+        campaignStats = {};
+        data.forEach(r => { campaignStats[r.campaign_id] = r; });
+    } catch(_) {}
+}
+
+function startPolling() {
+    if (_pollInterval) return;
+    _pollInterval = setInterval(async () => {
+        await loadPipelineStatus();
+
+        // Auto-refresh leads table when leads are still processing
+        const isLeadsTabVisible = !document.getElementById('tab-leads').classList.contains('hidden');
+        if (isLeadsTabVisible) {
+            const pending   = parseInt(document.getElementById('ps-pending').textContent) || 0;
+            const enriching = parseInt(document.getElementById('ps-enriching').textContent) || 0;
+            if (pending + enriching > 0) loadLeads();
+        }
+    }, 15000);
+}
+
+function switchToLeadsForCampaign(campaignId) {
+    // Set campaign filter
+    const sel = document.getElementById('leads-campaign-filter');
+    if (sel) sel.value = campaignId;
+
+    // Switch tab
+    const leadsBtn = document.getElementById('leads-tab-btn');
+    if (leadsBtn) switchTab('leads', leadsBtn);
+}
+
+function renderLeads(leads) {
+    document.getElementById('leads-loading').classList.add('hidden');
+
+    if (leads.length === 0 && leadsOffset === 0) {
+        document.getElementById('leads-empty').classList.remove('hidden');
+        return;
+    }
+
+    document.getElementById('leads-table-wrap').classList.remove('hidden');
+    const tbody = document.getElementById('leads-tbody');
+
+    tbody.innerHTML = leads.map(lead => {
+        const scoreObj = lead.lge_scores?.[0] ?? lead.lge_scores ?? null;
+        const score = scoreObj?.total_score ?? null;
+        const isOverride = scoreObj?.is_manual_override ?? false;
+        const context = lead.lge_context?.[0] ?? lead.lge_context ?? null;
+        const statusBadge = statusBadgeHtml(lead.status);
+        const scoreFill = score != null ? `
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold ${scoreColor(score)}">${Math.round(score)}</span>
+                <div class="score-bar w-16"><div class="score-fill ${scoreFillColor(score)}" style="width:${score}%"></div></div>
+                ${isOverride ? '<span class="text-[9px] text-orange-400 font-bold uppercase tracking-wider" title="Manually overridden">OVR</span>' : ''}
+            </div>` : '<span class="text-slate-600 text-xs">—</span>';
+
+        const reason = context?.reason_to_reach_out ? truncate(context.reason_to_reach_out, 80) : '—';
+
+        const isReview = lead.status === 'review_queue';
+        const isFailed = lead.status === 'failed';
+        const actions = isReview ? `
+            <div class="flex gap-1.5">
+                <button onclick="openPushConfirm('${lead.id}')" class="btn-success py-1 px-2 text-[11px]"><i class="fa-solid fa-check text-[10px]"></i> Push</button>
+                <button onclick="discardLead('${lead.id}')" class="btn-danger py-1 px-2 text-[11px]"><i class="fa-solid fa-xmark text-[10px]"></i> Discard</button>
+            </div>` :
+            isFailed ? `<button onclick="retryLead('${lead.id}')" class="btn-ghost py-1 px-2 text-[11px]"><i class="fa-solid fa-rotate-right text-[10px]"></i> Retry</button>` :
+            '<span class="text-slate-600 text-xs">—</span>';
+
+        return `<tr class="list-row" id="lead-row-${lead.id}">
+            <td class="px-3 py-3"><input type="checkbox" class="lead-cb accent-indigo-500 cursor-pointer" data-id="${lead.id}" data-status="${lead.status}" onchange="onLeadCbChange()"></td>
+            <td class="px-4 py-3">
+                <button onclick="openLeadDetail('${lead.id}')" class="text-left group">
+                    <p class="font-medium text-white group-hover:text-indigo-300 transition-colors">${escHtml(lead.name || 'Unknown')}</p>
+                    <p class="text-slate-500 mt-0.5">${escHtml(lead.email || lead.phone || '')}</p>
+                </button>
+            </td>
+            <td class="px-4 py-3 text-slate-300">${escHtml(lead.company || '—')}</td>
+            <td class="px-4 py-3">${scoreFill}</td>
+            <td class="px-4 py-3">${statusBadge}</td>
+            <td class="px-4 py-3 text-slate-400 max-w-xs">${escHtml(reason)}</td>
+            <td class="px-4 py-3">${actions}</td>
+        </tr>`;
+    }).join('');
+
+    // Pagination
+    const from = leadsOffset + 1;
+    const to = Math.min(leadsOffset + LEADS_PAGE, leadsTotal);
+    document.getElementById('leads-count-label').textContent = `Showing ${from}–${to} of ${leadsTotal}`;
+    document.getElementById('leads-prev-btn').disabled = leadsOffset === 0;
+    document.getElementById('leads-next-btn').disabled = (leadsOffset + LEADS_PAGE) >= leadsTotal;
+}
+
+function leadsPage(dir) {
+    if (dir === 'prev') leadsOffset = Math.max(0, leadsOffset - LEADS_PAGE);
+    else leadsOffset += LEADS_PAGE;
+    loadLeads();
+}
+
+let _pushConfirmLeadId = null;
+
+function openPushConfirm(id) {
+    _pushConfirmLeadId = id;
+    document.getElementById('push-confirm-note').value = '';
+    document.getElementById('push-confirm-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('push-confirm-note').focus(), 80);
+}
+
+function closePushConfirm() {
+    document.getElementById('push-confirm-modal').classList.add('hidden');
+    _pushConfirmLeadId = null;
+}
+
+async function executePush() {
+    const id = _pushConfirmLeadId;
+    if (!id) return;
+    const note = document.getElementById('push-confirm-note').value.trim() || null;
+    closePushConfirm();
+    await forcePushLead(id, false, note);
+}
+
+async function forcePushLead(id, fromModal = false, note = null) {
+    // When called from modal, read note from modal input; otherwise use passed note
+    const resolvedNote = fromModal
+        ? (document.getElementById('ldm-note')?.value?.trim() || null)
+        : note;
+    try {
+        await callFn('lge_campaign_manage', { action: 'force_push', lead_id: id, ...(resolvedNote ? { note: resolvedNote } : {}) });
+        toast('Lead pushed to GSC — AI outreach starting', 'success');
+        if (fromModal) closeLeadDetail();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function discardLead(id, fromModal = false) {
+    const note = fromModal ? (document.getElementById('ldm-note')?.value?.trim() || null) : null;
+    try {
+        await callFn('lge_campaign_manage', { action: 'discard_lead', lead_id: id, ...(note ? { note } : {}) });
+        toast('Lead discarded', 'info');
+        if (fromModal) closeLeadDetail();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function reprocessLead(id) {
+    if (!confirm('Re-process this lead? All enrichment, scores, and AI context will be cleared and re-generated.')) return;
+    try {
+        await callFn('lge_campaign_manage', { action: 'reprocess_lead', lead_id: id });
+        toast('Lead re-queued for full re-processing', 'success');
+        closeLeadDetail();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Lead Detail Modal ─────────────────────────────────────────────────────────
+
+let _currentDetailLeadId = null;
+
+async function openLeadDetail(id) {
+    _currentDetailLeadId = id;
+    document.getElementById('lead-detail-modal').classList.remove('hidden');
+    document.getElementById('ldm-body').innerHTML = '<div class="flex items-center justify-center py-8"><span class="spinner"></span></div>';
+    document.getElementById('ldm-actions').innerHTML = '';
+    document.getElementById('ldm-notes').innerHTML = '<p class="text-xs text-slate-600 text-center py-3">Loading notes...</p>';
+    document.getElementById('ldm-timeline').innerHTML = '<p class="text-xs text-slate-600 text-center py-3">Loading timeline...</p>';
+    document.getElementById('ldm-note-input').value = '';
+    loadLeadNotes(id);
+    loadLeadTimeline(id);
+
+    try {
+        const [leadRes, traceRes, logRes, outcomeRes] = await Promise.all([
+            sb.from('lge_raw_leads')
+                .select(`id, name, email, phone, company, status, attempt, max_attempts, created_at, operator_note, processing_version,
+                    lge_enrichment(industry, company_size, designation, email_verified, phone_line_type, phone_valid, website_reachable, firmographic_source, confidence_score, enriched_at),
+                    lge_scores(fit_score, confidence_score, total_score, scored_at, is_manual_override, override_reason, override_by, override_at, system_total_score),
+                    lge_context(reason_to_reach_out, pain_point_hypothesis, recommended_pitch_angle, generated_at)`)
+                .eq('id', id).eq('org_id', currentOrgId).maybeSingle(),
+            callFn('lge_campaign_manage', { action: 'get_provider_trace', lead_id: id }).catch(() => ({ calls: [] })),
+            sb.from('lge_decision_logs').select('score_outputs_json, routing_reason')
+                .eq('raw_lead_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            sb.from('lge_outcomes')
+                .select('outcome_stage, outcome_source, observed_at, is_manual, manual_reason, manual_by, manual_at')
+                .eq('raw_lead_id', id).maybeSingle(),
+        ]);
+        const { data: lead, error } = leadRes;
+        const providerCalls = traceRes.calls ?? [];
+        const decisionLog   = logRes.data ?? null;
+        const outcomeData   = outcomeRes.data ?? null;
+
+        if (error || !lead) { document.getElementById('ldm-body').innerHTML = '<p class="text-red-400 text-sm">Failed to load lead.</p>'; return; }
+
+        document.getElementById('ldm-name').textContent = lead.name || 'Unknown';
+        document.getElementById('ldm-sub').textContent = [lead.email, lead.phone, lead.company].filter(Boolean).join(' · ');
+
+        const enr = lead.lge_enrichment?.[0] ?? lead.lge_enrichment ?? null;
+        const sc  = lead.lge_scores?.[0]    ?? lead.lge_scores    ?? null;
+        const ctx = lead.lge_context?.[0]   ?? lead.lge_context   ?? null;
+
+        const scoreHtml = sc ? `
+            <div>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">Score Breakdown</p>
+                <div class="grid grid-cols-3 gap-2">
+                    ${['Total','Fit','Confidence'].map((label, i) => {
+                        const val = [sc.total_score, sc.fit_score, sc.confidence_score][i];
+                        const color = val >= 80 ? 'text-green-400' : val >= 60 ? 'text-yellow-400' : 'text-slate-500';
+                        const fill  = val >= 80 ? 'bg-green-500' : val >= 60 ? 'bg-yellow-400' : 'bg-slate-600';
+                        return `<div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                            <p class="text-[10px] text-slate-500 mb-1">${label}</p>
+                            <p class="text-xl font-bold ${color}">${Math.round(val ?? 0)}</p>
+                            <div class="score-bar mt-1.5"><div class="score-fill ${fill}" style="width:${val ?? 0}%"></div></div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>` : '';
+
+        const enrichHtml = enr ? `
+            <div>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">Enrichment Data</p>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    ${(()=>{
+                        const phoneDisplay = enr.phone_line_type
+                            ? `${enr.phone_line_type}${enr.phone_valid === false ? ' (invalid)' : ''}`
+                            : (enr.phone_valid != null ? (enr.phone_valid ? 'valid' : 'invalid') : '—');
+                        const webDisplay = enr.website_reachable === true ? 'Reachable' : enr.website_reachable === false ? 'Unreachable' : '—';
+                        const firmDisplay = enr.firmographic_source && enr.firmographic_source !== 'none' ? enr.firmographic_source : '—';
+                        return [
+                            ['Industry', enr.industry],
+                            ['Company Size', enr.company_size],
+                            ['Designation', enr.designation],
+                            ['Email Verified', enr.email_verified === true ? 'Yes' : enr.email_verified === false ? 'No' : '—'],
+                            ['Phone Type', phoneDisplay],
+                            ['Website', webDisplay],
+                            ['Data Source', firmDisplay],
+                            ['Confidence', enr.confidence_score != null ? Math.round(enr.confidence_score) : '—'],
+                        ];
+                    })().map(([k,v]) =>
+                        `<div class="bg-slate-800/50 rounded-lg px-3 py-2"><p class="text-slate-500 text-[10px] mb-0.5">${k}</p><p class="text-white font-medium">${escHtml(String(v ?? '—'))}</p></div>`
+                    ).join('')}
+                </div>
+            </div>` : '<p class="text-xs text-slate-600">No enrichment data yet.</p>';
+
+        const ctxHtml = ctx ? `
+            <div class="space-y-3">
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">AI Context</p>
+                ${[['Reason to Reach Out', ctx.reason_to_reach_out, 'text-indigo-300'],
+                   ['Pain Point Hypothesis', ctx.pain_point_hypothesis, 'text-yellow-300'],
+                   ['Recommended Pitch Angle', ctx.recommended_pitch_angle, 'text-green-300']].map(([label, text, color]) =>
+                    text ? `<div class="bg-slate-800/40 rounded-xl p-3"><p class="text-[10px] ${color} font-semibold mb-1">${label}</p><p class="text-xs text-slate-300 leading-relaxed">${escHtml(text)}</p></div>` : ''
+                ).filter(Boolean).join('')}
+            </div>` : '<p class="text-xs text-slate-600">No AI context generated yet.</p>';
+
+        // Signal breakdown from decision log
+        const sigHtml = (() => {
+            const sig = decisionLog?.score_outputs_json?.signals;
+            if (!sig) return '';
+            const rows = [
+                { label: 'Domain quality',     val: sig.domain_adj,       note: sig.domain_adj < 0 ? 'Free email provider' : sig.domain_adj > 0 ? 'Business domain' : '' },
+                { label: 'Lead completeness',  val: sig.completeness_adj, note: '' },
+                { label: 'Prior engagement',   val: sig.engagement_adj,   note: sig.prior_engagement ? 'Existing GSC lead' : 'First contact' },
+                { label: 'Source reliability', val: sig.source_adj,       note: '' },
+                { label: 'Source recency',     val: sig.recency_adj,      note: '' },
+            ];
+            const rowsHtml = rows.map(r => {
+                const color = r.val > 0 ? 'text-green-400' : r.val < 0 ? 'text-red-400' : 'text-slate-500';
+                const prefix = r.val > 0 ? '+' : '';
+                return `<div class="flex items-center justify-between py-1 border-b border-white/4 last:border-0">
+                    <div>
+                        <span class="text-slate-400">${r.label}</span>
+                        ${r.note ? `<span class="text-slate-600 text-[10px] ml-1.5">${escHtml(r.note)}</span>` : ''}
+                    </div>
+                    <span class="font-semibold text-xs ${color}">${prefix}${r.val}</span>
+                </div>`;
+            }).join('');
+            const totalColor = sig.total > 0 ? 'text-green-400' : sig.total < 0 ? 'text-red-400' : 'text-slate-400';
+            return `<div>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">Signal Breakdown</p>
+                <div class="bg-slate-800/40 rounded-xl p-3 text-xs space-y-0.5">
+                    ${rowsHtml}
+                    <div class="flex items-center justify-between pt-2 mt-1 border-t border-white/8">
+                        <span class="text-slate-300 font-semibold">Total signal nudge</span>
+                        <span class="font-bold ${totalColor}">${sig.total >= 0 ? '+' : ''}${sig.total} pts</span>
+                    </div>
+                </div>
+            </div>`;
+        })();
+
+        // Provider call trace
+        const traceHtml = providerCalls.length ? `
+            <div>
+                <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">Provider Calls</p>
+                <div class="space-y-1.5">
+                    ${providerCalls.map(c => {
+                        const ok2 = c.status === 'success';
+                        const icon = ok2 ? 'fa-circle-check text-green-400' : 'fa-circle-xmark text-red-400';
+                        const time = c.called_at ? new Date(c.called_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+                        return `<div class="flex items-center gap-2 text-xs">
+                            <i class="fa-solid ${icon} text-[10px]"></i>
+                            <span class="text-slate-300 font-medium capitalize">${escHtml(c.provider)}</span>
+                            <span class="text-slate-600">${escHtml(c.status)}</span>
+                            ${time ? `<span class="text-slate-700 ml-auto">${time}</span>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>` : '';
+
+        // Operator note (if already set)
+        const existingNoteHtml = lead.operator_note ? `
+            <div class="bg-indigo-900/20 border border-indigo-800/30 rounded-xl p-3">
+                <p class="text-[10px] text-indigo-300 font-semibold mb-1">Operator Note</p>
+                <p class="text-xs text-slate-300">${escHtml(lead.operator_note)}</p>
+            </div>` : '';
+
+        // Outcome section for pushed leads (Phase 10)
+        const OUTCOME_LADDER_LABELS = { no_reply: 'No Reply', replied: 'Replied', booked: 'Booked', closed: 'Closed' };
+        const outcomeHtml = lead.status === 'pushed' ? (() => {
+            if (!outcomeData) {
+                return `<div>
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Outcome</p>
+                        <button onclick="openOutcomeModal('${lead.id}', null)" class="text-[10px] text-indigo-400 hover:text-indigo-300">+ Mark Outcome</button>
+                    </div>
+                    <p class="text-xs text-slate-600">No outcome recorded yet.</p>
+                </div>`;
+            }
+            const stage = outcomeData.outcome_stage;
+            const stageColors = { no_reply: 'text-slate-400', replied: 'text-blue-400', booked: 'text-purple-400', closed: 'text-green-400' };
+            const stageColor = stageColors[stage] ?? 'text-slate-400';
+            const manualBadge = outcomeData.is_manual ? `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 ml-2">MANUAL</span>` : '';
+            const manualInfo = outcomeData.is_manual && outcomeData.manual_reason
+                ? `<p class="text-[10px] text-slate-600 mt-1">Reason: ${escHtml(outcomeData.manual_reason)}</p>` : '';
+            return `<div>
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Outcome</p>
+                    <button onclick="openOutcomeModal('${lead.id}', '${stage}')" class="text-[10px] text-indigo-400 hover:text-indigo-300">Update</button>
+                </div>
+                <div class="bg-slate-800/50 rounded-xl px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold ${stageColor}">${OUTCOME_LADDER_LABELS[stage] ?? stage}</span>
+                        ${manualBadge}
+                    </div>
+                    ${manualInfo}
+                    <p class="text-[10px] text-slate-700 mt-1">${outcomeData.is_manual ? 'Manually recorded' : 'Synced from GSC'} · ${outcomeData.manual_at ? new Date(outcomeData.manual_at).toLocaleDateString() : new Date(outcomeData.observed_at).toLocaleDateString()}</p>
+                </div>
+            </div>`;
+        })() : '';
+
+        document.getElementById('ldm-body').innerHTML = `
+            <div class="flex items-center gap-3 flex-wrap">
+                ${statusBadgeHtml(lead.status)}
+                ${(lead.processing_version ?? 1) > 1 ? `<span class="text-[10px] text-slate-600">v${lead.processing_version}</span>` : ''}
+                <span class="text-xs text-slate-500">Attempt ${lead.attempt}/${lead.max_attempts}</span>
+                <span class="text-xs text-slate-600">${new Date(lead.created_at).toLocaleDateString()}</span>
+            </div>
+            ${existingNoteHtml}
+            ${outcomeHtml}
+            ${scoreHtml}
+            ${sigHtml}
+            ${enrichHtml}
+            ${ctxHtml}
+            ${traceHtml}`;
+
+        // Action buttons
+        const scoreRow = lead.lge_scores?.[0] ?? lead.lge_scores ?? null;
+        const isOverride = scoreRow?.is_manual_override ?? false;
+        const systemScore = scoreRow?.system_total_score ?? null;
+
+        const acts = [];
+        if (lead.status === 'review_queue') {
+            acts.push(`<input type="text" id="ldm-note" maxlength="500" placeholder="Note (optional)" class="input-field text-xs" style="max-width:260px">`);
+            acts.push(`<button onclick="forcePushLead('${lead.id}', true)" class="btn-success text-xs py-1.5"><i class="fa-solid fa-check text-xs"></i> Push to GSC</button>`);
+            acts.push(`<button onclick="discardLead('${lead.id}', true)" class="btn-danger text-xs py-1.5"><i class="fa-solid fa-xmark text-xs"></i> Discard</button>`);
+        }
+        if (lead.status === 'failed') {
+            acts.push(`<button onclick="retryLead('${lead.id}', true)" class="btn-ghost text-xs py-1.5"><i class="fa-solid fa-rotate-right text-xs"></i> Retry</button>`);
+        }
+        // Score override — only for review_queue and discarded
+        if (['review_queue', 'discarded'].includes(lead.status)) {
+            const currentScore = scoreRow?.total_score ?? null;
+            acts.push(`<button onclick="openOverrideModal('${lead.id}', ${currentScore ?? 'null'}, ${systemScore ?? 'null'})" class="btn-ghost text-xs py-1.5 text-orange-400 hover:text-orange-300"><i class="fa-solid fa-sliders text-xs"></i> Override Score</button>`);
+        }
+        if (isOverride && systemScore !== null) {
+            acts.push(`<button onclick="revertScore('${lead.id}')" class="btn-ghost text-xs py-1.5 text-slate-400 hover:text-white"><i class="fa-solid fa-rotate-left text-xs"></i> Revert to System (${systemScore})</button>`);
+        }
+        // Re-process available for any non-pending/enriching lead
+        if (lead.status !== 'pending' && lead.status !== 'enriching') {
+            acts.push(`<button onclick="reprocessLead('${lead.id}')" class="btn-ghost text-xs py-1.5" title="Clear enrichment/scores and re-queue for full processing"><i class="fa-solid fa-arrows-rotate text-xs"></i> Re-process</button>`);
+        }
+        // Re-enrich (non-destructive, Phase 10) for review_queue, discarded, failed
+        if (['review_queue', 'discarded', 'failed'].includes(lead.status)) {
+            acts.push(`<button onclick="openReenrichModal('${lead.id}')" class="btn-ghost text-xs py-1.5 text-teal-400 hover:text-teal-300"><i class="fa-solid fa-magnifying-glass-plus text-xs"></i> Re-enrich</button>`);
+        }
+        document.getElementById('ldm-actions').innerHTML = acts.join('');
+    } catch(e) {
+        document.getElementById('ldm-body').innerHTML = `<p class="text-red-400 text-xs">${escHtml(e.message)}</p>`;
+    }
+}
+
+function closeLeadDetail() {
+    document.getElementById('lead-detail-modal').classList.add('hidden');
+    _currentDetailLeadId = null;
+}
+
+// ── Phase 10: Lead Timeline ───────────────────────────────────────────────────
+
+async function loadLeadTimeline(leadId) {
+    if (!leadId) return;
+    const container = document.getElementById('ldm-timeline');
+    if (!container) return;
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'get_lead_timeline', lead_id: leadId });
+        const events = res.timeline ?? [];
+        if (!events.length) {
+            container.innerHTML = '<p class="text-xs text-slate-600 text-center py-2">No timeline events yet.</p>';
+            return;
+        }
+        const EVENT_ICONS = {
+            ingested: 'fa-arrow-down-to-line text-slate-400',
+            enriched: 'fa-database text-blue-400',
+            scored: 'fa-chart-bar text-indigo-400',
+            score_overridden: 'fa-sliders text-orange-400',
+            override_reverted: 'fa-rotate-left text-slate-400',
+            re_enriched: 'fa-magnifying-glass-plus text-teal-400',
+            routed: 'fa-route text-indigo-300',
+            provider_called: 'fa-plug text-slate-500',
+            pushed: 'fa-check-circle text-green-400',
+            outcome_marked: 'fa-flag text-purple-400',
+            outcome_updated: 'fa-flag text-purple-400',
+        };
+        container.innerHTML = events.map(e => {
+            const iconClass = EVENT_ICONS[e.event] ?? 'fa-circle text-slate-600';
+            const ts = new Date(e.timestamp);
+            const timeStr = ts.toLocaleDateString('en-IN', { day:'numeric', month:'short' }) + ' ' +
+                ts.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+            const label = e.event.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            return `<div class="flex items-start gap-2.5 py-1.5 border-b border-white/4 last:border-0">
+                <i class="fa-solid ${iconClass} text-[10px] mt-1 flex-shrink-0 w-3 text-center"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs text-slate-300 font-medium">${label}</span>
+                        <span class="text-[10px] text-slate-700 flex-shrink-0">${timeStr}</span>
+                    </div>
+                    ${e.detail ? `<p class="text-[10px] text-slate-500 mt-0.5 truncate" title="${escHtml(e.detail)}">${escHtml(e.detail)}</p>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        if (container) container.innerHTML = '<p class="text-[10px] text-slate-600 text-center py-2">Timeline unavailable.</p>';
+    }
+}
+
+// ── Phase 10: Campaign Audit History ─────────────────────────────────────────
+
+let _auditCampaignId = null;
+let _auditFilter = 'all';
+let _auditEvents = [];
+
+async function openCampaignAudit(campaignId, campaignName) {
+    _auditCampaignId = campaignId;
+    _auditFilter = 'all';
+    document.getElementById('audit-modal-sub').textContent = campaignName;
+    document.getElementById('audit-modal').classList.remove('hidden');
+    await loadAuditEvents();
+}
+
+function closeAuditModal() {
+    document.getElementById('audit-modal').classList.add('hidden');
+    _auditCampaignId = null;
+    _auditEvents = [];
+}
+
+function setAuditFilter(filter, btn) {
+    _auditFilter = filter;
+    document.querySelectorAll('.audit-filter-btn').forEach(b => {
+        b.classList.remove('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+        b.classList.add('text-slate-500','border-white/5');
+    });
+    btn.classList.add('bg-indigo-600/30','text-indigo-300','border-indigo-500/40');
+    btn.classList.remove('text-slate-500','border-white/5');
+    renderAuditEvents();
+}
+
+async function loadAuditEvents() {
+    if (!_auditCampaignId) return;
+    document.getElementById('audit-body').innerHTML = '<div class="flex items-center justify-center py-8"><span class="spinner"></span></div>';
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'get_campaign_audit', campaign_id: _auditCampaignId, filter: 'all', limit: 200 });
+        _auditEvents = res.events ?? [];
+        renderAuditEvents();
+    } catch(e) {
+        document.getElementById('audit-body').innerHTML = `<p class="text-xs text-red-400 text-center py-4">${escHtml(e.message)}</p>`;
+    }
+}
+
+function renderAuditEvents() {
+    const events = _auditFilter === 'all' ? _auditEvents
+        : _auditEvents.filter(e => {
+            if (_auditFilter === 'threshold') return e.event_type === 'threshold_change';
+            if (_auditFilter === 'lifecycle') return e.event_type === 'lifecycle_change';
+            return true;
+        });
+
+    if (!events.length) {
+        document.getElementById('audit-body').innerHTML = '<p class="text-xs text-slate-600 text-center py-8">No events found.</p>';
+        return;
+    }
+
+    const TYPE_ICONS = {
+        threshold_change: 'fa-sliders text-orange-400',
+        lifecycle_change: 'fa-toggle-on text-blue-400',
+    };
+    const TYPE_LABELS = {
+        threshold_change: 'Threshold Changed',
+        lifecycle_change: 'Lifecycle Event',
+    };
+
+    document.getElementById('audit-body').innerHTML = `<div class="space-y-2">
+        ${events.map(e => {
+            const icon = TYPE_ICONS[e.event_type] ?? 'fa-circle text-slate-500';
+            const label = TYPE_LABELS[e.event_type] ?? e.event_type;
+            const ts = new Date(e.timestamp);
+            const timeStr = ts.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) + ' ' +
+                ts.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+            const diffHtml = (e.before || e.after) ? `
+                <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                    ${e.before ? `<span class="text-[11px] bg-red-900/30 text-red-300 px-2 py-0.5 rounded font-mono">${escHtml(e.before)}</span>
+                    <i class="fa-solid fa-arrow-right text-slate-600 text-[9px]"></i>` : ''}
+                    ${e.after ? `<span class="text-[11px] bg-green-900/30 text-green-300 px-2 py-0.5 rounded font-mono">${escHtml(e.after)}</span>` : ''}
+                </div>` : '';
+            return `<div class="bg-slate-800/50 rounded-xl p-3.5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid ${icon} text-[11px]"></i>
+                        <span class="text-xs font-semibold text-white">${label}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-600 flex-shrink-0">${timeStr}</span>
+                </div>
+                ${diffHtml}
+                ${e.reason ? `<p class="text-[11px] text-slate-500 mt-1.5"><span class="text-slate-600">Reason:</span> ${escHtml(e.reason)}</p>` : ''}
+                ${e.actor_name ? `<p class="text-[10px] text-slate-700 mt-1">By: ${escHtml(e.actor_name)}</p>` : ''}
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
+function exportAuditCsv() {
+    if (!_auditEvents.length) { toast('No audit events to export', 'error'); return; }
+    const rows = [['Timestamp','Event Type','Actor','Before','After','Reason']];
+    for (const e of _auditEvents) {
+        rows.push([e.timestamp, e.event_type, e.actor_name ?? '', e.before ?? '', e.after ?? '', e.reason ?? '']);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `campaign-audit-${_auditCampaignId?.slice(0,8)}-${Date.now()}.csv`;
+    a.click();
+}
+
+// ── Phase 10: Manual Outcome Modal ───────────────────────────────────────────
+
+let _outcomeLead = null;
+let _outcomeCurrentStage = null;
+const OUTCOME_LADDER_ORDER = ['no_reply', 'replied', 'booked', 'closed'];
+const OUTCOME_LABELS = { no_reply: 'No Reply', replied: 'Replied', booked: 'Booked', closed: 'Closed' };
+const OUTCOME_RANK = { no_reply: 0, replied: 1, booked: 2, closed: 4 };
+
+function openOutcomeModal(leadId, currentStage) {
+    _outcomeLead = leadId;
+    _outcomeCurrentStage = currentStage;
+    document.getElementById('outcome-error').classList.add('hidden');
+    document.getElementById('outcome-reason').value = '';
+    const currentRank = currentStage ? (OUTCOME_RANK[currentStage] ?? -1) : -1;
+    document.getElementById('outcome-ladder').innerHTML = OUTCOME_LADDER_ORDER.map(o => {
+        const rank = OUTCOME_RANK[o] ?? 0;
+        const isCurrent = o === currentStage;
+        const isForward = rank > currentRank;
+        const isDisabled = rank <= currentRank && !isCurrent;
+        const bgCls = isCurrent ? 'bg-indigo-600/30 border-indigo-500/40 text-indigo-300'
+            : isForward ? 'border-white/10 text-slate-300 hover:bg-slate-700/50 cursor-pointer'
+            : 'border-white/5 text-slate-600 opacity-50 cursor-not-allowed';
+        return `<button type="button" class="outcome-opt px-2 py-2 rounded-xl border text-[11px] font-semibold text-center transition-all ${bgCls}"
+            data-outcome="${o}" ${isDisabled ? 'disabled' : ''} onclick="selectOutcome(this,'${o}')">
+            ${OUTCOME_LABELS[o]}
+            ${isCurrent ? '<br><span class="text-[9px] font-normal opacity-70">current</span>' : ''}
+        </button>`;
+    }).join('');
+    document.getElementById('outcome-modal').classList.remove('hidden');
+}
+
+function selectOutcome(btn, outcome) {
+    document.querySelectorAll('.outcome-opt').forEach(b => {
+        b.classList.remove('bg-indigo-600/30','border-indigo-500/40','text-indigo-300');
+        if (!b.disabled) b.classList.add('border-white/10','text-slate-300');
+    });
+    btn.classList.add('bg-indigo-600/30','border-indigo-500/40','text-indigo-300');
+    btn.classList.remove('border-white/10','text-slate-300');
+    btn.dataset.selected = 'true';
+}
+
+function closeOutcomeModal() { document.getElementById('outcome-modal').classList.add('hidden'); _outcomeLead = null; }
+
+async function submitOutcome() {
+    const selectedBtn = document.querySelector('.outcome-opt[data-selected="true"]');
+    const outcome = selectedBtn?.dataset.outcome;
+    const reason = document.getElementById('outcome-reason').value.trim();
+    const errEl = document.getElementById('outcome-error');
+    errEl.classList.add('hidden');
+    if (!outcome) { errEl.textContent = 'Please select an outcome stage.'; errEl.classList.remove('hidden'); return; }
+    if (reason.length < 5) { errEl.textContent = 'Reason required (min 5 characters).'; errEl.classList.remove('hidden'); return; }
+    const btn = document.getElementById('outcome-btn');
+    const lbl = document.getElementById('outcome-btn-label');
+    const spin = document.getElementById('outcome-btn-spinner');
+    btn.disabled = true; lbl.classList.add('hidden'); spin.classList.remove('hidden');
+    try {
+        await callFn('lge_campaign_manage', { action: 'mark_outcome', lead_id: _outcomeLead, outcome, reason });
+        toast('Outcome recorded', 'success');
+        closeOutcomeModal();
+        // Reload lead detail to reflect new outcome
+        if (_currentDetailLeadId) openLeadDetail(_currentDetailLeadId);
+    } catch(e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false; lbl.classList.remove('hidden'); spin.classList.add('hidden');
+    }
+}
+
+// ── Phase 10: Re-enrich Modal ─────────────────────────────────────────────────
+
+let _reenrichLeadId = null;
+
+function openReenrichModal(leadId) {
+    _reenrichLeadId = leadId;
+    document.getElementById('reenrich-reason').value = '';
+    document.getElementById('reenrich-error').classList.add('hidden');
+    document.getElementById('reenrich-modal').classList.remove('hidden');
+}
+
+function closeReenrichModal() { document.getElementById('reenrich-modal').classList.add('hidden'); _reenrichLeadId = null; }
+
+async function submitReenrich() {
+    const reason = document.getElementById('reenrich-reason').value.trim();
+    const errEl = document.getElementById('reenrich-error');
+    errEl.classList.add('hidden');
+    if (reason.length < 5) { errEl.textContent = 'Reason required (min 5 characters).'; errEl.classList.remove('hidden'); return; }
+    const btn = document.getElementById('reenrich-btn');
+    const lbl = document.getElementById('reenrich-btn-label');
+    const spin = document.getElementById('reenrich-btn-spinner');
+    btn.disabled = true; lbl.classList.add('hidden'); spin.classList.remove('hidden');
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'reenrich_lead', lead_id: _reenrichLeadId, reason });
+        toast(`Re-enrich queued (version ${res.processing_version})`, 'success');
+        closeReenrichModal();
+        closeLeadDetail();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false; lbl.classList.remove('hidden'); spin.classList.add('hidden');
+    }
+}
+
+// ── Add Single Lead ───────────────────────────────────────────────────────────
+
+function openAddLeadModal(campaignId) {
+    const sel = document.getElementById('al-campaign');
+    sel.innerHTML = campaigns.filter(c => c.status !== 'archived').map(c =>
+        `<option value="${c.id}" ${c.id === campaignId ? 'selected' : ''}>${escHtml(c.name)}</option>`
+    ).join('');
+    document.getElementById('al-name').value = '';
+    document.getElementById('al-email').value = '';
+    document.getElementById('al-phone').value = '';
+    document.getElementById('al-company').value = '';
+    document.getElementById('al-title').value = '';
+    document.getElementById('al-error').classList.add('hidden');
+    document.getElementById('add-lead-modal').classList.remove('hidden');
+}
+
+function closeAddLeadModal() { document.getElementById('add-lead-modal').classList.add('hidden'); }
+
+async function addSingleLead() {
+    const campaignId = document.getElementById('al-campaign').value;
+    const name    = document.getElementById('al-name').value.trim();
+    const email   = document.getElementById('al-email').value.trim();
+    const phone   = document.getElementById('al-phone').value.trim();
+    const company = document.getElementById('al-company').value.trim();
+    const title   = document.getElementById('al-title').value.trim();
+
+    if (!campaignId) return showAlError('Select a campaign');
+    if (!email && !phone) return showAlError('Email or phone required');
+
+    const btn = document.getElementById('al-btn');
+    btn.disabled = true;
+    document.getElementById('al-spinner').classList.remove('hidden');
+    document.getElementById('al-label').textContent = 'Adding...';
+
+    try {
+        await callFn('lge_ingest', { campaign_id: campaignId, leads: [{ name, email, phone, company, title }] });
+        toast('Lead added and queued for enrichment', 'success');
+        closeAddLeadModal();
+        loadPipelineStatus();
+        switchToLeadsForCampaign(campaignId);
+    } catch(e) {
+        showAlError(e.message);
+    } finally {
+        btn.disabled = false;
+        document.getElementById('al-spinner').classList.add('hidden');
+        document.getElementById('al-label').textContent = 'Add Lead';
+    }
+}
+
+function showAlError(msg) {
+    const el = document.getElementById('al-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+
+// ── Bulk Actions ──────────────────────────────────────────────────────────────
+
+let selectedLeadIds = new Set();
+
+function onLeadCbChange() {
+    selectedLeadIds = new Set(
+        [...document.querySelectorAll('.lead-cb:checked')].map(cb => cb.dataset.id)
+    );
+    updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.lead-cb').forEach(cb => {
+        cb.checked = checked;
+    });
+    onLeadCbChange();
+}
+
+function updateBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    if (selectedLeadIds.size === 0) {
+        bar.classList.add('hidden');
+        document.getElementById('select-all-cb').checked = false;
+        return;
+    }
+    bar.classList.remove('hidden');
+    document.getElementById('bulk-count').textContent = `${selectedLeadIds.size} selected`;
+}
+
+function clearSelection() {
+    document.querySelectorAll('.lead-cb').forEach(cb => cb.checked = false);
+    document.getElementById('select-all-cb').checked = false;
+    selectedLeadIds.clear();
+    updateBulkBar();
+}
+
+async function bulkPush() {
+    const reviewIds = [...document.querySelectorAll('.lead-cb:checked')]
+        .filter(cb => cb.dataset.status === 'review_queue')
+        .map(cb => cb.dataset.id);
+
+    if (reviewIds.length === 0) return toast('No review queue leads selected', 'warn');
+    if (!confirm(`Push ${reviewIds.length} leads to GSC? AI outreach will start immediately.`)) return;
+
+    let pushed = 0, failed = 0;
+    for (const id of reviewIds) {
+        try {
+            await callFn('lge_campaign_manage', { action: 'force_push', lead_id: id });
+            pushed++;
+        } catch(_) { failed++; }
+    }
+    toast(`${pushed} pushed${failed ? `, ${failed} failed` : ''}`, pushed > 0 ? 'success' : 'error');
+    clearSelection();
+    loadLeads();
+    loadPipelineStatus();
+}
+
+async function bulkDiscard() {
+    const ids = [...selectedLeadIds];
+    if (ids.length === 0) return;
+    if (!confirm(`Discard ${ids.length} leads?`)) return;
+
+    try {
+        await callFn('lge_campaign_manage', { action: 'discard_lead', lead_ids: ids });
+        toast(`${ids.length} leads discarded`, 'info');
+        clearSelection();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Retry Failed Lead ─────────────────────────────────────────────────────────
+
+async function retryLead(id, fromModal = false) {
+    try {
+        await callFn('lge_campaign_manage', { action: 'retry_lead', lead_id: id });
+        toast('Lead re-queued for enrichment', 'success');
+        if (fromModal) closeLeadDetail();
+        loadLeads();
+        loadPipelineStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+
+async function exportLeadsCsv() {
+    const campaignId  = document.getElementById('leads-campaign-filter').value;
+    const statusFilter = document.getElementById('leads-status-filter').value;
+
+    toast('Preparing export...', 'info');
+    try {
+        let query = sb.from('lge_raw_leads')
+            .select(`id, name, email, phone, company, status, created_at,
+                lge_scores(total_score, fit_score, confidence_score),
+                lge_context(reason_to_reach_out, recommended_pitch_angle)`)
+            .eq('org_id', currentOrgId)
+            .order('created_at', { ascending: false })
+            .limit(5000);
+
+        if (campaignId)   query = query.eq('campaign_id', campaignId);
+        if (statusFilter) query = query.eq('status', statusFilter);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const rows = (data ?? []).map(l => {
+            const sc  = l.lge_scores?.[0]  ?? l.lge_scores  ?? {};
+            const ctx = l.lge_context?.[0] ?? l.lge_context ?? {};
+            return [
+                l.name, l.email, l.phone, l.company, l.status,
+                sc.total_score ?? '', sc.fit_score ?? '', sc.confidence_score ?? '',
+                ctx.reason_to_reach_out ?? '', ctx.recommended_pitch_angle ?? '',
+                l.created_at
+            ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+        });
+
+        const header = 'Name,Email,Phone,Company,Status,Total Score,Fit Score,Confidence Score,Reason to Reach Out,Pitch Angle,Created At';
+        const csv = [header, ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lge_leads_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast(`Exported ${rows.length} leads`, 'success');
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Test Provider Key ─────────────────────────────────────────────────────────
+
+async function testProviderKey(provider) {
+    const btn = document.getElementById(`${provider}-test-btn`);
+    const resultEl = document.getElementById(`${provider}-test-result`);
+    btn.disabled = true;
+    btn.textContent = 'Testing...';
+    resultEl.classList.remove('hidden');
+    resultEl.className = 'text-xs mt-2 text-slate-400';
+    resultEl.textContent = 'Connecting...';
+
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'test_provider', provider });
+        resultEl.className = 'text-xs mt-2 text-green-400';
+        if (provider === 'hunter' && res.account_email) {
+            resultEl.textContent = `Connected — account: ${res.account_email}`;
+        } else if (provider === 'abstract_phone') {
+            resultEl.textContent = res.phone_type ? `Connected — test lookup returned type: ${res.phone_type}` : 'Connected — key is valid';
+        } else {
+            resultEl.textContent = 'Connected — key is valid';
+        }
+    } catch(e) {
+        resultEl.className = 'text-xs mt-2 text-red-400';
+        resultEl.textContent = e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Test';
+    }
+}
+
+// ── Re-process Modal (Phase 7) ────────────────────────────────────────────────
+
+let _reprocessCampaignId = null;
+
+async function openReprocessModal(campaignId, campaignName) {
+    _reprocessCampaignId = campaignId;
+    document.getElementById('rp-campaign-name').textContent = campaignName;
+    document.getElementById('rp-reason').value = '';
+    document.getElementById('rp-run-btn').disabled = false;
+    document.getElementById('rp-run-label').textContent = 'Start Re-process';
+    document.getElementById('rp-run-spinner').classList.add('hidden');
+    // Default to score_only
+    document.querySelectorAll('input[name="rp-mode"]').forEach(r => { r.checked = r.value === 'score_only'; });
+    document.getElementById('reprocess-modal').classList.remove('hidden');
+    updateReprocessPreview();
+}
+
+function closeReprocessModal() {
+    document.getElementById('reprocess-modal').classList.add('hidden');
+    _reprocessCampaignId = null;
+}
+
+async function updateReprocessPreview() {
+    if (!_reprocessCampaignId) return;
+    const mode = document.querySelector('input[name="rp-mode"]:checked')?.value ?? 'score_only';
+    const preview = document.getElementById('rp-preview');
+    preview.innerHTML = '<span class="spinner inline-block w-3 h-3"></span> Loading preview...';
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'preview_reprocess', campaign_id: _reprocessCampaignId, mode });
+        preview.innerHTML = `
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                <span class="text-slate-500">Leads targeted</span><span class="text-white font-semibold">${res.total_targeted}</span>
+                <span class="text-slate-500">Have enrichment</span><span class="text-green-400 font-semibold">${res.has_enrichment}</span>
+                ${mode === 'full' ? `<span class="text-slate-500">Need re-enrichment</span><span class="text-orange-400 font-semibold">${res.needs_enrichment}</span>
+                <span class="text-slate-500">Est. API calls</span><span class="text-yellow-400 font-semibold">~${res.api_calls_estimated}</span>` : ''}
+            </div>
+            <p class="mt-2 text-slate-500">${res.note}</p>`;
+    } catch(e) {
+        preview.textContent = 'Preview unavailable.';
+    }
+}
+
+async function runReprocess() {
+    if (!_reprocessCampaignId) return;
+    const mode = document.querySelector('input[name="rp-mode"]:checked')?.value ?? 'score_only';
+    const reason = document.getElementById('rp-reason').value.trim() || null;
+    if (mode === 'full' && !confirm('Full re-enrichment will clear all existing enrichment data and use your Apollo + Hunter API credits. Continue?')) return;
+
+    const btn = document.getElementById('rp-run-btn');
+    btn.disabled = true;
+    document.getElementById('rp-run-label').textContent = 'Starting...';
+    document.getElementById('rp-run-spinner').classList.remove('hidden');
+
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'start_reprocess', campaign_id: _reprocessCampaignId, mode, ...(reason ? { reason } : {}) });
+        if (mode === 'score_only') {
+            toast(`Re-processed ${res.processed} leads${res.pushed > 0 ? ` — ${res.pushed} auto-pushed` : ''}`, 'success');
+        } else {
+            toast(`${res.requeued} leads re-queued for full pipeline`, 'success');
+        }
+        closeReprocessModal();
+        await loadCampaigns();
+        loadPipelineStrip();
+    } catch(e) {
+        toast(e.message, 'error');
+        btn.disabled = false;
+        document.getElementById('rp-run-label').textContent = 'Start Re-process';
+        document.getElementById('rp-run-spinner').classList.add('hidden');
+    }
+}
+
+// ── Score Override (Phase 9) ──────────────────────────────────────────────────
+
+let _overrideLeadId = null;
+let _overrideSystemScore = null;
+
+function openOverrideModal(leadId, currentScore, systemScore) {
+    _overrideLeadId = leadId;
+    _overrideSystemScore = systemScore;
+    const startScore = currentScore != null ? Math.round(currentScore) : 75;
+    document.getElementById('ov-score').value = startScore;
+    document.getElementById('ov-score-display').textContent = startScore;
+    document.getElementById('ov-reason').value = '';
+    document.getElementById('ov-delta-warn').classList.add('hidden');
+    document.getElementById('ov-submit-btn').disabled = false;
+    document.getElementById('ov-submit-label').textContent = 'Apply Override';
+    document.getElementById('ov-submit-spinner').classList.add('hidden');
+    if (systemScore != null) {
+        document.getElementById('ov-delta-warn').textContent = `System score: ${Math.round(systemScore)} — max change ±30 pts`;
+        document.getElementById('ov-delta-warn').classList.remove('hidden');
+    }
+    document.getElementById('override-modal').classList.remove('hidden');
+}
+
+function closeOverrideModal() {
+    document.getElementById('override-modal').classList.add('hidden');
+    _overrideLeadId = null;
+}
+
+async function submitOverride() {
+    if (!_overrideLeadId) return;
+    const score = parseInt(document.getElementById('ov-score').value);
+    const reason = document.getElementById('ov-reason').value.trim();
+    if (!reason) return toast('Reason is required for score override', 'warn');
+
+    const btn = document.getElementById('ov-submit-btn');
+    btn.disabled = true;
+    document.getElementById('ov-submit-label').textContent = 'Applying...';
+    document.getElementById('ov-submit-spinner').classList.remove('hidden');
+
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'override_score', lead_id: _overrideLeadId, score, reason });
+        toast(`Score overridden to ${res.new_score} — lead is now ${res.new_status.replace('_', ' ')}`, 'success');
+        closeOverrideModal();
+        // Refresh lead detail and leads table
+        if (_currentDetailLeadId) openLeadDetail(_currentDetailLeadId);
+        loadLeads();
+    } catch(e) {
+        toast(e.message, 'error');
+        btn.disabled = false;
+        document.getElementById('ov-submit-label').textContent = 'Apply Override';
+        document.getElementById('ov-submit-spinner').classList.add('hidden');
+    }
+}
+
+async function revertScore(leadId) {
+    if (!confirm('Revert to the original system score? The override will be cleared.')) return;
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'revert_score', lead_id: leadId });
+        toast(`Score reverted to ${res.reverted_to_score}`, 'success');
+        if (_currentDetailLeadId) openLeadDetail(_currentDetailLeadId);
+        loadLeads();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Campaign Lifecycle (Phase 9) ──────────────────────────────────────────────
+
+async function pauseCampaign(campaignId, campaignName) {
+    const note = prompt(`Pause "${campaignName}"?\n\nAll processing and ingestion will stop immediately. Enter a reason (optional):`);
+    if (note === null) return; // user cancelled
+    try {
+        await callFn('lge_campaign_manage', { action: 'pause_campaign', campaign_id: campaignId, ...(note.trim() ? { note: note.trim() } : {}) });
+        toast(`Campaign paused`, 'success');
+        await loadCampaigns();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function resumeCampaign(campaignId, campaignName) {
+    if (!confirm(`Resume "${campaignName}"?\n\nProcessing will restart. The campaign mode will be restored to what it was before pausing.`)) return;
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'resume_campaign', campaign_id: campaignId });
+        toast(`Campaign resumed (mode: ${res.mode})`, 'success');
+        await loadCampaigns();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+async function archiveCampaign(campaignId, campaignName) {
+    const stats = campaignStats[campaignId] || {};
+    const activeLeads = (stats.pending_count || 0) + (stats.enriching_count || 0) + (stats.review_count || 0);
+    const confirmMsg = `Archive "${campaignName}"?\n\n` +
+        (activeLeads > 0 ? `${activeLeads} leads are still pending/in-review and will be frozen.\n\n` : '') +
+        `Archived campaigns cannot be edited or resumed directly — clone it to reactivate.\n\nType ARCHIVE to confirm:`;
+    const input = prompt(confirmMsg);
+    if (input?.trim().toUpperCase() !== 'ARCHIVE') return toast('Archive cancelled', 'info');
+    try {
+        await callFn('lge_campaign_manage', { action: 'archive_campaign', campaign_id: campaignId });
+        toast(`Campaign archived`, 'success');
+        await loadCampaigns();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Clone Campaign (Phase 7) ───────────────────────────────────────────────────
+
+async function cloneCampaign(campaignId, campaignName) {
+    if (!confirm(`Clone "${campaignName}"?\n\nThis copies the ICP config, thresholds, and template. No leads are copied. The clone starts in Off mode.`)) return;
+    try {
+        await callFn('lge_campaign_manage', { action: 'clone', campaign_id: campaignId });
+        toast('Campaign cloned', 'success');
+        await loadCampaigns();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── ICP Calibration Scorecard (Phase 7) ───────────────────────────────────────
+
+async function loadScorecard() {
+    const grid = document.getElementById('scorecard-grid');
+    if (!grid) return;
+    grid.innerHTML = '<div class="stat-tile animate-pulse col-span-full"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>';
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'get_scorecard' });
+        const cards = res.scorecard ?? [];
+        if (!cards.length) {
+            grid.innerHTML = '<p class="col-span-full text-xs text-slate-600 text-center py-4">No campaign data yet. Import leads to see calibration metrics.</p>';
+            return;
+        }
+        grid.innerHTML = cards.map(sc => {
+            const suggHtml = sc.suggestions.length
+                ? sc.suggestions.map(s => `<li class="flex items-start gap-1.5"><i class="fa-solid fa-lightbulb text-yellow-400 text-[10px] mt-0.5 flex-shrink-0"></i><span>${s}</span></li>`).join('')
+                : '<li class="text-slate-600">No suggestions — thresholds look good.</li>';
+            const agePct = sc.review_ttl_days > 0 ? Math.min(100, (sc.oldest_review_days / sc.review_ttl_days) * 100) : 0;
+            const ageColor = agePct >= 70 ? 'text-orange-400' : agePct >= 40 ? 'text-yellow-400' : 'text-slate-400';
+            return `
+            <div class="glass-panel rounded-xl p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-white truncate">${escHtml(sc.name)}</p>
+                    <span class="badge ${sc.mode === 'active' ? 'badge-green' : sc.mode === 'shadow' ? 'badge-yellow' : 'badge-slate'} ml-2">${sc.mode}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-800/40 rounded-lg py-2">
+                        <p class="text-[10px] text-slate-500 mb-0.5">Push Rate</p>
+                        <p class="text-sm font-bold text-green-400">${sc.push_rate}%</p>
+                    </div>
+                    <div class="bg-slate-800/40 rounded-lg py-2">
+                        <p class="text-[10px] text-slate-500 mb-0.5">Reply Rate</p>
+                        <p class="text-sm font-bold text-blue-400">${sc.reply_rate}%</p>
+                    </div>
+                    <div class="bg-slate-800/40 rounded-lg py-2">
+                        <p class="text-[10px] text-slate-500 mb-0.5">Book Rate</p>
+                        <p class="text-sm font-bold text-purple-400">${sc.book_rate}%</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">Review backlog</span>
+                    <span class="text-yellow-400 font-semibold">${sc.review} leads</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">Oldest in queue</span>
+                    <span class="${ageColor} font-semibold">${sc.oldest_review_days.toFixed(1)}d / ${sc.review_ttl_days}d TTL</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">Near threshold (±10)</span>
+                    <span class="text-indigo-400 font-semibold">${sc.near_threshold_count} leads</span>
+                </div>
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">Thresholds</span>
+                    <span class="text-slate-400">&ge;${sc.auto_push_threshold} push &nbsp;&middot;&nbsp; ${sc.review_threshold}–${sc.auto_push_threshold-1} review</span>
+                </div>
+                ${sc.suggestions.length ? `
+                <div class="border-t border-white/5 pt-2">
+                    <p class="text-[10px] text-yellow-400 uppercase tracking-wider font-bold mb-1.5">Suggestions</p>
+                    <ul class="space-y-1.5 text-[11px] text-slate-400">${suggHtml}</ul>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+    } catch(e) {
+        if (grid) grid.innerHTML = '<p class="col-span-full text-xs text-red-400 text-center py-4">Failed to load scorecard.</p>';
+    }
+}
+
+// ── Analytics — Email Report ───────────────────────────────────────────────────
+
+async function sendReport() {
+    const btn = document.getElementById('send-report-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner inline-block w-3 h-3 mr-1"></span> Sending...';
+    const campaignId = document.getElementById('analytics-campaign-filter').value || null;
+    try {
+        const res = await callFn('lge_campaign_manage', {
+            action: 'send_report',
+            ...(campaignId ? { campaign_id: campaignId } : {}),
+        });
+        toast(`Report sent to ${res.sent_to}`, 'success');
+    } catch(e) { toast(e.message, 'error'); } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-envelope text-[10px]"></i> Email Report';
+    }
+}
+
+// ── Lead Notes (Phase 8) ──────────────────────────────────────────────────────
+
+async function loadLeadNotes(leadId) {
+    const container = document.getElementById('ldm-notes');
+    if (!container) return;
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'list_notes', lead_id: leadId });
+        const notes = res.notes ?? [];
+        if (!notes.length) {
+            container.innerHTML = '<p class="text-xs text-slate-600 text-center py-2">No notes yet.</p>';
+            return;
+        }
+        container.innerHTML = notes.map(n => {
+            const dt = new Date(n.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return `<div class="bg-slate-800/50 rounded-lg px-3 py-2">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-semibold text-indigo-400">${escHtml(n.author)}</span>
+                    <span class="text-[10px] text-slate-600">${dt}</span>
+                </div>
+                <p class="text-xs text-slate-300 whitespace-pre-wrap break-words">${escHtml(n.note)}</p>
+            </div>`;
+        }).join('');
+        // Scroll to bottom to show latest
+        container.scrollTop = container.scrollHeight;
+    } catch(_) {
+        container.innerHTML = '<p class="text-xs text-red-400 text-center py-2">Failed to load notes.</p>';
+    }
+}
+
+async function submitNote() {
+    if (!_currentDetailLeadId) return;
+    const input = document.getElementById('ldm-note-input');
+    const note = input.value.trim();
+    if (!note) return;
+    try {
+        await callFn('lge_campaign_manage', { action: 'add_note', lead_id: _currentDetailLeadId, note });
+        input.value = '';
+        await loadLeadNotes(_currentDetailLeadId);
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// Allow Enter key to submit note
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.activeElement?.id === 'ldm-note-input') {
+        e.preventDefault();
+        submitNote();
+    }
+});
+
+// ── Import History (Phase 8) ──────────────────────────────────────────────────
+
+let _ihOffset = 0;
+const _ihLimit = 50;
+let _ihTotal = 0;
+
+async function loadImportHistory() {
+    _ihOffset = 0;
+    await _fetchImportHistory();
+}
+
+async function ihNextPage() {
+    if (_ihOffset + _ihLimit >= _ihTotal) return;
+    _ihOffset += _ihLimit;
+    await _fetchImportHistory();
+}
+
+async function ihPrevPage() {
+    if (_ihOffset === 0) return;
+    _ihOffset = Math.max(0, _ihOffset - _ihLimit);
+    await _fetchImportHistory();
+}
+
+async function _fetchImportHistory() {
+    const tbody = document.getElementById('ih-tbody');
+    const campaignId = document.getElementById('ih-campaign-filter')?.value || null;
+    tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-600"><span class="spinner inline-block w-4 h-4"></span></td></tr>';
+    try {
+        const res = await callFn('lge_campaign_manage', {
+            action: 'list_imports',
+            ...(campaignId ? { campaign_id: campaignId } : {}),
+            limit: _ihLimit,
+            offset: _ihOffset,
+        });
+        const rows = res.imports ?? [];
+        _ihTotal = res.total ?? rows.length;
+
+        const totalEl = document.getElementById('ih-total');
+        if (totalEl) totalEl.textContent = `${_ihTotal} import${_ihTotal !== 1 ? 's' : ''} total`;
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-600">No imports yet. Upload a CSV or use the API to ingest leads.</td></tr>';
+            document.getElementById('ih-pagination').classList.add('hidden');
+            return;
+        }
+
+        const sourceLabel = { csv: 'CSV Upload', webhook: 'Webhook', api: 'API' };
+        tbody.innerHTML = rows.map(r => {
+            const dt = new Date(r.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const acceptRate = r.total > 0 ? Math.round((r.accepted / r.total) * 100) : 0;
+            return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
+                <td class="px-4 py-3 text-slate-400">${dt}</td>
+                <td class="px-4 py-3 text-white font-medium">${escHtml(r.campaign_name ?? '—')}</td>
+                <td class="px-4 py-3"><span class="badge badge-slate">${escHtml(sourceLabel[r.source] ?? r.source)}</span></td>
+                <td class="px-4 py-3 text-right text-slate-300">${r.total}</td>
+                <td class="px-4 py-3 text-right text-green-400 font-semibold">${r.accepted} <span class="text-slate-600 font-normal text-[10px]">(${acceptRate}%)</span></td>
+                <td class="px-4 py-3 text-right text-yellow-400">${r.duplicates}</td>
+                <td class="px-4 py-3 text-right text-red-400">${r.invalid}</td>
+                <td class="px-4 py-3 text-slate-500">${escHtml(r.imported_by ? 'User' : 'API / Webhook')}</td>
+            </tr>`;
+        }).join('');
+
+        // Pagination
+        const pag = document.getElementById('ih-pagination');
+        if (_ihTotal > _ihLimit) {
+            pag.classList.remove('hidden');
+            document.getElementById('ih-page-info').textContent = `${_ihOffset + 1}–${Math.min(_ihOffset + _ihLimit, _ihTotal)} of ${_ihTotal}`;
+            document.getElementById('ih-prev-btn').disabled = _ihOffset === 0;
+            document.getElementById('ih-next-btn').disabled = _ihOffset + _ihLimit >= _ihTotal;
+        } else {
+            pag.classList.add('hidden');
+        }
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-400">${escHtml(e.message)}</td></tr>`;
+    }
+}
+
+function populateImportHistoryFilter() {
+    const sel = document.getElementById('ih-campaign-filter');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All Campaigns</option>' +
+        campaigns.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+}
+
+// ── Webhook URL copy ───────────────────────────────────────────────────────────
+
+function copyWebhookUrl() {
+    const url = document.getElementById('webhook-url-display').textContent;
+    navigator.clipboard.writeText(url.trim()).then(() => toast('Endpoint URL copied', 'success')).catch(() => toast('Copy failed', 'error'));
+}
+
+// ── Providers Tab ─────────────────────────────────────────────────────────────
+
+async function loadProviderStatus() {
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'get_provider_status' });
+        const providers = res.providers || {};
+        updateProviderBadge('apollo', providers.apollo);
+        updateProviderBadge('hunter', providers.hunter);
+        updateProviderBadge('abstract_phone', providers.abstract_phone);
+    } catch(_) {}
+}
+
+function updateProviderBadge(name, info) {
+    const el = document.getElementById(`${name}-status`);
+    if (!el) return;
+    if (info?.configured && info?.is_active) {
+        el.className = 'badge badge-green ml-auto';
+        el.textContent = 'Configured';
+    } else if (info?.configured && !info?.is_active) {
+        el.className = 'badge badge-slate ml-auto';
+        el.textContent = 'Disabled';
+    } else {
+        el.className = 'badge badge-slate ml-auto';
+        el.textContent = 'Not configured';
+    }
+}
+
+async function saveProviderKey(provider) {
+    const input = document.getElementById(`${provider}-key-input`);
+    const key = input.value.trim();
+    if (!key || key.length < 8) return toast('API key must be at least 8 characters', 'warn');
+
+    try {
+        const res = await callFn('lge_campaign_manage', { action: 'set_provider_key', provider, api_key: key });
+        input.value = '';
+        toast(`${provider} key saved (${res.masked})`, 'success');
+        loadProviderStatus();
+    } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+async function callFn(fn, body) {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.error || json.message || `HTTP ${res.status}`);
+    return json;
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+async function loadAnalytics() {
+    document.getElementById('analytics-loading').classList.remove('hidden');
+    const campaignId = document.getElementById('analytics-campaign-filter')?.value ?? '';
+    try {
+        const params = { p_org_id: currentOrgId };
+        if (campaignId) params.p_campaign_id = campaignId;
+        const [analyticsRes, sourceStatsRes] = await Promise.all([
+            sb.rpc('get_lge_analytics', params),
+            sb.rpc('get_lge_source_stats', { p_org_id: currentOrgId }),
+        ]);
+        if (analyticsRes.error) throw analyticsRes.error;
+        const data = analyticsRes.data;
+        renderScoreDistribution(data.score_distribution ?? []);
+        renderOperatorDecisions(data.operator_decisions ?? {});
+        renderOutcomesByTier(data.outcomes_by_tier ?? []);
+        renderCampaignPerformance(data.campaign_performance ?? []);
+        renderSourceIntelligence(sourceStatsRes.data ?? []);
+    } catch(e) {
+        toast('Failed to load analytics: ' + e.message, 'error');
+    } finally {
+        document.getElementById('analytics-loading').classList.add('hidden');
+    }
+}
+
+async function refreshSourceStats() {
+    const btn = document.getElementById('refresh-source-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:0.75rem;height:0.75rem;"></span> Computing...';
+    try {
+        // Call compute via service-role RPC (only service_role has EXECUTE grant)
+        // We use callFn to route through lge_campaign_manage with a new action
+        await callFn('lge_campaign_manage', { action: 'refresh_source_stats' });
+        toast('Source stats refreshed', 'success');
+        loadAnalytics();
+    } catch(e) {
+        toast('Refresh failed: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh Stats';
+    }
+}
+
+function populateAnalyticsFilter() {
+    const sel = document.getElementById('analytics-campaign-filter');
+    if (!sel) return;
+    const existing = sel.innerHTML;
+    if (existing.includes('option') && sel.options.length > 1) return; // already populated
+    campaigns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+    });
+}
+
+const TIER_META = {
+    auto_push: { label: 'Auto-Push Band', sub: 'Score ≥ 80', color: 'text-green-400', border: 'border-green-800/30', bg: 'bg-green-900/10' },
+    review:    { label: 'Review Band',    sub: 'Score 60–79', color: 'text-yellow-400', border: 'border-yellow-800/30', bg: 'bg-yellow-900/10' },
+    discard:   { label: 'Discard Band',   sub: 'Score < 60',  color: 'text-slate-400',  border: 'border-slate-700/30',  bg: 'bg-slate-800/20' },
+};
+
+function renderScoreDistribution(dist) {
+    const el = document.getElementById('analytics-score-dist');
+    if (!dist.length) { el.innerHTML = '<p class="text-slate-600 text-sm col-span-3">No scored leads yet.</p>'; return; }
+
+    const byTier = {};
+    dist.forEach(d => byTier[d.tier] = d);
+
+    el.innerHTML = ['auto_push','review','discard'].map(tier => {
+        const m = TIER_META[tier];
+        const d = byTier[tier] ?? { total:0, pushed:0, in_review:0, discarded:0, avg_score:'—', avg_fit:'—', avg_confidence:'—' };
+        const pushRate = d.total > 0 ? Math.round(100 * d.pushed / d.total) : 0;
+        return `<div class="stat-tile border ${m.border} ${m.bg} rounded-xl p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs font-semibold text-slate-300">${m.label}</p>
+                    <p class="text-[10px] text-slate-600 mt-0.5">${m.sub}</p>
+                </div>
+                <span class="text-2xl font-bold ${m.color}">${d.total}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-[10px] text-slate-500 border-t border-white/5 pt-3 mt-1">
+                <div><p class="text-slate-400 font-medium">${d.avg_score ?? '—'}</p><p>Avg score</p></div>
+                <div><p class="text-slate-400 font-medium">${d.avg_fit ?? '—'}</p><p>Avg fit</p></div>
+                <div><p class="text-slate-400 font-medium">${d.avg_confidence ?? '—'}</p><p>Avg conf.</p></div>
+            </div>
+            <div class="mt-3 grid grid-cols-3 gap-1 text-[10px]">
+                <span class="text-green-400">${d.pushed} pushed</span>
+                <span class="text-yellow-400">${d.in_review ?? 0} review</span>
+                <span class="text-slate-500">${d.discarded ?? 0} disc.</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderOperatorDecisions(op) {
+    const el = document.getElementById('analytics-operator');
+    if (!op || !Object.keys(op).length) { el.innerHTML = '<p class="text-slate-600 text-xs">No data yet.</p>'; return; }
+
+    const rows = [
+        { label: 'Total leads in review band (60–79)', value: op.total_review_band ?? 0, color: 'text-slate-300' },
+        { label: 'Manually pushed by operator', value: op.manually_pushed ?? 0, color: 'text-green-400' },
+        { label: 'Discarded by operator', value: op.operator_discarded ?? 0, color: 'text-red-400' },
+        { label: 'Still waiting in review queue', value: op.still_in_review ?? 0, color: 'text-yellow-400' },
+        { label: 'Approval rate (pushed / decided)', value: (op.approval_rate_pct ?? 0) + '%', color: 'text-indigo-400' },
+        { label: 'False push candidates (auto-pushed, no reply)', value: op.false_push_candidates ?? 0, color: 'text-orange-400' },
+    ];
+
+    el.innerHTML = rows.map(r => `
+        <div class="flex items-center justify-between py-1.5 border-b border-white/4 last:border-0">
+            <span class="text-slate-400 text-xs">${r.label}</span>
+            <span class="font-bold text-sm ${r.color}">${r.value}</span>
+        </div>`).join('');
+}
+
+function renderOutcomesByTier(outcomes) {
+    const el = document.getElementById('analytics-outcomes');
+    if (!outcomes.length) {
+        el.innerHTML = '<p class="text-slate-600 text-xs">Outcomes sync daily. Check back after lge_outcome_sync runs.</p>';
+        return;
+    }
+    el.innerHTML = outcomes.map(o => {
+        const m = TIER_META[o.tier] ?? TIER_META.discard;
+        const replyRate  = o.pushed_count > 0 ? Math.round(100 * o.replied / o.pushed_count) : 0;
+        const bookedRate = o.pushed_count > 0 ? Math.round(100 * o.booked  / o.pushed_count) : 0;
+        return `<div class="flex items-center gap-3 py-2 border-b border-white/4 last:border-0 text-xs">
+            <div class="w-28 flex-shrink-0">
+                <p class="font-medium ${m.color}">${m.label}</p>
+                <p class="text-[10px] text-slate-600">${o.pushed_count} pushed</p>
+            </div>
+            <div class="flex-1 flex gap-4">
+                <div><p class="text-slate-300 font-semibold">${replyRate}%</p><p class="text-slate-600">replied</p></div>
+                <div><p class="text-slate-300 font-semibold">${bookedRate}%</p><p class="text-slate-600">booked</p></div>
+                <div><p class="text-slate-300 font-semibold">${o.closed ?? 0}</p><p class="text-slate-600">closed</p></div>
+            </div>
+            <div class="w-24 flex-shrink-0">
+                <div class="score-bar"><div class="score-fill bg-indigo-500" style="width:${replyRate}%"></div></div>
+                <p class="text-[10px] text-slate-600 mt-0.5">reply rate</p>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderCampaignPerformance(campaigns) {
+    const tbody = document.getElementById('analytics-campaigns-tbody');
+    if (!campaigns.length) { tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-slate-600">No campaigns yet.</td></tr>'; return; }
+    tbody.innerHTML = campaigns.map(c => {
+        const pushRate = c.total > 0 ? Math.round(100 * c.pushed / c.total) : 0;
+        const scoreColor = c.avg_score >= 80 ? 'text-green-400' : c.avg_score >= 60 ? 'text-yellow-400' : 'text-slate-400';
+        return `<tr class="list-row">
+            <td class="px-4 py-3">
+                <p class="font-medium text-slate-200">${escHtml(c.campaign_name)}</p>
+                <p class="text-[10px] text-slate-600 mt-0.5">${pushRate}% push rate</p>
+            </td>
+            <td class="px-4 py-3 text-right text-slate-300">${c.total ?? 0}</td>
+            <td class="px-4 py-3 text-right text-green-400 font-medium">${c.pushed ?? 0}</td>
+            <td class="px-4 py-3 text-right text-yellow-400">${c.in_review ?? 0}</td>
+            <td class="px-4 py-3 text-right text-slate-500">${c.discarded ?? 0}</td>
+            <td class="px-4 py-3 text-right font-bold ${scoreColor}">${c.avg_score ?? '—'}</td>
+            <td class="px-4 py-3 text-right text-slate-300">${c.replied ?? 0}</td>
+            <td class="px-4 py-3 text-right text-indigo-400 font-medium">${c.booked ?? 0}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderSourceIntelligence(sources) {
+    const tbody = document.getElementById('analytics-source-tbody');
+    if (!sources || !sources.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-6 text-center text-slate-600">No source data yet. Import leads and click Refresh Stats.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = sources.map(s => {
+        const rel = Number(s.reliability ?? 50);
+        const adj = Number(s.confidence_adj ?? 0);
+        const hasEnoughData = (s.total_leads ?? 0) >= 5;
+
+        // Reliability colour
+        const relColor = rel >= 70 ? 'text-green-400' : rel >= 45 ? 'text-yellow-400' : 'text-red-400';
+        const relFill  = rel >= 70 ? 'bg-green-500'  : rel >= 45 ? 'bg-yellow-400'  : 'bg-red-500';
+
+        // Score nudge badge
+        let nudgeBadge = '<span class="text-slate-600">—</span>';
+        if (hasEnoughData) {
+            if (adj > 0)       nudgeBadge = `<span class="text-green-400 font-semibold">+${adj.toFixed(1)}</span>`;
+            else if (adj < 0)  nudgeBadge = `<span class="text-red-400 font-semibold">${adj.toFixed(1)}</span>`;
+            else               nudgeBadge = `<span class="text-slate-500">0</span>`;
+        }
+
+        return `<tr class="list-row">
+            <td class="px-4 py-3">
+                <p class="font-medium text-slate-200">${escHtml(s.source)}</p>
+                ${!hasEnoughData ? '<p class="text-[10px] text-slate-600">Need 5+ leads for nudge</p>' : ''}
+            </td>
+            <td class="px-4 py-3 text-right text-slate-300">${s.total_leads ?? 0}</td>
+            <td class="px-4 py-3 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                    <span class="text-slate-300">${s.push_rate ?? 0}%</span>
+                    <div class="score-bar w-12"><div class="score-fill bg-indigo-500" style="width:${s.push_rate ?? 0}%"></div></div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-right text-slate-400">${s.enrich_rate ?? 0}%</td>
+            <td class="px-4 py-3 text-right text-slate-400">${s.reply_rate ?? 0}%</td>
+            <td class="px-4 py-3 text-right text-slate-500">${s.duplicates ?? 0}</td>
+            <td class="px-4 py-3 text-right text-slate-500 text-[11px]">${s.last_upload_at ? new Date(s.last_upload_at).toLocaleDateString() : '—'}</td>
+            <td class="px-4 py-3 text-right">
+                <div class="flex items-center justify-end gap-2">
+                    <span class="font-bold ${relColor}">${rel.toFixed(0)}</span>
+                    <div class="score-bar w-14"><div class="score-fill ${relFill}" style="width:${rel}%"></div></div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-right">${nudgeBadge}</td>
+        </tr>`;
+    }).join('');
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '...' : s; }
+
+function statusBadgeHtml(status) {
+    const map = {
+        pending:      '<span class="badge badge-slate">Pending</span>',
+        enriching:    '<span class="badge badge-blue">Enriching</span>',
+        scored:       '<span class="badge badge-purple">Scored</span>',
+        review_queue: '<span class="badge badge-yellow">Review</span>',
+        pushed:       '<span class="badge badge-green">Pushed</span>',
+        discarded:    '<span class="badge badge-red">Discarded</span>',
+        failed:       '<span class="badge badge-red">Failed</span>',
+    };
+    return map[status] || `<span class="badge badge-slate">${escHtml(status)}</span>`;
+}
+
+function scoreColor(s) {
+    if (s >= 80) return 'text-green-400';
+    if (s >= 60) return 'text-yellow-400';
+    return 'text-slate-500';
+}
+
+function scoreFillColor(s) {
+    if (s >= 80) return 'bg-green-500';
+    if (s >= 60) return 'bg-yellow-400';
+    return 'bg-slate-600';
+}
+</script>
+</body>
+</html>
