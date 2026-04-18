@@ -903,7 +903,7 @@
 
             <!-- Campaign filter -->
             <div class="flex items-center gap-3">
-                <select id="analytics-campaign-filter" class="select-field max-w-xs" onchange="loadAnalytics()">
+                <select id="analytics-campaign-filter" class="select-field max-w-xs" onchange="loadAnalytics();loadCalibration()">
                     <option value="">All Campaigns</option>
                 </select>
                 <button onclick="loadAnalytics()" class="btn-ghost py-1.5 px-3 text-xs"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
@@ -1012,6 +1012,87 @@
                     Score Nudge is applied to the Confidence score of new leads from that source (-10 to +10 pts). Sources with fewer than 5 leads show no nudge until more data accumulates.
                 </div>
             </div>
+
+            <!-- ── Phase 11: Score Calibration ──────────────────────────────────── -->
+            <div class="border-t border-white/5 pt-6 space-y-5" id="calibration-section">
+
+                <!-- Section header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Score Calibration <span class="ml-1 badge badge-purple">Phase 11</span></p>
+                        <p class="text-[10px] text-slate-600 mt-0.5">Evidence-based analysis of your scoring thresholds and outcome predictiveness.</p>
+                    </div>
+                    <button onclick="loadCalibration()" id="calibration-refresh-btn" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                </div>
+
+                <!-- Score Band Distribution -->
+                <div class="glass-panel rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-white/5">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Score Band Distribution &amp; Outcome Rates</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="border-b border-white/5">
+                                    <th class="px-4 py-3 text-left text-slate-500 font-medium">Band</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Total</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Pushed</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Review</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Discarded</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Reply Rate</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">Booked Rate</th>
+                                    <th class="px-4 py-3 text-right text-slate-500 font-medium">No Reply Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calibration-band-tbody">
+                                <tr><td colspan="8" class="px-4 py-6 text-center text-slate-600">Loading calibration data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Override Analytics + False Metrics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    <!-- Override Analytics -->
+                    <div class="glass-panel rounded-xl p-5">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Override Analytics <span class="text-slate-600 font-normal normal-case">(human vs system)</span></p>
+                        <div id="calibration-override" class="space-y-3 text-xs">
+                            <div class="animate-pulse h-4 bg-slate-700 rounded w-3/4"></div>
+                            <div class="animate-pulse h-4 bg-slate-700 rounded w-1/2"></div>
+                        </div>
+                    </div>
+
+                    <!-- False Metrics -->
+                    <div class="glass-panel rounded-xl p-5">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">False Push / False Reject</p>
+                        <div id="calibration-false-metrics" class="space-y-3 text-xs">
+                            <div class="animate-pulse h-4 bg-slate-700 rounded w-3/4"></div>
+                            <div class="animate-pulse h-4 bg-slate-700 rounded w-1/2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review Queue Health -->
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-3">Review Queue Health</p>
+                    <div id="calibration-review-health" class="grid grid-cols-3 gap-3">
+                        <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                        <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                        <div class="stat-tile animate-pulse"><div class="h-4 bg-slate-700 rounded w-1/2 mb-2"></div><div class="h-8 bg-slate-700 rounded w-1/3"></div></div>
+                    </div>
+                </div>
+
+                <!-- Threshold Insights -->
+                <div class="glass-panel rounded-xl p-5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-4">Threshold Insights</p>
+                    <div id="calibration-insights" class="space-y-2">
+                        <div class="animate-pulse h-4 bg-slate-700 rounded w-full"></div>
+                        <div class="animate-pulse h-4 bg-slate-700 rounded w-3/4"></div>
+                    </div>
+                </div>
+
+            </div><!-- /calibration-section -->
 
         </div><!-- /tab-analytics -->
 
@@ -1144,7 +1225,7 @@ function switchTab(name, btn) {
         loadLeads();
     }
     if (name === 'import') populateImportSelect();
-    if (name === 'analytics') { populateAnalyticsFilter(); loadAnalytics(); loadScorecard(); }
+    if (name === 'analytics') { populateAnalyticsFilter(); loadAnalytics(); loadScorecard(); loadCalibration(); }
     if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
 }
 
@@ -3335,6 +3416,135 @@ function scoreFillColor(s) {
     if (s >= 80) return 'bg-green-500';
     if (s >= 60) return 'bg-yellow-400';
     return 'bg-slate-600';
+}
+
+// ── Phase 11 — Score Calibration ─────────────────────────────────────────────
+
+async function loadCalibration() {
+    const btn = document.getElementById('calibration-refresh-btn');
+    if (btn) btn.disabled = true;
+
+    const campaignId = document.getElementById('analytics-campaign-filter')?.value ?? '';
+    const body = { action: 'get_calibration' };
+    if (campaignId) body.campaign_id = campaignId;
+
+    try {
+        const res = await callFn('lge_campaign_manage', body);
+        if (res.error) throw new Error(res.error);
+        renderCalibrationBands(res.band_distribution ?? []);
+        renderCalibrationOverride(res.override_analytics);
+        renderCalibrationFalseMetrics(res.false_metrics);
+        renderCalibrationReviewHealth(res.review_queue_health);
+        renderCalibrationInsights(res.threshold_insights ?? []);
+    } catch (e) {
+        document.getElementById('calibration-band-tbody').innerHTML =
+            `<tr><td colspan="8" class="px-4 py-6 text-center text-red-400 text-xs">Failed to load: ${escHtml(e.message)}</td></tr>`;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+function renderCalibrationBands(bands) {
+    const tbody = document.getElementById('calibration-band-tbody');
+    if (!bands.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-slate-600 text-xs">No scored leads yet.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = bands.map(b => {
+        const rr = b.reply_rate !== null ? b.reply_rate + '%' : '—';
+        const br = b.booked_rate !== null ? b.booked_rate + '%' : '—';
+        const nr = b.no_reply_rate !== null ? b.no_reply_rate + '%' : '—';
+        const rrColor = b.reply_rate === null ? 'text-slate-500' : b.reply_rate >= 20 ? 'text-green-400' : b.reply_rate >= 10 ? 'text-yellow-400' : 'text-red-400';
+        const brColor = b.booked_rate === null ? 'text-slate-500' : b.booked_rate >= 10 ? 'text-green-400' : b.booked_rate >= 5 ? 'text-yellow-400' : 'text-slate-400';
+        const bandColor = b.min >= 80 ? 'text-green-400' : b.min >= 60 ? 'text-yellow-400' : 'text-slate-400';
+        return `<tr class="list-row">
+            <td class="px-4 py-3"><span class="font-bold text-sm ${bandColor}">${escHtml(b.band)}</span></td>
+            <td class="px-4 py-3 text-right text-slate-300">${b.total}</td>
+            <td class="px-4 py-3 text-right text-green-400">${b.pushed}</td>
+            <td class="px-4 py-3 text-right text-yellow-400">${b.review}</td>
+            <td class="px-4 py-3 text-right text-slate-500">${b.discarded}</td>
+            <td class="px-4 py-3 text-right font-semibold ${rrColor}">${rr}</td>
+            <td class="px-4 py-3 text-right font-semibold ${brColor}">${br}</td>
+            <td class="px-4 py-3 text-right text-slate-500">${nr}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderCalibrationOverride(ov) {
+    const el = document.getElementById('calibration-override');
+    if (!ov) { el.innerHTML = '<p class="text-slate-600">No data yet.</p>'; return; }
+    const rows = [
+        { label: 'Score overrides applied', value: ov.total_overrides ?? 0, color: 'text-indigo-400' },
+        { label: 'Operator-pushed (manual)', value: ov.manual_pushed ?? 0, color: 'text-slate-300' },
+        { label: 'Operator push — reply rate', value: ov.manual_push_reply_rate !== null ? ov.manual_push_reply_rate + '%' : '—', color: 'text-green-400' },
+        { label: 'Operator push — booked rate', value: ov.manual_push_booked_rate !== null ? ov.manual_push_booked_rate + '%' : '—', color: 'text-purple-400' },
+        { label: 'Auto-pushed by system', value: ov.auto_pushed ?? 0, color: 'text-slate-300' },
+        { label: 'Auto push — reply rate', value: ov.auto_push_reply_rate !== null ? ov.auto_push_reply_rate + '%' : '—', color: 'text-green-400' },
+        { label: 'Auto push — booked rate', value: ov.auto_push_booked_rate !== null ? ov.auto_push_booked_rate + '%' : '—', color: 'text-purple-400' },
+    ];
+    el.innerHTML = rows.map(r => `
+        <div class="flex items-center justify-between py-1.5 border-b border-white/4 last:border-0">
+            <span class="text-slate-400">${r.label}</span>
+            <span class="font-bold ${r.color}">${r.value}</span>
+        </div>`).join('');
+}
+
+function renderCalibrationFalseMetrics(fm) {
+    const el = document.getElementById('calibration-false-metrics');
+    if (!fm) { el.innerHTML = '<p class="text-slate-600">No data yet.</p>'; return; }
+    const fpColor = fm.false_push_rate !== null && fm.false_push_rate > 40 ? 'text-red-400' : 'text-orange-400';
+    const frColor = fm.false_reject_count > 0 ? 'text-yellow-400' : 'text-slate-400';
+    const rows = [
+        { label: 'False pushes (pushed + no reply)', value: fm.false_push_count ?? 0, color: fpColor },
+        { label: 'False push rate', value: fm.false_push_rate !== null ? fm.false_push_rate + '%' : '—', color: fpColor },
+        { label: 'False rejects (discarded + later replied/booked)', value: fm.false_reject_count ?? 0, color: frColor },
+        { label: 'False reject rate', value: fm.false_reject_rate !== null ? fm.false_reject_rate + '%' : '—', color: frColor },
+    ];
+    el.innerHTML = `
+        <div class="mb-3 text-[10px] text-slate-600 leading-relaxed">
+            <b class="text-slate-500">False push:</b> auto-pushed lead with no_reply outcome.
+            <b class="text-slate-500 ml-2">False reject:</b> discarded lead that later showed a positive outcome.
+        </div>
+        ${rows.map(r => `
+        <div class="flex items-center justify-between py-1.5 border-b border-white/4 last:border-0">
+            <span class="text-slate-400">${r.label}</span>
+            <span class="font-bold ${r.color}">${r.value}</span>
+        </div>`).join('')}`;
+}
+
+function renderCalibrationReviewHealth(rh) {
+    const el = document.getElementById('calibration-review-health');
+    if (!rh) { el.innerHTML = '<p class="text-slate-600 text-xs col-span-3">No data yet.</p>'; return; }
+    const ageColor = rh.median_age_days > 7 ? 'text-red-400' : rh.median_age_days > 3 ? 'text-yellow-400' : 'text-green-400';
+    const tiles = [
+        { label: 'Backlog Size', value: rh.backlog_size, color: rh.backlog_size > 20 ? 'text-yellow-400' : 'text-slate-200', sub: 'leads awaiting review' },
+        { label: 'Oldest Lead', value: rh.oldest_age_days + ' days', color: rh.oldest_age_days > 10 ? 'text-red-400' : 'text-slate-300', sub: 'time in review queue' },
+        { label: 'Median Age', value: rh.median_age_days + ' days', color: ageColor, sub: 'typical wait time' },
+    ];
+    el.innerHTML = tiles.map(t => `
+        <div class="stat-tile">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">${t.label}</p>
+            <p class="text-2xl font-bold ${t.color}">${t.value}</p>
+            <p class="text-[10px] text-slate-600 mt-1">${t.sub}</p>
+        </div>`).join('');
+}
+
+function renderCalibrationInsights(insights) {
+    const el = document.getElementById('calibration-insights');
+    if (!insights.length) { el.innerHTML = '<p class="text-slate-600 text-xs">No insights available yet.</p>'; return; }
+    const isGood = insights.length === 1 && insights[0].toLowerCase().includes('no threshold');
+    if (isGood) {
+        el.innerHTML = `<div class="flex items-start gap-3 p-3 rounded-lg bg-green-900/20 border border-green-800/30">
+            <i class="fa-solid fa-circle-check text-green-400 mt-0.5 flex-shrink-0"></i>
+            <p class="text-slate-300 text-xs leading-relaxed">${escHtml(insights[0])}</p>
+        </div>`;
+        return;
+    }
+    el.innerHTML = insights.map(ins => `
+        <div class="flex items-start gap-3 p-3 rounded-lg bg-amber-900/20 border border-amber-800/30">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 flex-shrink-0"></i>
+            <p class="text-slate-300 text-xs leading-relaxed">${escHtml(ins)}</p>
+        </div>`).join('');
 }
 </script>
 </body>

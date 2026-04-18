@@ -757,6 +757,254 @@ async function handleSendReport(adminSb: any, orgId: string, userId: string, bod
   return ok({ ok: true, sent_to: recipientEmail });
 }
 
+// ── Phase 11 handlers ─────────────────────────────────────────────────────────
+
+async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
+  const { campaign_id } = body;
+
+  // Campaign thresholds (optional scope)
+  let campThresholds = { auto_push: 80, review: 60 };
+  let campName = "All Campaigns";
+  if (campaign_id) {
+    const { data: camp } = await adminSb
+      .from("lge_campaigns")
+      .select("name, auto_push_threshold, review_threshold")
+      .eq("id", campaign_id).eq("org_id", orgId).maybeSingle();
+    if (!camp) return err("Campaign not found", 404);
+    campThresholds = { auto_push: camp.auto_push_threshold, review: camp.review_threshold };
+    campName = camp.name;
+  }
+
+  // All scored non-pending/enriching leads
+  let leadsQ = adminSb
+    .from("lge_raw_leads")
+    .select("id, status, source, updated_at, created_at")
+    .eq("org_id", orgId)
+    .not("status", "in", '("pending","enriching")');
+  if (campaign_id) leadsQ = leadsQ.eq("campaign_id", campaign_id);
+  const { data: rawLeads } = await leadsQ;
+
+  if (!rawLeads?.length) {
+    return ok({
+      band_distribution: [], override_analytics: null, false_metrics: null,
+      review_queue_health: { backlog_size: 0, oldest_age_days: 0, median_age_days: 0 },
+      threshold_insights: ["No scored leads yet. Import leads and wait for the enrichment worker to run."],
+      thresholds: campThresholds, campaign_id: campaign_id ?? null, campaign_name: campName,
+    });
+  }
+
+  const allIds: string[] = (rawLeads as any[]).map((l: any) => l.id);
+  const pushedIds:    string[] = (rawLeads as any[]).filter((l: any) => l.status === "pushed").map((l: any) => l.id);
+  const discardedIds: string[] = (rawLeads as any[]).filter((l: any) => l.status === "discarded").map((l: any) => l.id);
+
+  // Parallel: scores + pushed outcomes
+  const CHUNK = 500;
+  const fetchChunked = async (table: string, field: string, ids: string[], select: string) => {
+    const results: any[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const { data } = await adminSb.from(table).select(select).in(field, ids.slice(i, i + CHUNK));
+      if (data) results.push(...data);
+    }
+    return results;
+  };
+
+  const [scoreRows, pushedOutcomeRows, discardedOutcomeRows] = await Promise.all([
+    fetchChunked("lge_scores", "raw_lead_id", allIds, "raw_lead_id, total_score, is_manual_override"),
+    pushedIds.length
+      ? fetchChunked("lge_outcomes", "raw_lead_id", pushedIds, "raw_lead_id, outcome_stage, is_manual")
+      : Promise.resolve([]),
+    discardedIds.length
+      ? fetchChunked("lge_outcomes", "raw_lead_id", discardedIds, "raw_lead_id, outcome_stage")
+      : Promise.resolve([]),
+  ]);
+
+  const scoreMap = new Map<string, any>(scoreRows.map((s: any) => [s.raw_lead_id, s]));
+  const outcomeMap = new Map<string, string>(pushedOutcomeRows.map((o: any) => [o.raw_lead_id, o.outcome_stage]));
+
+  // ── Band distribution (6 bands) ──────────────────────────────────────────────
+  const BANDS = [
+    { label: "0–49",   min: 0,  max: 49  },
+    { label: "50–59",  min: 50, max: 59  },
+    { label: "60–69",  min: 60, max: 69  },
+    { label: "70–79",  min: 70, max: 79  },
+    { label: "80–89",  min: 80, max: 89  },
+    { label: "90–100", min: 90, max: 100 },
+  ] as const;
+
+  const bandStats = BANDS.map(b => ({
+    band: b.label, min: b.min, max: b.max,
+    total: 0, pushed: 0, review: 0, discarded: 0, failed: 0,
+    replied: 0, booked: 0, no_reply: 0, has_outcome: 0,
+  }));
+
+  for (const lead of rawLeads as any[]) {
+    const sc = scoreMap.get(lead.id);
+    if (!sc) continue;
+    const score = Number(sc.total_score ?? 0);
+    const band = bandStats.find(b => score >= b.min && score <= b.max);
+    if (!band) continue;
+    band.total++;
+    if (lead.status === "pushed") {
+      band.pushed++;
+      const outcome = outcomeMap.get(lead.id);
+      if (outcome) {
+        band.has_outcome++;
+        if (["replied","booked","closed","won"].includes(outcome)) band.replied++;
+        if (["booked","closed","won"].includes(outcome)) band.booked++;
+        if (outcome === "no_reply") band.no_reply++;
+      }
+    } else if (lead.status === "review_queue") band.review++;
+    else if (lead.status === "discarded")      band.discarded++;
+    else if (lead.status === "failed")          band.failed++;
+  }
+
+  const band_distribution = bandStats.map(b => ({
+    ...b,
+    reply_rate:    b.pushed > 0 ? Math.round(100 * b.replied  / b.pushed) : null,
+    booked_rate:   b.pushed > 0 ? Math.round(100 * b.booked   / b.pushed) : null,
+    no_reply_rate: b.pushed > 0 ? Math.round(100 * b.no_reply / b.pushed) : null,
+  }));
+
+  // ── Override analytics ────────────────────────────────────────────────────────
+  const manualOverrideSet = new Set<string>(scoreRows.filter((s: any) => s.is_manual_override).map((s: any) => s.raw_lead_id));
+  const manualPushedIds   = pushedIds.filter(id => manualOverrideSet.has(id));
+  const autoPushedIds     = pushedIds.filter(id => !manualOverrideSet.has(id));
+
+  const countReplied = (ids: string[]) => ids.filter(id => {
+    const o = outcomeMap.get(id);
+    return o && ["replied","booked","closed","won"].includes(o);
+  }).length;
+  const countBooked = (ids: string[]) => ids.filter(id => {
+    const o = outcomeMap.get(id);
+    return o && ["booked","closed","won"].includes(o);
+  }).length;
+
+  const manualReplied = countReplied(manualPushedIds);
+  const manualBooked  = countBooked(manualPushedIds);
+  const autoReplied   = countReplied(autoPushedIds);
+  const autoBooked    = countBooked(autoPushedIds);
+
+  const override_analytics = {
+    total_overrides: manualOverrideSet.size,
+    manual_pushed:            manualPushedIds.length,
+    manual_push_replied:      manualReplied,
+    manual_push_booked:       manualBooked,
+    manual_push_reply_rate:   manualPushedIds.length > 0 ? Math.round(100 * manualReplied / manualPushedIds.length) : null,
+    manual_push_booked_rate:  manualPushedIds.length > 0 ? Math.round(100 * manualBooked  / manualPushedIds.length) : null,
+    auto_pushed:              autoPushedIds.length,
+    auto_push_replied:        autoReplied,
+    auto_push_booked:         autoBooked,
+    auto_push_reply_rate:     autoPushedIds.length > 0 ? Math.round(100 * autoReplied / autoPushedIds.length) : null,
+    auto_push_booked_rate:    autoPushedIds.length > 0 ? Math.round(100 * autoBooked  / autoPushedIds.length) : null,
+  };
+
+  // ── False push / false reject ─────────────────────────────────────────────────
+  // False push: pushed + outcome = no_reply
+  const false_push_count = pushedIds.filter(id => outcomeMap.get(id) === "no_reply").length;
+  // False reject: discarded but has a positive outcome (re-enriched, then replied/booked)
+  const false_reject_count = discardedOutcomeRows.filter((o: any) =>
+    ["replied","booked","closed","won"].includes(o.outcome_stage)
+  ).length;
+
+  const false_metrics = {
+    false_push_count,
+    false_push_rate:    pushedIds.length > 0    ? Math.round(100 * false_push_count   / pushedIds.length)    : null,
+    false_reject_count,
+    false_reject_rate:  discardedIds.length > 0 ? Math.round(100 * false_reject_count / discardedIds.length) : null,
+  };
+
+  // ── Review queue health ───────────────────────────────────────────────────────
+  const reviewLeads = (rawLeads as any[]).filter((l: any) => l.status === "review_queue");
+  const now = Date.now();
+  const reviewAges = reviewLeads.map((l: any) =>
+    (now - new Date(l.updated_at ?? l.created_at).getTime()) / 86_400_000
+  ).sort((a: number, b: number) => a - b);
+
+  const review_queue_health = {
+    backlog_size:    reviewLeads.length,
+    oldest_age_days: reviewAges.length ? Math.round(Math.max(...reviewAges) * 10) / 10 : 0,
+    median_age_days: reviewAges.length ? Math.round(reviewAges[Math.floor(reviewAges.length / 2)] * 10) / 10 : 0,
+  };
+
+  // ── Threshold effectiveness insights (rule-based) ─────────────────────────────
+  const insights: string[] = [];
+  const apt = campThresholds.auto_push;
+
+  // Is the band just below push threshold outperforming the push band?
+  const belowBand = band_distribution.find(b => b.max === apt - 1 || (b.max < apt && b.max >= apt - 10 && b.max > 0));
+  const aboveBand = band_distribution.filter(b => b.min >= apt);
+  const abovePushed  = aboveBand.reduce((a, b) => a + b.pushed, 0);
+  const aboveReplied = aboveBand.reduce((a, b) => a + b.replied, 0);
+  const aboveReplyRate = abovePushed > 5 ? Math.round(100 * aboveReplied / abovePushed) : null;
+
+  if (belowBand && belowBand.pushed >= 5 && belowBand.reply_rate !== null && aboveReplyRate !== null) {
+    if (belowBand.reply_rate > aboveReplyRate + 5) {
+      insights.push(
+        `Score band ${belowBand.band} is outperforming your auto-push band (${belowBand.reply_rate}% vs ${aboveReplyRate}% reply rate). Push threshold of ${apt} may be too high — consider lowering to ${apt - 5}.`
+      );
+    }
+  }
+
+  if (aboveReplyRate !== null && aboveReplyRate < 5 && abovePushed > 10) {
+    insights.push(
+      `Auto-pushed leads (score ≥${apt}) have a ${aboveReplyRate}% reply rate — very low. Consider raising the push threshold to reduce wasted AI credits.`
+    );
+  }
+
+  if (review_queue_health.backlog_size > 20 && review_queue_health.median_age_days > 5) {
+    insights.push(
+      `Review queue backlog: ${review_queue_health.backlog_size} leads with a median age of ${review_queue_health.median_age_days} days. Consider bulk discarding stale leads or lowering the review threshold.`
+    );
+  }
+
+  if (false_metrics.false_push_rate !== null && false_metrics.false_push_rate > 40) {
+    insights.push(
+      `${false_metrics.false_push_rate}% of pushed leads recorded no reply. Either the push threshold is too low, or outcome sync hasn't run recently.`
+    );
+  }
+
+  if (
+    override_analytics.manual_push_reply_rate !== null &&
+    override_analytics.auto_push_reply_rate   !== null &&
+    override_analytics.manual_pushed >= 5 &&
+    override_analytics.manual_push_reply_rate > override_analytics.auto_push_reply_rate + 15
+  ) {
+    insights.push(
+      `Operator-approved leads reply at ${override_analytics.manual_push_reply_rate}% vs ${override_analytics.auto_push_reply_rate}% for auto-pushed. Operator judgment is outperforming the model — consider refining your ICP config.`
+    );
+  }
+
+  // Check if the 70-79 band specifically is outperforming ≥80
+  const band7079 = band_distribution.find(b => b.label === "70–79");
+  const band80plus = band_distribution.filter(b => b.min >= 80);
+  const pushed80plus  = band80plus.reduce((a, b) => a + b.pushed, 0);
+  const replied80plus = band80plus.reduce((a, b) => a + b.replied, 0);
+  const rate80plus = pushed80plus > 5 ? Math.round(100 * replied80plus / pushed80plus) : null;
+
+  if (band7079 && band7079.pushed >= 5 && band7079.reply_rate !== null && rate80plus !== null) {
+    if (band7079.reply_rate > rate80plus + 10) {
+      insights.push(
+        `Score band 70–79 has a ${band7079.reply_rate}% reply rate vs ${rate80plus}% for leads scored ≥80. These held leads may deserve a lower push threshold.`
+      );
+    }
+  }
+
+  if (!insights.length) {
+    insights.push("Calibration looks clean. No threshold issues detected based on current outcome data.");
+  }
+
+  return ok({
+    band_distribution,
+    override_analytics,
+    false_metrics,
+    review_queue_health,
+    threshold_insights: insights,
+    thresholds: campThresholds,
+    campaign_id: campaign_id ?? null,
+    campaign_name: campName,
+  });
+}
+
 // ── Phase 10 handlers ─────────────────────────────────────────────────────────
 
 // Outcome ladder — forward-only for operators; admin can do full revert
@@ -1945,6 +2193,10 @@ serve(async (req: Request) => {
 
       case "send_report":
         return handleSendReport(adminSb, orgId, userId, body);
+
+      // ── Phase 11 ──────────────────────────────────────────────────────────────
+      case "get_calibration":
+        return handleGetCalibration(adminSb, orgId, body);
 
       // ── Phase 10 ──────────────────────────────────────────────────────────────
       case "mark_outcome":
