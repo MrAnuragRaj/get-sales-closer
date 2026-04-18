@@ -759,8 +759,30 @@ async function handleSendReport(adminSb: any, orgId: string, userId: string, bod
 
 // ── Phase 11 handlers ─────────────────────────────────────────────────────────
 
+// Minimum pushed leads in a band before showing rates (avoids misleading signals)
+const MIN_SAMPLE_SIZE = 20;
+// Outcome lag cutoff — exclude leads pushed within the last 48h from rate calculations
+const OUTCOME_LAG_MS = 48 * 60 * 60 * 1000;
+// Normalised source values
+const VALID_SOURCES = new Set(["csv", "webhook", "api_key", "internal"]);
+function normaliseSource(raw: string | null | undefined): string {
+  if (!raw) return "internal";
+  const s = raw.toLowerCase().trim();
+  if (s.startsWith("csv")) return "csv";
+  if (s.startsWith("webhook") || s.startsWith("zapier") || s.startsWith("make")) return "webhook";
+  if (s.startsWith("api")) return "api_key";
+  if (VALID_SOURCES.has(s)) return s;
+  return "internal";
+}
+
+type InsightSeverity  = "low" | "medium" | "high";
+type InsightConfidence = "low" | "medium" | "high";
+interface Insight { message: string; severity: InsightSeverity; confidence: InsightConfidence; }
+
 async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
-  const { campaign_id } = body;
+  const { campaign_id, time_window = "all" } = body;
+  const validWindows = ["7d", "30d", "all"];
+  const tw = validWindows.includes(time_window) ? time_window : "all";
 
   // Campaign thresholds (optional scope)
   let campThresholds = { auto_push: 80, review: 60 };
@@ -775,29 +797,47 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
     campName = camp.name;
   }
 
-  // All scored non-pending/enriching leads
+  // Time-window cutoff
+  const windowCutoff: Date | null = tw === "7d"
+    ? new Date(Date.now() - 7  * 86_400_000)
+    : tw === "30d"
+    ? new Date(Date.now() - 30 * 86_400_000)
+    : null;
+
+  // All scored non-pending/enriching leads (capped at 5000 for query safety)
   let leadsQ = adminSb
     .from("lge_raw_leads")
     .select("id, status, source, updated_at, created_at")
     .eq("org_id", orgId)
-    .not("status", "in", '("pending","enriching")');
-  if (campaign_id) leadsQ = leadsQ.eq("campaign_id", campaign_id);
+    .not("status", "in", '("pending","enriching")')
+    .limit(5000);
+  if (campaign_id)  leadsQ = leadsQ.eq("campaign_id", campaign_id);
+  if (windowCutoff) leadsQ = leadsQ.gte("created_at", windowCutoff.toISOString());
   const { data: rawLeads } = await leadsQ;
 
   if (!rawLeads?.length) {
     return ok({
       band_distribution: [], override_analytics: null, false_metrics: null,
       review_queue_health: { backlog_size: 0, oldest_age_days: 0, median_age_days: 0 },
-      threshold_insights: ["No scored leads yet. Import leads and wait for the enrichment worker to run."],
+      threshold_insights: [{ message: "No scored leads yet. Import leads and wait for the enrichment worker to run.", severity: "low", confidence: "high" }],
       thresholds: campThresholds, campaign_id: campaign_id ?? null, campaign_name: campName,
+      time_window: tw, capped: false,
     });
   }
 
-  const allIds: string[] = (rawLeads as any[]).map((l: any) => l.id);
-  const pushedIds:    string[] = (rawLeads as any[]).filter((l: any) => l.status === "pushed").map((l: any) => l.id);
+  const capped = rawLeads.length === 5000;
+  const nowMs = Date.now();
+  const lagCutoffMs = nowMs - OUTCOME_LAG_MS; // exclude leads pushed within last 48h from outcome rates
+
+  const allIds: string[]      = (rawLeads as any[]).map((l: any) => l.id);
+  // For outcome rates: only pushed leads that are old enough to have had time to reply
+  const pushedIds: string[]   = (rawLeads as any[])
+    .filter((l: any) => l.status === "pushed" && new Date(l.updated_at ?? l.created_at).getTime() < lagCutoffMs)
+    .map((l: any) => l.id);
+  const pushedAllIds: string[] = (rawLeads as any[]).filter((l: any) => l.status === "pushed").map((l: any) => l.id);
   const discardedIds: string[] = (rawLeads as any[]).filter((l: any) => l.status === "discarded").map((l: any) => l.id);
 
-  // Parallel: scores + pushed outcomes
+  // Chunked fetch helper
   const CHUNK = 500;
   const fetchChunked = async (table: string, field: string, ids: string[], select: string) => {
     const results: any[] = [];
@@ -821,6 +861,9 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
   const scoreMap = new Map<string, any>(scoreRows.map((s: any) => [s.raw_lead_id, s]));
   const outcomeMap = new Map<string, string>(pushedOutcomeRows.map((o: any) => [o.raw_lead_id, o.outcome_stage]));
 
+  // Map pushed leads (lag-filtered) by id for quick lookup
+  const pushedIdSet = new Set(pushedIds);
+
   // ── Band distribution (6 bands) ──────────────────────────────────────────────
   const BANDS = [
     { label: "0–49",   min: 0,  max: 49  },
@@ -834,8 +877,13 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
   const bandStats = BANDS.map(b => ({
     band: b.label, min: b.min, max: b.max,
     total: 0, pushed: 0, review: 0, discarded: 0, failed: 0,
-    replied: 0, booked: 0, no_reply: 0, has_outcome: 0,
+    replied: 0, booked: 0, no_reply: 0,
+    // Per-band manual vs auto pushed (bias-corrected override analytics)
+    manual_pushed: 0, manual_replied: 0,
+    auto_pushed:   0, auto_replied:   0,
   }));
+
+  const manualOverrideSet = new Set<string>(scoreRows.filter((s: any) => s.is_manual_override).map((s: any) => s.raw_lead_id));
 
   for (const lead of rawLeads as any[]) {
     const sc = scoreMap.get(lead.id);
@@ -845,30 +893,54 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
     if (!band) continue;
     band.total++;
     if (lead.status === "pushed") {
-      band.pushed++;
-      const outcome = outcomeMap.get(lead.id);
-      if (outcome) {
-        band.has_outcome++;
-        if (["replied","booked","closed","won"].includes(outcome)) band.replied++;
-        if (["booked","closed","won"].includes(outcome)) band.booked++;
-        if (outcome === "no_reply") band.no_reply++;
+      // Count all pushed in the band (for total display)
+      // Only include lag-filtered pushed leads in outcome metrics
+      if (pushedIdSet.has(lead.id)) {
+        band.pushed++;
+        const outcome = outcomeMap.get(lead.id);
+        if (outcome) {
+          if (["replied","booked","closed","won"].includes(outcome)) band.replied++;
+          if (["booked","closed","won"].includes(outcome)) band.booked++;
+          if (outcome === "no_reply") band.no_reply++;
+        }
+        // Bias-corrected override analytics: per-band
+        if (manualOverrideSet.has(lead.id)) {
+          band.manual_pushed++;
+          const o2 = outcomeMap.get(lead.id);
+          if (o2 && ["replied","booked","closed","won"].includes(o2)) band.manual_replied++;
+        } else {
+          band.auto_pushed++;
+          const o2 = outcomeMap.get(lead.id);
+          if (o2 && ["replied","booked","closed","won"].includes(o2)) band.auto_replied++;
+        }
       }
     } else if (lead.status === "review_queue") band.review++;
     else if (lead.status === "discarded")      band.discarded++;
     else if (lead.status === "failed")          band.failed++;
   }
 
-  const band_distribution = bandStats.map(b => ({
-    ...b,
-    reply_rate:    b.pushed > 0 ? Math.round(100 * b.replied  / b.pushed) : null,
-    booked_rate:   b.pushed > 0 ? Math.round(100 * b.booked   / b.pushed) : null,
-    no_reply_rate: b.pushed > 0 ? Math.round(100 * b.no_reply / b.pushed) : null,
-  }));
+  // Apply min sample size guard — suppress rates when pushed < MIN_SAMPLE_SIZE
+  const band_distribution = bandStats.map(b => {
+    const sufficient = b.pushed >= MIN_SAMPLE_SIZE;
+    return {
+      band: b.band, min: b.min, max: b.max,
+      total: b.total, pushed: b.pushed, review: b.review, discarded: b.discarded, failed: b.failed,
+      replied: b.replied, booked: b.booked, no_reply: b.no_reply,
+      reply_rate:       sufficient ? Math.round(100 * b.replied  / b.pushed) : null,
+      booked_rate:      sufficient ? Math.round(100 * b.booked   / b.pushed) : null,
+      no_reply_rate:    sufficient ? Math.round(100 * b.no_reply / b.pushed) : null,
+      insufficient_data: !sufficient,
+      // Bias-corrected per-band override comparison
+      manual_pushed:    b.manual_pushed,
+      manual_reply_rate: b.manual_pushed >= 5 ? Math.round(100 * b.manual_replied / b.manual_pushed) : null,
+      auto_pushed:      b.auto_pushed,
+      auto_reply_rate:  b.auto_pushed >= 5 ? Math.round(100 * b.auto_replied  / b.auto_pushed)  : null,
+    };
+  });
 
-  // ── Override analytics ────────────────────────────────────────────────────────
-  const manualOverrideSet = new Set<string>(scoreRows.filter((s: any) => s.is_manual_override).map((s: any) => s.raw_lead_id));
-  const manualPushedIds   = pushedIds.filter(id => manualOverrideSet.has(id));
-  const autoPushedIds     = pushedIds.filter(id => !manualOverrideSet.has(id));
+  // ── Override analytics (aggregate, bias-corrected) ────────────────────────────
+  const manualPushedIds = pushedIds.filter(id => manualOverrideSet.has(id));
+  const autoPushedIds   = pushedIds.filter(id => !manualOverrideSet.has(id));
 
   const countReplied = (ids: string[]) => ids.filter(id => {
     const o = outcomeMap.get(id);
@@ -884,40 +956,50 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
   const autoReplied   = countReplied(autoPushedIds);
   const autoBooked    = countBooked(autoPushedIds);
 
+  // Bias correction note: operators tend to cherry-pick easier leads.
+  // For fair comparison we provide per-band breakdown in band_distribution.
+  // In aggregate we flag when bias may be a factor.
+  const biasWarning = manualPushedIds.length >= 5 && autoPushedIds.length >= 5
+    ? "Note: operators tend to pick leads near the push threshold. Per-band rates in Score Distribution are a more reliable comparison."
+    : null;
+
   const override_analytics = {
-    total_overrides: manualOverrideSet.size,
+    total_overrides:          manualOverrideSet.size,
     manual_pushed:            manualPushedIds.length,
     manual_push_replied:      manualReplied,
     manual_push_booked:       manualBooked,
-    manual_push_reply_rate:   manualPushedIds.length > 0 ? Math.round(100 * manualReplied / manualPushedIds.length) : null,
-    manual_push_booked_rate:  manualPushedIds.length > 0 ? Math.round(100 * manualBooked  / manualPushedIds.length) : null,
+    manual_push_reply_rate:   manualPushedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * manualReplied / manualPushedIds.length) : null,
+    manual_push_booked_rate:  manualPushedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * manualBooked  / manualPushedIds.length) : null,
     auto_pushed:              autoPushedIds.length,
     auto_push_replied:        autoReplied,
     auto_push_booked:         autoBooked,
-    auto_push_reply_rate:     autoPushedIds.length > 0 ? Math.round(100 * autoReplied / autoPushedIds.length) : null,
-    auto_push_booked_rate:    autoPushedIds.length > 0 ? Math.round(100 * autoBooked  / autoPushedIds.length) : null,
+    auto_push_reply_rate:     autoPushedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * autoReplied / autoPushedIds.length) : null,
+    auto_push_booked_rate:    autoPushedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * autoBooked  / autoPushedIds.length) : null,
+    bias_warning:             biasWarning,
+    outcome_lag_hours:        48, // leads pushed within 48h are excluded from outcome rates
   };
 
   // ── False push / false reject ─────────────────────────────────────────────────
-  // False push: pushed + outcome = no_reply
-  const false_push_count = pushedIds.filter(id => outcomeMap.get(id) === "no_reply").length;
-  // False reject: discarded but has a positive outcome (re-enriched, then replied/booked)
+  // False push: lag-filtered pushed lead + outcome = no_reply
+  const false_push_count   = pushedIds.filter(id => outcomeMap.get(id) === "no_reply").length;
+  // False reject: discarded + positive outcome record (manual override, later replied/booked)
   const false_reject_count = discardedOutcomeRows.filter((o: any) =>
     ["replied","booked","closed","won"].includes(o.outcome_stage)
   ).length;
 
   const false_metrics = {
     false_push_count,
-    false_push_rate:    pushedIds.length > 0    ? Math.round(100 * false_push_count   / pushedIds.length)    : null,
+    false_push_rate:    pushedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * false_push_count   / pushedIds.length)    : null,
     false_reject_count,
-    false_reject_rate:  discardedIds.length > 0 ? Math.round(100 * false_reject_count / discardedIds.length) : null,
+    false_reject_rate:  discardedIds.length >= MIN_SAMPLE_SIZE ? Math.round(100 * false_reject_count / discardedIds.length) : null,
+    outcome_eligible:   pushedIds.length,   // lag-filtered count used as denominator
+    total_pushed:       pushedAllIds.length, // total including recently pushed
   };
 
   // ── Review queue health ───────────────────────────────────────────────────────
   const reviewLeads = (rawLeads as any[]).filter((l: any) => l.status === "review_queue");
-  const now = Date.now();
   const reviewAges = reviewLeads.map((l: any) =>
-    (now - new Date(l.updated_at ?? l.created_at).getTime()) / 86_400_000
+    (nowMs - new Date(l.updated_at ?? l.created_at).getTime()) / 86_400_000
   ).sort((a: number, b: number) => a - b);
 
   const review_queue_health = {
@@ -926,74 +1008,76 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
     median_age_days: reviewAges.length ? Math.round(reviewAges[Math.floor(reviewAges.length / 2)] * 10) / 10 : 0,
   };
 
-  // ── Threshold effectiveness insights (rule-based) ─────────────────────────────
-  const insights: string[] = [];
+  // ── Threshold effectiveness insights (structured with severity + confidence) ───
+  const insights: Insight[] = [];
   const apt = campThresholds.auto_push;
 
-  // Is the band just below push threshold outperforming the push band?
-  const belowBand = band_distribution.find(b => b.max === apt - 1 || (b.max < apt && b.max >= apt - 10 && b.max > 0));
+  // Insight: band below push threshold outperforming push band
+  const belowBand = band_distribution.find(b => !b.insufficient_data && b.max < apt && b.max >= apt - 15);
   const aboveBand = band_distribution.filter(b => b.min >= apt);
   const abovePushed  = aboveBand.reduce((a, b) => a + b.pushed, 0);
   const aboveReplied = aboveBand.reduce((a, b) => a + b.replied, 0);
-  const aboveReplyRate = abovePushed > 5 ? Math.round(100 * aboveReplied / abovePushed) : null;
+  const aboveReplyRate = abovePushed >= MIN_SAMPLE_SIZE ? Math.round(100 * aboveReplied / abovePushed) : null;
 
-  if (belowBand && belowBand.pushed >= 5 && belowBand.reply_rate !== null && aboveReplyRate !== null) {
-    if (belowBand.reply_rate > aboveReplyRate + 5) {
-      insights.push(
-        `Score band ${belowBand.band} is outperforming your auto-push band (${belowBand.reply_rate}% vs ${aboveReplyRate}% reply rate). Push threshold of ${apt} may be too high — consider lowering to ${apt - 5}.`
-      );
+  if (belowBand && belowBand.reply_rate !== null && aboveReplyRate !== null) {
+    if (belowBand.reply_rate > aboveReplyRate + 10) {
+      insights.push({ message: `Score band ${belowBand.band} is outperforming your auto-push band (${belowBand.reply_rate}% vs ${aboveReplyRate}% reply rate). Push threshold of ${apt} may be too high — consider lowering to ${apt - 5}.`, severity: "high", confidence: "high" });
+    } else if (belowBand.reply_rate > aboveReplyRate + 5) {
+      insights.push({ message: `Score band ${belowBand.band} is performing similarly to your auto-push band (${belowBand.reply_rate}% vs ${aboveReplyRate}% reply rate). Push threshold of ${apt} may be slightly too high.`, severity: "medium", confidence: "medium" });
     }
   }
 
-  if (aboveReplyRate !== null && aboveReplyRate < 5 && abovePushed > 10) {
-    insights.push(
-      `Auto-pushed leads (score ≥${apt}) have a ${aboveReplyRate}% reply rate — very low. Consider raising the push threshold to reduce wasted AI credits.`
-    );
+  if (aboveReplyRate !== null && aboveReplyRate < 5 && abovePushed >= MIN_SAMPLE_SIZE) {
+    insights.push({ message: `Auto-pushed leads (score ≥${apt}) have only a ${aboveReplyRate}% reply rate. Consider raising the push threshold to reduce wasted AI credits.`, severity: "high", confidence: "high" });
   }
 
   if (review_queue_health.backlog_size > 20 && review_queue_health.median_age_days > 5) {
-    insights.push(
-      `Review queue backlog: ${review_queue_health.backlog_size} leads with a median age of ${review_queue_health.median_age_days} days. Consider bulk discarding stale leads or lowering the review threshold.`
-    );
+    const sev: InsightSeverity = review_queue_health.median_age_days > 10 ? "high" : "medium";
+    insights.push({ message: `Review queue backlog: ${review_queue_health.backlog_size} leads with a median age of ${review_queue_health.median_age_days} days. Consider bulk-discarding stale leads or lowering the review threshold.`, severity: sev, confidence: "high" });
   }
 
-  if (false_metrics.false_push_rate !== null && false_metrics.false_push_rate > 40) {
-    insights.push(
-      `${false_metrics.false_push_rate}% of pushed leads recorded no reply. Either the push threshold is too low, or outcome sync hasn't run recently.`
-    );
-  }
-
-  if (
-    override_analytics.manual_push_reply_rate !== null &&
-    override_analytics.auto_push_reply_rate   !== null &&
-    override_analytics.manual_pushed >= 5 &&
-    override_analytics.manual_push_reply_rate > override_analytics.auto_push_reply_rate + 15
-  ) {
-    insights.push(
-      `Operator-approved leads reply at ${override_analytics.manual_push_reply_rate}% vs ${override_analytics.auto_push_reply_rate}% for auto-pushed. Operator judgment is outperforming the model — consider refining your ICP config.`
-    );
-  }
-
-  // Check if the 70-79 band specifically is outperforming ≥80
-  const band7079 = band_distribution.find(b => b.label === "70–79");
-  const band80plus = band_distribution.filter(b => b.min >= 80);
-  const pushed80plus  = band80plus.reduce((a, b) => a + b.pushed, 0);
-  const replied80plus = band80plus.reduce((a, b) => a + b.replied, 0);
-  const rate80plus = pushed80plus > 5 ? Math.round(100 * replied80plus / pushed80plus) : null;
-
-  if (band7079 && band7079.pushed >= 5 && band7079.reply_rate !== null && rate80plus !== null) {
-    if (band7079.reply_rate > rate80plus + 10) {
-      insights.push(
-        `Score band 70–79 has a ${band7079.reply_rate}% reply rate vs ${rate80plus}% for leads scored ≥80. These held leads may deserve a lower push threshold.`
-      );
+  if (false_metrics.false_push_rate !== null) {
+    if (false_metrics.false_push_rate > 50) {
+      insights.push({ message: `${false_metrics.false_push_rate}% of outcome-eligible pushed leads recorded no reply. Push threshold may be too low, or enrichment quality is weak.`, severity: "high", confidence: "high" });
+    } else if (false_metrics.false_push_rate > 30) {
+      insights.push({ message: `${false_metrics.false_push_rate}% of outcome-eligible pushed leads recorded no reply. Monitor this — outcome sync may not have run recently.`, severity: "medium", confidence: "medium" });
     }
   }
 
-  if (!insights.length) {
-    insights.push("Calibration looks clean. No threshold issues detected based on current outcome data.");
+  // Bias-corrected operator insight: compare within same score band
+  const bandsWithBothManualAuto = band_distribution.filter(b =>
+    b.manual_pushed >= 5 && b.auto_pushed >= 5 && b.manual_reply_rate !== null && b.auto_reply_rate !== null
+  );
+  if (bandsWithBothManualAuto.length > 0) {
+    const outperforming = bandsWithBothManualAuto.filter(b => (b.manual_reply_rate! - b.auto_reply_rate!) > 15);
+    if (outperforming.length > 0) {
+      const band = outperforming[0];
+      insights.push({ message: `Within score band ${band.band}, operator-approved leads reply at ${band.manual_reply_rate}% vs ${band.auto_reply_rate}% for auto-pushed leads of the same score. Operator judgment may be picking better leads within the same score range — ICP config may need refinement.`, severity: "medium", confidence: "high" });
+    }
+  } else if (override_analytics.manual_push_reply_rate !== null && override_analytics.auto_push_reply_rate !== null && override_analytics.manual_pushed >= MIN_SAMPLE_SIZE && override_analytics.manual_push_reply_rate > override_analytics.auto_push_reply_rate + 15) {
+    // Aggregate fallback (low confidence — selection bias possible)
+    insights.push({ message: `Operator-approved leads reply at ${override_analytics.manual_push_reply_rate}% vs ${override_analytics.auto_push_reply_rate}% for auto-pushed. This may reflect operator cherry-picking (check per-band rates) or genuine ICP miscalibration.`, severity: "medium", confidence: "low" });
   }
 
-  return ok({
+  // Check 70–79 band vs ≥80
+  const band7079 = band_distribution.find(b => b.band === "70–79");
+  const pushed80plus  = band_distribution.filter(b => b.min >= 80).reduce((a, b) => a + b.pushed, 0);
+  const replied80plus = band_distribution.filter(b => b.min >= 80).reduce((a, b) => a + b.replied, 0);
+  const rate80plus = pushed80plus >= MIN_SAMPLE_SIZE ? Math.round(100 * replied80plus / pushed80plus) : null;
+
+  if (band7079 && !band7079.insufficient_data && band7079.reply_rate !== null && rate80plus !== null && band7079.reply_rate > rate80plus + 10) {
+    insights.push({ message: `Score band 70–79 has a ${band7079.reply_rate}% reply rate vs ${rate80plus}% for leads scored ≥80. These held leads may deserve a lower push threshold.`, severity: "high", confidence: "high" });
+  }
+
+  if (capped) {
+    insights.push({ message: `Query cap reached (5,000 leads). Metrics are based on the most recent 5,000 leads. Use a specific campaign filter for full accuracy.`, severity: "low", confidence: "high" });
+  }
+
+  if (!insights.length) {
+    insights.push({ message: "Calibration looks clean. No threshold issues detected based on current outcome data.", severity: "low", confidence: "high" });
+  }
+
+  const result = {
     band_distribution,
     override_analytics,
     false_metrics,
@@ -1002,7 +1086,36 @@ async function handleGetCalibration(adminSb: any, orgId: string, body: any) {
     thresholds: campThresholds,
     campaign_id: campaign_id ?? null,
     campaign_name: campName,
-  });
+    time_window: tw,
+    capped,
+    min_sample_size: MIN_SAMPLE_SIZE,
+    outcome_lag_hours: 48,
+  };
+
+  // Persist snapshot (best-effort — do not block response)
+  adminSb.from("lge_calibration_snapshots").upsert({
+    org_id: orgId,
+    campaign_id: campaign_id ?? null,
+    snapshot_date: new Date().toISOString().slice(0, 10),
+    time_window: tw,
+    metrics_json: result,
+  }, { onConflict: "org_id,campaign_id,snapshot_date,time_window" }).then(undefined, () => {});
+
+  return ok(result);
+}
+
+async function handleGetCalibrationSnapshots(adminSb: any, orgId: string, body: any) {
+  const { campaign_id, limit: lim = 30 } = body;
+  let q = adminSb
+    .from("lge_calibration_snapshots")
+    .select("id, campaign_id, snapshot_date, time_window, created_at")
+    .eq("org_id", orgId)
+    .order("snapshot_date", { ascending: false })
+    .limit(Math.min(lim, 90));
+  if (campaign_id) q = q.eq("campaign_id", campaign_id);
+  const { data, error } = await q;
+  if (error) return err(error.message, 500);
+  return ok({ snapshots: data ?? [] });
 }
 
 // ── Phase 10 handlers ─────────────────────────────────────────────────────────
@@ -2197,6 +2310,9 @@ serve(async (req: Request) => {
       // ── Phase 11 ──────────────────────────────────────────────────────────────
       case "get_calibration":
         return handleGetCalibration(adminSb, orgId, body);
+
+      case "get_calibration_snapshots":
+        return handleGetCalibrationSnapshots(adminSb, orgId, body);
 
       // ── Phase 10 ──────────────────────────────────────────────────────────────
       case "mark_outcome":

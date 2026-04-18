@@ -1017,12 +1017,19 @@
             <div class="border-t border-white/5 pt-6 space-y-5" id="calibration-section">
 
                 <!-- Section header -->
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap gap-3">
                     <div>
                         <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Score Calibration <span class="ml-1 badge badge-purple">Phase 11</span></p>
-                        <p class="text-[10px] text-slate-600 mt-0.5">Evidence-based analysis of your scoring thresholds and outcome predictiveness.</p>
+                        <p class="text-[10px] text-slate-600 mt-0.5">Evidence-based analysis of your scoring thresholds and outcome predictiveness. Outcome rates exclude leads pushed within the last 48h.</p>
                     </div>
-                    <button onclick="loadCalibration()" id="calibration-refresh-btn" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                    <div class="flex items-center gap-2">
+                        <select id="calibration-window" class="select-field py-1.5 text-xs" style="width:auto" onchange="loadCalibration()">
+                            <option value="all">All time</option>
+                            <option value="30d">Last 30 days</option>
+                            <option value="7d">Last 7 days</option>
+                        </select>
+                        <button onclick="loadCalibration()" id="calibration-refresh-btn" class="btn-ghost text-xs py-1 px-3"><i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh</button>
+                    </div>
                 </div>
 
                 <!-- Score Band Distribution -->
@@ -3425,13 +3432,14 @@ async function loadCalibration() {
     if (btn) btn.disabled = true;
 
     const campaignId = document.getElementById('analytics-campaign-filter')?.value ?? '';
-    const body = { action: 'get_calibration' };
+    const timeWindow = document.getElementById('calibration-window')?.value ?? 'all';
+    const body = { action: 'get_calibration', time_window: timeWindow };
     if (campaignId) body.campaign_id = campaignId;
 
     try {
         const res = await callFn('lge_campaign_manage', body);
         if (res.error) throw new Error(res.error);
-        renderCalibrationBands(res.band_distribution ?? []);
+        renderCalibrationBands(res.band_distribution ?? [], res.min_sample_size ?? 20);
         renderCalibrationOverride(res.override_analytics);
         renderCalibrationFalseMetrics(res.false_metrics);
         renderCalibrationReviewHealth(res.review_queue_health);
@@ -3444,28 +3452,28 @@ async function loadCalibration() {
     }
 }
 
-function renderCalibrationBands(bands) {
+function renderCalibrationBands(bands, minSample) {
     const tbody = document.getElementById('calibration-band-tbody');
     if (!bands.length) {
         tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-slate-600 text-xs">No scored leads yet.</td></tr>';
         return;
     }
     tbody.innerHTML = bands.map(b => {
-        const rr = b.reply_rate !== null ? b.reply_rate + '%' : '—';
-        const br = b.booked_rate !== null ? b.booked_rate + '%' : '—';
-        const nr = b.no_reply_rate !== null ? b.no_reply_rate + '%' : '—';
-        const rrColor = b.reply_rate === null ? 'text-slate-500' : b.reply_rate >= 20 ? 'text-green-400' : b.reply_rate >= 10 ? 'text-yellow-400' : 'text-red-400';
-        const brColor = b.booked_rate === null ? 'text-slate-500' : b.booked_rate >= 10 ? 'text-green-400' : b.booked_rate >= 5 ? 'text-yellow-400' : 'text-slate-400';
+        const insufficient = b.insufficient_data;
+        const rr = insufficient ? `<span class="text-slate-600" title="Need ≥${minSample} pushed leads">—</span>` : (b.reply_rate !== null ? `<span class="${b.reply_rate >= 20 ? 'text-green-400' : b.reply_rate >= 10 ? 'text-yellow-400' : 'text-red-400'} font-semibold">${b.reply_rate}%</span>` : '—');
+        const br = insufficient ? `<span class="text-slate-600">—</span>` : (b.booked_rate !== null ? `<span class="${b.booked_rate >= 10 ? 'text-green-400' : b.booked_rate >= 5 ? 'text-yellow-400' : 'text-slate-400'} font-semibold">${b.booked_rate}%</span>` : '—');
+        const nr = insufficient ? `<span class="text-slate-600">—</span>` : (b.no_reply_rate !== null ? `<span class="text-slate-400">${b.no_reply_rate}%</span>` : '—');
         const bandColor = b.min >= 80 ? 'text-green-400' : b.min >= 60 ? 'text-yellow-400' : 'text-slate-400';
+        const insufficientNote = insufficient ? `<span class="text-[10px] text-slate-600 ml-1" title="Need ≥${minSample} pushed leads for reliable rates">low data</span>` : '';
         return `<tr class="list-row">
-            <td class="px-4 py-3"><span class="font-bold text-sm ${bandColor}">${escHtml(b.band)}</span></td>
+            <td class="px-4 py-3"><span class="font-bold text-sm ${bandColor}">${escHtml(b.band)}</span>${insufficientNote}</td>
             <td class="px-4 py-3 text-right text-slate-300">${b.total}</td>
             <td class="px-4 py-3 text-right text-green-400">${b.pushed}</td>
             <td class="px-4 py-3 text-right text-yellow-400">${b.review}</td>
             <td class="px-4 py-3 text-right text-slate-500">${b.discarded}</td>
-            <td class="px-4 py-3 text-right font-semibold ${rrColor}">${rr}</td>
-            <td class="px-4 py-3 text-right font-semibold ${brColor}">${br}</td>
-            <td class="px-4 py-3 text-right text-slate-500">${nr}</td>
+            <td class="px-4 py-3 text-right">${rr}</td>
+            <td class="px-4 py-3 text-right">${br}</td>
+            <td class="px-4 py-3 text-right">${nr}</td>
         </tr>`;
     }).join('');
 }
@@ -3473,42 +3481,50 @@ function renderCalibrationBands(bands) {
 function renderCalibrationOverride(ov) {
     const el = document.getElementById('calibration-override');
     if (!ov) { el.innerHTML = '<p class="text-slate-600">No data yet.</p>'; return; }
+    const insuf = '<span class="text-slate-600" title="Need ≥20 leads for reliable rate">—</span>';
     const rows = [
         { label: 'Score overrides applied', value: ov.total_overrides ?? 0, color: 'text-indigo-400' },
         { label: 'Operator-pushed (manual)', value: ov.manual_pushed ?? 0, color: 'text-slate-300' },
-        { label: 'Operator push — reply rate', value: ov.manual_push_reply_rate !== null ? ov.manual_push_reply_rate + '%' : '—', color: 'text-green-400' },
-        { label: 'Operator push — booked rate', value: ov.manual_push_booked_rate !== null ? ov.manual_push_booked_rate + '%' : '—', color: 'text-purple-400' },
+        { label: 'Operator push — reply rate', value: ov.manual_push_reply_rate !== null ? ov.manual_push_reply_rate + '%' : null, color: 'text-green-400' },
+        { label: 'Operator push — booked rate', value: ov.manual_push_booked_rate !== null ? ov.manual_push_booked_rate + '%' : null, color: 'text-purple-400' },
         { label: 'Auto-pushed by system', value: ov.auto_pushed ?? 0, color: 'text-slate-300' },
-        { label: 'Auto push — reply rate', value: ov.auto_push_reply_rate !== null ? ov.auto_push_reply_rate + '%' : '—', color: 'text-green-400' },
-        { label: 'Auto push — booked rate', value: ov.auto_push_booked_rate !== null ? ov.auto_push_booked_rate + '%' : '—', color: 'text-purple-400' },
+        { label: 'Auto push — reply rate', value: ov.auto_push_reply_rate !== null ? ov.auto_push_reply_rate + '%' : null, color: 'text-green-400' },
+        { label: 'Auto push — booked rate', value: ov.auto_push_booked_rate !== null ? ov.auto_push_booked_rate + '%' : null, color: 'text-purple-400' },
     ];
-    el.innerHTML = rows.map(r => `
+    const biasHtml = ov.bias_warning
+        ? `<div class="mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-600 leading-relaxed"><i class="fa-solid fa-circle-info mr-1"></i>${escHtml(ov.bias_warning)}</div>`
+        : '';
+    const lagHtml = `<div class="mb-3 text-[10px] text-slate-600">Rates based on leads pushed ≥${ov.outcome_lag_hours ?? 48}h ago. Per-band rates in the table above use the same cutoff and are bias-corrected.</div>`;
+    el.innerHTML = lagHtml + rows.map(r => `
         <div class="flex items-center justify-between py-1.5 border-b border-white/4 last:border-0">
             <span class="text-slate-400">${r.label}</span>
-            <span class="font-bold ${r.color}">${r.value}</span>
-        </div>`).join('');
+            <span class="${r.color} font-bold">${r.value !== null ? r.value : insuf}</span>
+        </div>`).join('') + biasHtml;
 }
 
 function renderCalibrationFalseMetrics(fm) {
     const el = document.getElementById('calibration-false-metrics');
     if (!fm) { el.innerHTML = '<p class="text-slate-600">No data yet.</p>'; return; }
-    const fpColor = fm.false_push_rate !== null && fm.false_push_rate > 40 ? 'text-red-400' : 'text-orange-400';
+    const insuf = '<span class="text-slate-600" title="Need ≥20 eligible leads">—</span>';
+    const fpColor = fm.false_push_rate !== null && fm.false_push_rate > 40 ? 'text-red-400' : fm.false_push_rate !== null && fm.false_push_rate > 20 ? 'text-orange-400' : 'text-slate-300';
     const frColor = fm.false_reject_count > 0 ? 'text-yellow-400' : 'text-slate-400';
     const rows = [
-        { label: 'False pushes (pushed + no reply)', value: fm.false_push_count ?? 0, color: fpColor },
-        { label: 'False push rate', value: fm.false_push_rate !== null ? fm.false_push_rate + '%' : '—', color: fpColor },
+        { label: 'False pushes (pushed + no reply)', value: fm.false_push_count ?? 0, color: fpColor, raw: fm.false_push_count },
+        { label: 'False push rate', value: fm.false_push_rate !== null ? fm.false_push_rate + '%' : null, color: fpColor },
+        { label: 'Outcome-eligible pushed leads', value: fm.outcome_eligible ?? 0, color: 'text-slate-400' },
+        { label: 'Total pushed (incl. recent)', value: fm.total_pushed ?? 0, color: 'text-slate-500' },
         { label: 'False rejects (discarded + later replied/booked)', value: fm.false_reject_count ?? 0, color: frColor },
-        { label: 'False reject rate', value: fm.false_reject_rate !== null ? fm.false_reject_rate + '%' : '—', color: frColor },
+        { label: 'False reject rate', value: fm.false_reject_rate !== null ? fm.false_reject_rate + '%' : null, color: frColor },
     ];
     el.innerHTML = `
         <div class="mb-3 text-[10px] text-slate-600 leading-relaxed">
-            <b class="text-slate-500">False push:</b> auto-pushed lead with no_reply outcome.
-            <b class="text-slate-500 ml-2">False reject:</b> discarded lead that later showed a positive outcome.
+            <b class="text-slate-500">False push:</b> pushed lead with no_reply outcome (leads pushed &lt;48h ago excluded).
+            <b class="text-slate-500 ml-1">False reject:</b> discarded lead that later showed a positive outcome record.
         </div>
         ${rows.map(r => `
         <div class="flex items-center justify-between py-1.5 border-b border-white/4 last:border-0">
             <span class="text-slate-400">${r.label}</span>
-            <span class="font-bold ${r.color}">${r.value}</span>
+            <span class="${r.color} font-bold">${r.value !== null ? r.value : insuf}</span>
         </div>`).join('')}`;
 }
 
@@ -3532,19 +3548,40 @@ function renderCalibrationReviewHealth(rh) {
 function renderCalibrationInsights(insights) {
     const el = document.getElementById('calibration-insights');
     if (!insights.length) { el.innerHTML = '<p class="text-slate-600 text-xs">No insights available yet.</p>'; return; }
-    const isGood = insights.length === 1 && insights[0].toLowerCase().includes('no threshold');
+
+    // Handle both legacy string[] and new {message,severity,confidence}[] format
+    const normalised = insights.map(i => typeof i === 'string' ? { message: i, severity: 'medium', confidence: 'medium' } : i);
+
+    const isGood = normalised.length === 1 && (normalised[0].severity === 'low' || normalised[0].message.toLowerCase().includes('looks clean'));
     if (isGood) {
         el.innerHTML = `<div class="flex items-start gap-3 p-3 rounded-lg bg-green-900/20 border border-green-800/30">
             <i class="fa-solid fa-circle-check text-green-400 mt-0.5 flex-shrink-0"></i>
-            <p class="text-slate-300 text-xs leading-relaxed">${escHtml(insights[0])}</p>
+            <p class="text-slate-300 text-xs leading-relaxed">${escHtml(normalised[0].message)}</p>
         </div>`;
         return;
     }
-    el.innerHTML = insights.map(ins => `
-        <div class="flex items-start gap-3 p-3 rounded-lg bg-amber-900/20 border border-amber-800/30">
-            <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 flex-shrink-0"></i>
-            <p class="text-slate-300 text-xs leading-relaxed">${escHtml(ins)}</p>
-        </div>`).join('');
+
+    const sevConfig = {
+        high:   { bg: 'bg-red-900/20',   border: 'border-red-800/30',   icon: 'fa-circle-exclamation text-red-400',         label: 'High' },
+        medium: { bg: 'bg-amber-900/20', border: 'border-amber-800/30', icon: 'fa-triangle-exclamation text-amber-400',     label: 'Medium' },
+        low:    { bg: 'bg-slate-800/40', border: 'border-white/8',      icon: 'fa-circle-info text-slate-400',              label: 'Low' },
+    };
+    const confColor = { high: 'text-green-400', medium: 'text-yellow-400', low: 'text-slate-500' };
+
+    el.innerHTML = normalised.map(ins => {
+        const s = sevConfig[ins.severity] ?? sevConfig.medium;
+        const c = confColor[ins.confidence] ?? confColor.medium;
+        return `<div class="flex items-start gap-3 p-3 rounded-lg ${s.bg} border ${s.border}">
+            <i class="fa-solid ${s.icon} mt-0.5 flex-shrink-0 text-sm"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-slate-300 text-xs leading-relaxed">${escHtml(ins.message)}</p>
+                <div class="flex items-center gap-3 mt-1.5">
+                    <span class="text-[10px] text-slate-600">Severity: <span class="font-medium text-slate-400">${s.label}</span></span>
+                    <span class="text-[10px] text-slate-600">Confidence: <span class="font-medium ${c}">${ins.confidence ?? 'medium'}</span></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
 }
 </script>
 </body>
