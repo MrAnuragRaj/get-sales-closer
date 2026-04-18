@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-04-02 (Session 37 — billing.html SCE/EB/all-module ?lock= wired; enterprise_admin credits store; dashboard + enterprise_admin pricing alignment; agency_admin unchanged) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-04-18 (LGE Phases 7–10 complete. Phase 10: audit trail viewer, controlled manual outcome marking, non-destructive per-lead re-enrichment, lead processing timeline) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -24,21 +24,22 @@
 
 | File | Purpose | Status |
 |---|---|---|
-| `index.html` | Landing page — **FULLY COMPLETE**. ROI calculator, dynamic pricing engine (SCE/EB/GE), Email+1 channel model, tooltips, cookie banner, AUP/sub-processors links. Trust/Compliance, Integration Ecosystem, Cost of Inaction, Plans (Solo/Agency/Enterprise tabs), Pipeline Diagram (shared panel, mobile-safe), Guarantee (1yr), Case Studies, Founding Program (live counter + claimFoundingSeat flow), Reliability, Contact modal, Speed-to-Lead Audit form (wired to edge function). Session 33: pipeline overlap fix, mobile overflow-x fix, guarantee text cleanup. | ✅ Session 33 |
+| `index.html` | Landing page — **FULLY COMPLETE**. ROI calculator, dynamic pricing engine (SCE/EB/GE/LGE), Email+1 channel model, tooltips, cookie banner, AUP/sub-processors links. Trust/Compliance, Integration Ecosystem, Cost of Inaction, Plans (Solo/Agency/Enterprise tabs), Pipeline Diagram (shared panel, mobile-safe), Guarantee (1yr), Case Studies, Founding Program (live counter + claimFoundingSeat flow), Reliability, Contact modal, Speed-to-Lead Audit form (wired to edge function). Session 33: pipeline overlap fix, mobile overflow-x fix, guarantee text cleanup. LGE toggle (+$299, `toggleLGE`) added to Solo configurator and all stack configs. | ✅ Session 33 / LGE UX |
 | `login.html` | Auth (OTP + OAuth + Email/Password) + invitation claim + role routing | ✅ |
-| `auth.js` | Central auth guard — `requireAuth()` pattern | ✅ |
-| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta) | ⬜ Next — redesign to match new pricing model |
+| `auth.js` | Central auth guard — `requireAuth()` pattern; pending-consent intercept for existing users (step 4, redirects to consent.html) | ✅ Session 38 |
+| `consent.html` | Standalone legal consent wall for existing users — loads pending docs, scroll-to-bottom unlock, records to `onboarding_consents`, redirects via `?return=` | ✅ Session 38 |
+| `dashboard.html` | Solo user command center — leads, AI persona, deploy widget, API keys, Mirror Test, Live Wire, Credit Wallet, Delivery Status, Channel Infrastructure, Growth Intelligence (Beta); onboarding consent wall (new users, scroll-to-bottom); mandatory phone+email; priority toggle UI. Redesign: 2-col grid for AI Persona + Deploy Widget; Credit Wallet moved before Revenue Add-ons; Revenue Add-ons section (2-col grid: SCE/EB/LGE/GE/ChatBot); Channels & Infrastructure section (Delivery Status + Channel Health, WhatsApp + Facebook Page, then Channel Infrastructure full-width); user avatar shows initials. | ✅ Session 38 / LGE UX |
 | `agency_admin.html` | Agency portal — seat mgmt, invites, AI persona, Credit Wallet, Channel Infrastructure | ✅ Session 21 |
 | `enterprise_admin.html` | Enterprise command — leaderboard, agents, overseer, Credit Wallet, Channel Infrastructure, Growth Intelligence (Beta) | ✅ Session 28 |
-| `agent_dashboard.html` | Agent view — leads, takeover/manual reply/resume AI, pending actions, Live Wire | ✅ Session 18 |
-| `admin.html` | Finance command — Founder Dashboard, bank transfers, entitlements, prompt editor, deals, Channel Sender Mgmt, Provisioning Queue, Kill Switch, Rate Limits, Dead-Letter Queue, Webhook Store, Channel Health, Growth Engine Beta Access | ✅ Session 28 |
+| `agent_dashboard.html` | Agent view — leads, takeover/manual reply/resume AI, pending actions, Live Wire; priority toggle UI | ✅ Session 38 |
+| `admin.html` | Finance command — Founder Dashboard, bank transfers, entitlements, prompt editor, deals, Channel Sender Mgmt, Provisioning Queue, Kill Switch, Rate Limits, Dead-Letter Queue, Webhook Store, Channel Health, Growth Engine Beta Access, Consent Documents manager | ✅ Session 38 |
 | `growth_dashboard.html` | Growth Engine — entitlement-gated; locked-preview overlay for non-entitled orgs | ✅ Session 28 |
 | `growth-config.js` | Platform feature flags config for Growth Engine | ✅ Session 28 |
 | `revenue_doctor.html` | Revenue Doctor — generate + view diagnostic reports, buy bundles, share/export | ✅ RD Session 9 |
 | `number_request_checkout.html` | $110 dedicated number bundle purchase flow | ✅ Session 20 |
 | `cancel.html` | 3-step subscription cancellation + Delete My Data | ✅ Session 25 |
 | `sentinel.html` | Instant Sentinel — lead list + CRM modal + conversion probability | ✅ |
-| `pricing.html` | New user plan selector — Email+1 live channel model, SCE/EB plan selectors, GE $660, corrected addon prices, loads localStorage config from index.html. Session 31: yearly badge updated to "2 months free", GE renamed to "AI Social Growth System — Strategy Layer (Beta)" | ✅ Session 31 |
+| `pricing.html` | New user plan selector — Email+1 live channel model, SCE/EB plan selectors, GE $660, LGE $299, corrected addon prices, loads localStorage config from index.html. Session 31: yearly badge updated to "2 months free", GE renamed to "AI Social Growth System — Strategy Layer (Beta)". LGE UX: standalone Lead Generation Engine section (+$299/mo toggle, `toggleLGE`), wired into calculate() and handleDeployment payload. | ✅ Session 31 / LGE UX |
 | `billing.html` | Upgrade/manage plan for existing subscribers — channel menu, yearly toggle, SCE/EB/GE/ChatBot/Install cards, all `?lock=` params wired | ✅ Session 37 |
 | `payment.html` | Razorpay checkout + bank transfer | ✅ |
 | `success.html` | Post-payment verification (polls billing_intents) | ✅ |
@@ -46,6 +47,7 @@
 | `Knowledge Brain.html` | PDF upload + text rules + read/delete view | ✅ |
 | `App Architect.html` | Appointment scheduling viewer | ✅ |
 | `embed.js` / `chat.html` | Embeddable chat widget + hosted Smart Link chat | ✅ |
+| `lge_dashboard.html` | Lead Generation Engine — entitlement-gated (`lead_gen`); locked-preview for non-entitled; Campaign config, CSV import, leads pipeline table | ✅ LGE Session 1 |
 
 ---
 
@@ -91,12 +93,18 @@
 
 **Shared modules** (`_shared/`): `db.ts`, `brain.ts`, `persona_builder.ts`, `reply_router.ts`, `intent_ai.ts`, `intent_rules.ts`, `conversation_state.ts`, `security.ts`, `retry_policy.ts`, `strike_time.ts`, `revenue_adapters.ts`, `health_scorer.ts`, `doctor_payload_builder.ts`, `pii_scrubber.ts`, `team_attention.ts`, `guardrails/`
 
+**`strike_time.ts` exports:** `computeStrikeTime(nowUtcISO, tz)` + `isWithinContactWindow(nowUtcISO, tz)` — both enforce Mon–Sat 08:00–19:59 TCPA window.
+
+**`retry_policy.ts` exports:** `getRetrySchedule(channel)` (standard) + `getRetryScheduleHighPriority(channel)` (compressed: SMS 0/2m/15m, Voice 0/30m, Email 0/12h/3d).
+
 ---
 
 ## Database — Reference Schema
 
 ### All Tables
 **Core:** `profiles`, `leads`, `interactions`, `appointments`, `voice_usage`, `lead_timeline_events`, `lead_actions`, `org_members`, `org_services`, `org_settings`, `billing_intents`, `payment_attempts`, `knowledge_base`, `security_events`, `execution_tasks`, `voice_calls`, `notifications`, `campaigns`, `campaign_leads`, `org_channels`, `org_channel_provision_requests`, `conversation_state`, `active_org_prompts` (VIEW), `decision_plans`, `organizations`, `org_invitations`, `manual_action_requests`, `org_billing_profiles`, `org_prompts`, `api_keys`, `beta_interest`, `app_admins`, `members` (legacy), `platform_channels`, `founding_program`
+
+**Legal Consent:** `onboarding_consent_docs` (admin-managed doc registry — title, description, version, file_url, display_order, is_active), `onboarding_consents` (immutable audit trail — user_id, doc_id, doc_version, consented_at; UNIQUE on user_id+doc_id)
 
 **Credits:** `credit_wallets`, `credit_ledger`, `credit_alert_state`, `orders`, `order_lines`, `idempotency_keys`, `usage_rating_events`, `usage_settlements`
 
@@ -120,6 +128,7 @@
 | `role` | `org_members` | NULL / 'agency_admin' / 'enterprise_admin' / 'enterprise_agent' |
 | `assigned_to` | `leads` | UUID → auth.users; NULL = solo |
 | `ai_paused` | `leads` | Blocks AI routing (set by Takeover) |
+| `priority` | `leads` | `'standard'` (default) / `'high'`; NOT NULL; partial index `idx_leads_priority_org` |
 | `messenger_psid` | `leads` | Facebook Messenger PSID |
 | `fallback_policy` | `org_channels` | allow_shared / fail_task / admin_override |
 | `provider_token` | `org_channels` | Per-org Facebook page access token |
@@ -131,7 +140,7 @@
 `id`, `plan_id` (NOT NULL), `lead_id`, `org_id`, `channel`, `status`, `attempt`, `max_attempts`, `scheduled_for`, `executed_at`, `last_error`, `metadata` (JSONB), `locked_by`, `locked_until`, `provider`, `provider_id`, `actor_user_id`, `ai_generation_locked`
 
 ### Key RPCs
-`consume_tokens_v1` · `grant_tokens_core_v1` · `credit_wallet_add_v1` · `settle_voice_call_tokens_v2` · `is_org_cancelled_v1` · `is_kill_switch_enabled_v1` · `enforce_rate_limit_v1` · `execution_policy_v1` · `resolve_inbound_org_channel_v1` · `approve_bank_transfer` · `mark_intent_awaiting_bank` · `create_agency_enterprise_deal` · `approve_agency_enterprise_deal` · `get_agent_leaderboard` · `admin_grant_growth_engine` · `admin_revoke_growth_engine` · `admin_get_growth_metrics` · `admin_get_beta_prospects`
+`consume_tokens_v1` · `grant_tokens_core_v1` · `credit_wallet_add_v1` · `settle_voice_call_tokens_v2` · `is_org_cancelled_v1` · `is_kill_switch_enabled_v1` · `enforce_rate_limit_v1` · `execution_policy_v1` · `resolve_inbound_org_channel_v1` · `approve_bank_transfer` · `mark_intent_awaiting_bank` · `create_agency_enterprise_deal` · `approve_agency_enterprise_deal` · `get_agent_leaderboard` · `admin_grant_growth_engine` · `admin_revoke_growth_engine` · `admin_get_growth_metrics` · `admin_get_beta_prospects` · `admin_grant_lead_gen` · `admin_revoke_lead_gen` · `get_lge_campaign_stats` · `lge_claim_batch` · `lge_release_stale_locks`
 
 ### pg_cron Jobs
 
@@ -146,9 +155,12 @@
 | 14 | `*/5 * * * *` | `compute_channel_health_v1()` |
 | 16 | daily 2am UTC | `process_scheduled_data_deletions()` |
 | 17 | `5 0 1 * *` | `refresh_doctor_report_credits()` |
+| 18 | `*/5 * * * *` | `lge_release_stale_locks()` — resets expired LGE enriching locks |
+| 19 | `*/2 * * * *` | `lge_worker` edge function — LGE enrichment + scoring + routing |
+| 22 | `0 1 * * *` | `lge_outcome_sync` edge function — GSC outcome feedback loop |
 
 ### Storage Buckets
-`logos` (company branding), `documents` (Knowledge Brain PDFs)
+`logos` (company branding), `documents` (Knowledge Brain PDFs), `legal-docs` (public; onboarding consent PDFs/DOCXs — 4 seeded: ToS, MSA, Privacy, AUP)
 
 ---
 
@@ -159,6 +171,31 @@ All protected pages: `requireAuth({ onAuthenticated: (profile, user, sb) => {} }
 - Requires: `<script src="auth.js">`, `<div id="auth-loader">` (visible), `<div id="page-content">` (hidden)
 - Role pages (`agency_admin.html`, `enterprise_admin.html`, `agent_dashboard.html`) need `requireOnboarding: false`
 - Exception: `pricing.html` + `payment.html` use inline auth-loader pattern (no auth.js)
+- `consent.html` uses `requireOnboarding: false` — must never trigger onboarding redirect loop
+- Step order in auth.js: 1 session check → 2 profile fetch → 3 onboarding gate → **4 pending-consent check** → 5 watchdog → 6 onAuthenticated
+
+### Legal Consent Flow
+**New users** — consent wall is step 0 of setup-modal in `dashboard.html`:
+- `initConsentStep(userId, sb)` called via `onOnboarding` callback in `requireAuth()`
+- Each doc shown in iframe (Google Docs Viewer); checkbox unlocks only when user scrolls to bottom of `#onb-modal-inner`
+- Consents recorded to `onboarding_consents`; then proceeds to step 1 (phone/email/company) and step 2 (AI test drive)
+
+**Existing users** — `auth.js` step 4 intercept:
+- Checks active docs vs user's consent records; if any version mismatch → `window.location.replace('consent.html?return=<encoded_path>')`
+- `consent.html`: full-page, scroll on `window`, upserts to `onboarding_consents`, redirects back via `?return=` param
+
+**Admin document management** — Consent Documents section in `admin.html`:
+- Table of all docs with consent count, status, view link, activate/deactivate toggle
+- Upload form: title, description, version, display_order, file → uploads to `legal-docs` bucket → saves to `onboarding_consent_docs`
+- Activating a new version automatically triggers re-consent for all existing users on next login
+
+### Priority Intake Routing
+- `leads.priority` column: `'standard'` (default) / `'high'`
+- `fetch_due_tasks` RPC: orders by `CASE WHEN l.priority = 'high' THEN 0 ELSE 1 END, scheduled_for ASC` (LEFT JOIN leads)
+- `execution_planner`: ALL leads (including high-priority) use `computeStrikeTime()` — TCPA contact window applies to automated systems regardless of consent
+- High-priority advantage: compressed retry intervals (`getRetryScheduleHighPriority`) + queue ordering
+- Off-hours human alert: when `isHighPriority && !isWithinContactWindow()` → SMS (Twilio) or email (Resend) sent to closer immediately — TCPA does NOT restrict human-initiated calls; alert is best-effort (never blocks task creation); in-app `notifications` row also inserted (`type: 'priority_off_hours'`)
+- UI: priority pill badge on lead cards in dashboard.html + agent_dashboard.html; `lap-priority-off/on` toggle panel in lead action panel
 
 ### Entitlement Check
 ```js
@@ -298,6 +335,86 @@ CTA in locked-preview links to `billing.html?lock=growth_engine`.
 
 ---
 
+## Lead Generation Engine (LGE) — Approved Architecture
+
+**Service key:** `lead_gen` | **Status:** Sessions 1 + 2 complete — full pipeline live (worker running via pg_cron #19 every 2 min)
+**Purpose:** Customer-facing — each GSC org uses LGE to find and qualify their own leads, then push high-score leads into GSC for immediate AI conversion.
+
+**Pipeline:**
+```
+CSV upload / Apollo export (customer-side)
+  → lge_ingest (edge fn)
+  → lge_raw_leads (status: pending)
+  → lge_worker (pg_cron every 2 min, FOR UPDATE SKIP LOCKED, batch 10)
+  → Enrichment: Apollo API → Hunter email verify (customer's own API keys)
+  → Scoring: Fit 60% + Confidence 40% (NO intent/timing — unreliable signal in MVP)
+  → Context: GPT-4o-mini → reason_to_reach_out + pain_point_hypothesis + pitch_angle
+  → Routing:
+      ≥80 → hook_inbound (source='lge', notes=JSON{score,reason,pitch}) → GSC AI fires
+      60–79 → review_queue (customer manually approves or discards)
+      <60  → discarded
+  → lge_outcome_sync (pg_cron daily) → writes lge_outcomes (no_reply/replied/booked/closed)
+```
+
+**Data Model (8 tables):**
+
+| Table | Key Columns |
+|---|---|
+| `lge_campaigns` | org_id, name, status, icp_config JSONB (industry, company_size, geography, designations, fit_weight, confidence_weight) |
+| `lge_raw_leads` | campaign_id, org_id, name, email, phone, company, source, raw_data JSONB, status, attempt, max_attempts, locked_until, gsc_lead_id, processing_version, last_reenrich_at, reenrich_reason |
+| `lge_enrichment` | raw_lead_id, industry, company_size, designation, email_verified, phone_verified, confidence_score, sources_json, enriched_at |
+| `lge_scores` | raw_lead_id, fit_score, confidence_score, total_score, scored_at |
+| `lge_context` | raw_lead_id, reason_to_reach_out, pain_point_hypothesis, recommended_pitch_angle, generated_at |
+| `lge_provider_config` | org_id, provider (apollo/hunter), api_key_encrypted, is_active |
+| `lge_provider_calls` | raw_lead_id, provider, status, called_at |
+| `lge_outcomes` | raw_lead_id, gsc_lead_id, outcome_stage (no_reply/replied/booked/closed), outcome_source, observed_at, is_manual, manual_reason, manual_by, manual_at, source_priority, last_synced_at |
+
+**Edge Functions (4):**
+- `lge_ingest` ✅ — Accept CSV batch or single lead; user JWT auth; validates `lead_gen` entitlement
+- `lge_campaign_manage` ✅ — CRUD for campaigns + ICP config + provider key storage (AES-GCM encrypted); `test_provider` action (decrypts stored key, live-tests Apollo POST /v1/people/match or Hunter GET /v2/account); `force_push` action (bypasses scoring — resolves actor user → inserts GSC lead + decision_plan + execution_task → marks lge_raw_leads.status='pushed', gsc_handoff_key='lge:{id}')
+- `lge_worker` ✅ — pg_cron #19 every 2 min; `lge_claim_batch` RPC; enrichment → scoring → context → routing; `FOR UPDATE SKIP LOCKED`; max 3 attempts per lead; `--no-verify-jwt`
+- `lge_outcome_sync` ✅ — pg_cron daily 01:00 UTC; syncs GSC lead/interaction/appointment outcomes back to `lge_outcomes`; batched 2000/run
+
+**Shared Modules (2):**
+- `_shared/lge_providers.ts` ✅ — Apollo (`/v1/people/match`, 8s timeout) + Hunter (`/v2/email-verifier`, 5s timeout); AES-GCM key decryption
+- `_shared/lge_scorer.ts` ✅ — `computeFitScore` / `computeConfidenceScore` / `computeTotalScore` / `routeByScore` — all pure functions
+
+**pg_cron Jobs:**
+- `#18` `*/5 * * * *` → `lge_release_stale_locks()` — resets expired enriching locks back to pending
+- `#19` `*/2 * * * *` → `lge_worker` edge function — main processing loop
+
+**Frontend (`lge_dashboard.html`):**
+- Locked-preview overlay if `lead_gen` not active (same pattern as `growth_dashboard.html`)
+- Campaign tab — Create campaign, set ICP config, enter Apollo + Hunter API keys; Test Connection buttons per provider (live key validation via `test_provider` action); campaign cards show inline lead counts (total/pending/review/pushed) from `get_lge_campaign_stats` RPC; "Leads" button on each card navigates to Leads tab filtered to that campaign
+- Import tab — CSV upload (client-side parse → `lge_ingest`); after import auto-navigates to Leads tab for that campaign
+- Leads tab — Pipeline Status Strip (pending, enriching, review, pushed, failed counts + last updated); Outcome tiles (replied/booked/won); Bulk action bar (select-all + per-row checkboxes, Push Selected / Discard Selected for review_queue items); Export CSV button (up to 5000 leads, client-side Blob); Add Lead button (manual single-lead modal); leads table: name is clickable (Lead Detail Modal with score breakdown, enrichment data, AI context); Actions: review_queue → force push (via `force_push` edge action) / discard; failed → retry; 15s auto-refresh poll when pending/enriching leads in flight
+- Key bugs fixed: `approveLead()` infinite loop (review_queue → pending → worker re-scores → 60–79 → back to review_queue) fixed by `forcePushLead()` bypassing the worker entirely via `force_push` edge action; `get_lge_campaign_stats` column is `total` not `total_count`; `loadOutcomeStats` uses two-query pattern (get pushed raw_lead_ids first, then query `lge_outcomes IN(...)`) instead of nested join filter
+
+**Key Design Decisions:**
+- hook_inbound stays untouched — LGE passes `source='lge'`, metadata in notes as JSON; no LGE-specific parser added
+- Provider model: BYO Apollo/Hunter keys — GSC never absorbs per-enrichment cost
+- LGE leads are separate from GSC leads until pushed — prevents polluting conversion pipeline
+- Intent + Timing scoring deferred — no clean signal source yet; adds false precision in MVP
+- Routing thresholds strict (≥80 auto-push) — GSC fires AI immediately, wrong leads = wasted tokens + brand risk
+- `lge_outcomes` feedback loop is mandatory — without it LGE scoring never improves
+- LinkedIn: never — ToS violation, legal risk, no stable API
+
+**LGE Sessions:**
+
+| Session | What | Status |
+|---|---|---|
+| LGE 1 | Migration + entitlement + admin RPCs + lge_ingest + lge_campaign_manage + lge_dashboard.html MVP | ✅ |
+| LGE 2 | lge_worker (enrichment + scoring + context + routing) + lge_providers.ts + lge_scorer.ts + pg_cron #18/#19 | ✅ |
+| LGE 3 | lge_outcome_sync + admin grant/revoke UI in admin.html + billing.html lock param | ✅ |
+| LGE UX | dashboard.html redesign; index.html + pricing.html LGE toggle; lge_dashboard.html: pipeline strip, campaign stats, outcome metrics, bulk actions, lead detail modal, test connection, export CSV, manual add lead, retry failed, force_push edge action (infinite-loop fix) | ✅ |
+| LGE Phase 7 | Scorecard, re-process modal, clone/TTL/threshold-reason UI, backlog age badge | ✅ |
+| LGE Phase 8 | Import history tab, lead notes thread | ✅ |
+| LGE Phase 8 Hardening + Phase 9 | Idempotency on import batches, source enum check, score override (±30 ceiling, system snapshot), campaign lifecycle (pause/resume/archive, pre_pause_mode, lge_campaign_state_logs), server-side search | ✅ |
+| LGE Phase 10 | Audit trail viewer (diff-based, filterable, CSV export), manual outcome marking (ladder enforcement, reason required, sync-aware), non-destructive re-enrichment (processing_version, cooldown), lead processing timeline, permission resolver (admin/operator/viewer) | ✅ |
+| LGE 4 | E2E test — upload CSV, watch enrichment, verify push to GSC, verify AI fires | ⬜ Defer until Twilio USA live |
+
+---
+
 ## Active E2E Test Status
 
 | Group | Status | Notes |
@@ -341,10 +458,11 @@ All phases shipped and live at https://www.getsalescloser.com:
 
 ## What's Next (priority order)
 
-1. **Meta OAuth E2E test** — Railway env vars set (`META_APP_ID=1684991566191260`, `META_APP_SECRET` set, redirect URI registered in Meta Developer App). Ready to test: open `growth_dashboard.html` → Connect Facebook → verify `?meta_connected=1` toast and rows in `growth.social_accounts`
+1. **Meta OAuth E2E test** — set `META_APP_SECRET` in Railway + register redirect URI in Meta Developer App; then test Facebook/Instagram connect in growth_dashboard.html
 2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
 3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-4. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
+4. **LGE Session 4 (E2E)** — upload CSV → watch enrichment → score → force_push or auto-push → verify GSC lead + AI fires → check lge_outcomes after sync *(defer until Twilio USA live)*
+5. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
 
 ---
 
@@ -380,3 +498,7 @@ curl -s -X POST "https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/datab
 17. **Growth Engine FastAPI — asyncpg jsonb**: asyncpg does NOT auto-serialize Python dicts for jsonb columns. Always `json.dumps(your_dict)` before passing as a query parameter.
 18. **Growth Engine FastAPI — JWT auth**: `org_members` has no `created_at` column. Never add `om.created_at` to ORDER BY in auth_bridge.py or oauth routes. ES256 JWTs must only use JWKS (`_get_jwks_client()`), never HS256 — inspect the JWT header `alg` claim first.
 19. **Growth Engine FastAPI — Fernet key**: `GROWTH_ENCRYPTION_KEY` must be exactly a 44-char URL-safe base64 Fernet key. Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+20. **`consent.html` must use `requireOnboarding: false`** — otherwise users with `onboarding_completed = false` get stuck in a redirect loop between auth.js onboarding gate and consent.html.
+21. **Priority Intake Routing — TCPA**: `computeStrikeTime()` applies to ALL automated tasks regardless of lead priority. High-priority leads do NOT bypass the 08:00–19:59 contact window. Off-hours alert goes to the *closer* (not the lead) — this is an internal operational alert, not a marketing message, so TCPA automated-dialer restrictions don't apply.
+22. **`fetch_due_tasks` RPC** was recreated (Session 38) to ORDER BY priority. If it ever needs to be recreated, include `LEFT JOIN leads l ON et.lead_id = l.id` before the WHERE clause and sort: `ORDER BY CASE WHEN l.priority = 'high' THEN 0 ELSE 1 END, et.scheduled_for ASC`.
+23. **Consent scroll detection — modal vs window**: New-user consent (setup-modal) detects scroll on `#onb-modal-inner` div. Existing-user consent (`consent.html`) detects scroll on `window`. Never mix them up — the modal is a scrollable div inside a fixed overlay; `window.scrollY` won't fire there.
