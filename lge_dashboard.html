@@ -560,6 +560,9 @@
         <button class="tab-btn" onclick="switchTab('alerts',this)" id="alerts-tab-btn">
             Alerts <span id="alerts-badge" class="hidden ml-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span>
         </button>
+        <button class="tab-btn" onclick="switchTab('intelligence',this)" id="intelligence-tab-btn">
+            Intelligence <span id="intelligence-badge" class="hidden ml-1 bg-indigo-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span>
+        </button>
     </div>
 
     <!-- Pipeline Status Strip -->
@@ -1251,6 +1254,123 @@
 
         </div><!-- /tab-alerts -->
 
+        <!-- ══ Intelligence Tab ══════════════════════════════════════════════ -->
+        <div id="tab-intelligence" class="tab-body hidden p-6 space-y-6">
+
+            <!-- Campaign selector -->
+            <div class="flex items-center gap-3">
+                <label class="text-xs text-slate-400 flex-shrink-0">Campaign</label>
+                <select id="intel-campaign-select" class="select-field text-xs py-1.5 max-w-xs"
+                        onchange="onIntelCampaignChange()">
+                    <option value="">Select a campaign...</option>
+                </select>
+            </div>
+
+            <!-- ── Recommendations Inbox ─────────────────────────────────── -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Recommendations Inbox</p>
+                        <p class="text-xs text-slate-600 mt-0.5">AI-generated policy suggestions based on 30-day campaign metrics</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="rec-status-filter" class="select-field text-xs py-1 px-2" onchange="loadRecommendations()">
+                            <option value="open">Open</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="">All</option>
+                        </select>
+                        <button onclick="generateRecommendations()" id="gen-recs-btn"
+                                class="btn-secondary text-xs py-1.5 px-3">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>Generate
+                        </button>
+                    </div>
+                </div>
+                <div id="recs-list" class="divide-y divide-white/4">
+                    <div class="px-5 py-6 text-center text-sm text-slate-600">Select a campaign to see recommendations.</div>
+                </div>
+            </div>
+
+            <!-- ── Experimentation Console ───────────────────────────────── -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Experimentation Console</p>
+                        <p class="text-xs text-slate-600 mt-0.5">Shadow-test threshold changes before applying them to the live pipeline</p>
+                    </div>
+                    <button onclick="openCreateExperimentModal()" id="create-exp-btn"
+                            class="btn-secondary text-xs py-1.5 px-3 hidden">
+                        <i class="fa-solid fa-flask mr-1.5"></i>New Experiment
+                    </button>
+                </div>
+                <div id="experiments-list" class="divide-y divide-white/4">
+                    <div class="px-5 py-6 text-center text-sm text-slate-600">Select a campaign to see experiments.</div>
+                </div>
+            </div>
+
+            <!-- ── Vertical Intelligence Packs ──────────────────────────── -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Vertical Intelligence Packs</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Apply a pre-tuned ICP config and scoring weights for your industry</p>
+                </div>
+                <div id="packs-grid" class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center text-sm text-slate-600 py-4">Loading packs...</div>
+                </div>
+            </div>
+
+        </div><!-- /tab-intelligence -->
+
+        <!-- Create Experiment Modal -->
+        <div id="create-exp-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="glass-panel rounded-2xl w-full max-w-lg p-6 space-y-4" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-semibold text-white">New A/B Experiment</h3>
+                    <button onclick="closeCreateExpModal()" class="text-slate-500 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Experiment Name</label>
+                    <input id="exp-name" type="text" class="input-field text-sm" placeholder="e.g. Lower auto-push threshold test">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Type</label>
+                    <select id="exp-type" class="select-field text-sm">
+                        <option value="threshold">Threshold</option>
+                        <option value="scoring">Scoring Weights</option>
+                        <option value="prompt">Context Prompt</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Variant A — Auto-push threshold (current)</label>
+                        <input id="exp-a-threshold" type="number" min="50" max="100" value="80" class="input-field text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Variant B — Auto-push threshold (test)</label>
+                        <input id="exp-b-threshold" type="number" min="50" max="100" value="75" class="input-field text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Assignment Method</label>
+                    <select id="exp-method" class="select-field text-sm">
+                        <option value="shadow">Shadow (simulate B without changing live behaviour)</option>
+                        <option value="alternating">Alternating (odd/even lead assignment)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Hypothesis (optional)</label>
+                    <textarea id="exp-hypothesis" class="input-field text-sm h-16 resize-none"
+                              placeholder="e.g. Lowering the threshold to 75 will increase replied rate by 15% while keeping false push rate under 40%"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="closeCreateExpModal()" class="btn-secondary text-sm py-2 px-4">Cancel</button>
+                    <button onclick="submitCreateExperiment()" class="btn-primary text-sm py-2 px-4">Create Experiment</button>
+                </div>
+            </div>
+        </div>
+
     </div><!-- /overflow-y-auto -->
 </div><!-- /page-content -->
 
@@ -1341,6 +1461,7 @@ function switchTab(name, btn) {
     if (name === 'analytics') { populateAnalyticsFilter(); loadAnalytics(); loadScorecard(); loadCalibration(); }
     if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
     if (name === 'alerts') { loadAlerts(); loadNotifPrefs(); loadDigestHistory(); }
+    if (name === 'intelligence') { populateIntelCampaignSelect(); loadVerticalPacks(); }
 }
 
 // ── Campaigns ─────────────────────────────────────────────────────────────────
@@ -3909,6 +4030,355 @@ function renderCalibrationInsights(insights) {
             </div>
         </div>`;
     }).join('');
+}
+
+// ── Phase 13 — Intelligence Tab ───────────────────────────────────────────────
+
+let intelCampaignId = null;
+
+function populateIntelCampaignSelect() {
+    const sel = document.getElementById('intel-campaign-select');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Select a campaign...</option>' +
+        campaigns.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+    if (current) sel.value = current;
+}
+
+function onIntelCampaignChange() {
+    const campaignId = document.getElementById('intel-campaign-select').value;
+    intelCampaignId = campaignId || null;
+    const createExpBtn = document.getElementById('create-exp-btn');
+    if (createExpBtn) createExpBtn.classList.toggle('hidden', !intelCampaignId);
+    if (intelCampaignId) {
+        loadRecommendations();
+        loadExperiments();
+    } else {
+        document.getElementById('recs-list').innerHTML = '<div class="px-5 py-6 text-center text-sm text-slate-600">Select a campaign to see recommendations.</div>';
+        document.getElementById('experiments-list').innerHTML = '<div class="px-5 py-6 text-center text-sm text-slate-600">Select a campaign to see experiments.</div>';
+    }
+}
+
+// ── Recommendations ──────────────────────────────────────────────────────────
+
+async function loadRecommendations() {
+    if (!intelCampaignId) return;
+    const status = document.getElementById('rec-status-filter')?.value ?? 'open';
+    const list = document.getElementById('recs-list');
+    list.innerHTML = '<div class="px-5 py-4 text-center text-sm text-slate-600">Loading...</div>';
+    try {
+        const body = { action: 'list_recommendations', campaign_id: intelCampaignId };
+        if (status) body.status = status;
+        const res = await callFn('lge_policy_manage', body);
+        renderRecommendations(res.recommendations ?? []);
+        // Update badge
+        const openRecs = (res.recommendations ?? []).filter(r => r.status === 'open').length;
+        const badge = document.getElementById('intelligence-badge');
+        if (badge) {
+            badge.textContent = openRecs;
+            badge.classList.toggle('hidden', openRecs === 0);
+        }
+    } catch (e) {
+        list.innerHTML = `<div class="px-5 py-4 text-center text-sm text-red-400">Failed: ${escHtml(e.message)}</div>`;
+    }
+}
+
+function renderRecommendations(recs) {
+    const list = document.getElementById('recs-list');
+    if (!recs.length) {
+        list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-600">No recommendations found. Click "Generate" to create AI-powered suggestions.</div>';
+        return;
+    }
+    const sevColors = {
+        high: { badge: 'bg-red-900/30 text-red-400 border-red-700/30', icon: 'fa-exclamation-triangle text-red-400' },
+        warning: { badge: 'bg-yellow-900/30 text-yellow-400 border-yellow-700/30', icon: 'fa-exclamation text-yellow-400' },
+        info: { badge: 'bg-indigo-900/30 text-indigo-400 border-indigo-700/30', icon: 'fa-circle-info text-indigo-400' },
+    };
+    const statusPill = {
+        open: 'bg-indigo-900/30 text-indigo-300',
+        accepted: 'bg-green-900/30 text-green-400',
+        rejected: 'bg-red-900/30 text-red-400',
+        expired: 'bg-slate-800 text-slate-600',
+    };
+    list.innerHTML = recs.map(r => {
+        const s = sevColors[r.severity] ?? sevColors.info;
+        const sp = statusPill[r.status] ?? statusPill.open;
+        const justification = r.justification_json ?? {};
+        const actions = r.status === 'open' ? `
+            <div class="flex items-center gap-2 mt-3">
+                <button onclick="actOnRecommendation('${r.id}','accept')" class="btn-primary text-xs py-1 px-3">
+                    <i class="fa-solid fa-check mr-1"></i>Accept
+                </button>
+                <button onclick="actOnRecommendation('${r.id}','reject')" class="btn-secondary text-xs py-1 px-3">
+                    <i class="fa-solid fa-xmark mr-1"></i>Reject
+                </button>
+            </div>` : '';
+        return `<div class="px-5 py-4">
+            <div class="flex items-start gap-3">
+                <i class="fa-solid ${s.icon} mt-0.5 flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span class="font-semibold text-sm text-white">${escHtml(r.title)}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full border ${s.badge} font-bold uppercase">${r.severity}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full ${sp} font-medium">${r.status}</span>
+                        <span class="text-[10px] text-slate-600 ml-auto">${r.confidence_level} confidence</span>
+                    </div>
+                    <p class="text-xs text-slate-400">${escHtml(justification.reason ?? '')}</p>
+                    ${justification.expected_impact ? `<p class="text-xs text-indigo-400 mt-1"><i class="fa-solid fa-arrow-trend-up mr-1"></i>${escHtml(justification.expected_impact)}</p>` : ''}
+                    <div class="mt-2 grid grid-cols-2 gap-3">
+                        <div class="bg-slate-900/50 rounded p-2">
+                            <p class="text-[9px] text-slate-600 uppercase tracking-wider font-bold mb-1">Current Policy</p>
+                            <pre class="text-[10px] text-slate-400 whitespace-pre-wrap break-all">${escHtml(JSON.stringify(r.current_policy_json, null, 2))}</pre>
+                        </div>
+                        <div class="bg-indigo-900/10 rounded p-2 border border-indigo-800/20">
+                            <p class="text-[9px] text-indigo-500 uppercase tracking-wider font-bold mb-1">Recommended</p>
+                            <pre class="text-[10px] text-indigo-300 whitespace-pre-wrap break-all">${escHtml(JSON.stringify(r.recommended_policy_json, null, 2))}</pre>
+                        </div>
+                    </div>
+                    ${actions}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function generateRecommendations() {
+    if (!intelCampaignId) { toast('Select a campaign first', 'warn'); return; }
+    const btn = document.getElementById('gen-recs-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Generating...'; }
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'generate_recommendations', campaign_id: intelCampaignId });
+        if (res.error) throw new Error(res.error);
+        toast(`Generated ${(res.recommendations ?? []).length} recommendation(s)`, 'success');
+        await loadRecommendations();
+    } catch (e) {
+        toast('Generation failed: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>Generate'; }
+    }
+}
+
+async function actOnRecommendation(recId, action) {
+    const newStatus = action === 'accept' ? 'accepted' : 'rejected';
+    try {
+        const res = await callFn('lge_policy_manage', { action: `${action}_recommendation`, recommendation_id: recId });
+        if (res.error) throw new Error(res.error);
+        toast(`Recommendation ${newStatus}`, 'success');
+        await loadRecommendations();
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+    }
+}
+
+// ── Experiments ──────────────────────────────────────────────────────────────
+
+async function loadExperiments() {
+    if (!intelCampaignId) return;
+    const list = document.getElementById('experiments-list');
+    list.innerHTML = '<div class="px-5 py-4 text-center text-sm text-slate-600">Loading...</div>';
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'list_experiments', campaign_id: intelCampaignId });
+        renderExperiments(res.experiments ?? []);
+    } catch (e) {
+        list.innerHTML = `<div class="px-5 py-4 text-center text-sm text-red-400">Failed: ${escHtml(e.message)}</div>`;
+    }
+}
+
+function renderExperiments(exps) {
+    const list = document.getElementById('experiments-list');
+    if (!exps.length) {
+        list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-600">No experiments yet. Create a shadow experiment to test threshold changes safely.</div>';
+        return;
+    }
+    const statusColors = {
+        active: 'bg-green-900/30 text-green-400',
+        stopped: 'bg-slate-800 text-slate-500',
+        concluded: 'bg-indigo-900/30 text-indigo-400',
+    };
+    const winnerColors = { a: 'text-blue-400', b: 'text-green-400', inconclusive: 'text-slate-500' };
+    list.innerHTML = exps.map(exp => {
+        const sp = statusColors[exp.status] ?? statusColors.stopped;
+        const result = exp.result_json;
+        const resultHtml = result ? `
+            <div class="mt-3 grid grid-cols-2 gap-3">
+                <div class="bg-slate-900/50 rounded p-2 text-center">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold mb-1">Variant A (control)</p>
+                    <p class="text-xs text-slate-300">Threshold: <strong>${result.variant_a?.threshold}</strong></p>
+                    <p class="text-xs text-slate-300">Reply rate: <strong class="${result.winner === 'a' ? 'text-green-400' : 'text-slate-300'}">${(result.variant_a?.reply_rate ?? 0).toFixed(1)}%</strong></p>
+                    <p class="text-[10px] text-slate-600 mt-0.5">${result.variant_a?.replied ?? 0} replied / ${result.variant_a?.would_push ?? 0} pushed</p>
+                </div>
+                <div class="bg-indigo-900/10 rounded p-2 text-center border border-indigo-800/20">
+                    <p class="text-[9px] text-indigo-500 uppercase font-bold mb-1">Variant B (test)</p>
+                    <p class="text-xs text-slate-300">Threshold: <strong>${result.variant_b?.threshold}</strong></p>
+                    <p class="text-xs text-slate-300">Reply rate: <strong class="${result.winner === 'b' ? 'text-green-400' : 'text-slate-300'}">${(result.variant_b?.reply_rate ?? 0).toFixed(1)}%</strong></p>
+                    <p class="text-[10px] text-slate-600 mt-0.5">${result.variant_b?.replied ?? 0} replied / ${result.variant_b?.would_push ?? 0} pushed</p>
+                </div>
+            </div>
+            <p class="mt-2 text-xs font-semibold ${winnerColors[result.winner] ?? 'text-slate-400'}">
+                Winner: ${result.winner === 'a' ? 'Variant A (control)' : result.winner === 'b' ? 'Variant B (test)' : 'Inconclusive'}
+                — ${result.outcome_eligible} outcome-eligible leads evaluated
+            </p>` : '';
+        const actions = exp.status === 'active' ? `
+            <div class="flex items-center gap-2 mt-3">
+                <button onclick="evaluateExperiment('${exp.id}')" class="btn-secondary text-xs py-1 px-3">
+                    <i class="fa-solid fa-chart-bar mr-1"></i>Evaluate
+                </button>
+                <button onclick="stopExperiment('${exp.id}')" class="btn-secondary text-xs py-1 px-3 text-red-400 border-red-800/30">
+                    <i class="fa-solid fa-stop mr-1"></i>Stop
+                </button>
+            </div>` : (result ? `<button onclick="evaluateExperiment('${exp.id}')" class="btn-secondary text-xs py-1 px-3 mt-3"><i class="fa-solid fa-refresh mr-1"></i>Re-evaluate</button>` : '');
+        return `<div class="px-5 py-4">
+            <div class="flex items-start gap-3">
+                <i class="fa-solid fa-flask mt-0.5 text-indigo-400 flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span class="font-semibold text-sm text-white">${escHtml(exp.name)}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full ${sp} font-medium">${exp.status}</span>
+                        <span class="text-[10px] text-slate-600">${escHtml(exp.experiment_type)} · ${escHtml(exp.assignment_method)}</span>
+                    </div>
+                    ${exp.hypothesis ? `<p class="text-xs text-slate-500 italic">${escHtml(exp.hypothesis)}</p>` : ''}
+                    ${resultHtml}
+                    ${actions}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openCreateExperimentModal() {
+    if (!intelCampaignId) { toast('Select a campaign first', 'warn'); return; }
+    document.getElementById('create-exp-modal').classList.remove('hidden');
+}
+function closeCreateExpModal() {
+    document.getElementById('create-exp-modal').classList.add('hidden');
+}
+
+async function submitCreateExperiment() {
+    const name = document.getElementById('exp-name').value.trim();
+    const type = document.getElementById('exp-type').value;
+    const method = document.getElementById('exp-method').value;
+    const aThreshold = parseInt(document.getElementById('exp-a-threshold').value, 10);
+    const bThreshold = parseInt(document.getElementById('exp-b-threshold').value, 10);
+    const hypothesis = document.getElementById('exp-hypothesis').value.trim();
+    if (!name) { toast('Experiment name required', 'warn'); return; }
+
+    try {
+        const res = await callFn('lge_policy_manage', {
+            action: 'create_experiment',
+            campaign_id: intelCampaignId,
+            name,
+            experiment_type: type,
+            assignment_method: method,
+            hypothesis: hypothesis || undefined,
+            variant_a_json: { auto_push: aThreshold },
+            variant_b_json: { auto_push: bThreshold },
+        });
+        if (res.error) throw new Error(res.error);
+        toast('Experiment created', 'success');
+        closeCreateExpModal();
+        await loadExperiments();
+    } catch (e) {
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+
+async function stopExperiment(expId) {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'stop_experiment', experiment_id: expId });
+        if (res.error) throw new Error(res.error);
+        toast('Experiment stopped', 'success');
+        await loadExperiments();
+    } catch (e) {
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+
+async function evaluateExperiment(expId) {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'evaluate_experiment', experiment_id: expId });
+        if (res.error) throw new Error(res.error);
+        if (!res.evaluated) {
+            toast(`Cannot evaluate yet: ${res.reason} (${res.outcome_eligible ?? res.lead_count ?? 0} leads)`, 'warn');
+        } else {
+            toast(`Evaluation complete — winner: ${res.winner}`, 'success');
+        }
+        await loadExperiments();
+    } catch (e) {
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+
+// ── Vertical Packs ────────────────────────────────────────────────────────────
+
+let verticalPacks = [];
+
+async function loadVerticalPacks() {
+    const grid = document.getElementById('packs-grid');
+    grid.innerHTML = '<div class="col-span-full text-center text-sm text-slate-600 py-4">Loading packs...</div>';
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'list_vertical_packs' });
+        verticalPacks = res.packs ?? [];
+        renderVerticalPacks();
+    } catch (e) {
+        grid.innerHTML = `<div class="col-span-full text-center text-sm text-red-400 py-4">Failed: ${escHtml(e.message)}</div>`;
+    }
+}
+
+function renderVerticalPacks() {
+    const grid = document.getElementById('packs-grid');
+    if (!verticalPacks.length) {
+        grid.innerHTML = '<div class="col-span-full text-center text-sm text-slate-600 py-4">No vertical packs available.</div>';
+        return;
+    }
+    const slugIcons = {
+        law_firms: 'fa-scale-balanced',
+        med_spas: 'fa-spa',
+        real_estate: 'fa-house',
+        solar: 'fa-solar-panel',
+        home_services: 'fa-toolbox',
+    };
+    grid.innerHTML = verticalPacks.map(p => {
+        const cfg = p.config_json ?? {};
+        const thresholds = cfg.thresholds ?? {};
+        const icon = slugIcons[p.slug] ?? 'fa-cube';
+        const canApply = !!intelCampaignId;
+        return `<div class="glass-panel rounded-xl p-4 flex flex-col gap-3">
+            <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid ${icon} text-indigo-400 text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm text-white">${escHtml(p.name)}</p>
+                    <p class="text-[10px] text-slate-600">v${p.version}</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">${escHtml(p.description ?? '')}</p>
+            <div class="text-[10px] text-slate-600 space-y-1">
+                <div>Auto-push: <span class="text-slate-400 font-semibold">&ge;${thresholds.auto_push ?? 80}</span>
+                    &nbsp;|&nbsp; Review: <span class="text-slate-400 font-semibold">&ge;${thresholds.review_min ?? 60}</span></div>
+                <div>Review TTL: <span class="text-slate-400 font-semibold">${cfg.review_ttl_days ?? 5} days</span></div>
+            </div>
+            <button onclick="applyVerticalPack('${p.id}', '${escHtml(p.name)}')"
+                    class="btn-secondary text-xs py-1.5 px-3 mt-auto ${canApply ? '' : 'opacity-40 cursor-not-allowed'}"
+                    ${canApply ? '' : 'disabled'}>
+                <i class="fa-solid fa-download mr-1.5"></i>Apply to Campaign
+            </button>
+        </div>`;
+    }).join('');
+}
+
+async function applyVerticalPack(packId, packName) {
+    if (!intelCampaignId) { toast('Select a campaign first', 'warn'); return; }
+    const campaignName = campaigns.find(c => c.id === intelCampaignId)?.name ?? 'this campaign';
+    if (!confirm(`Apply "${packName}" pack to "${campaignName}"?\n\nThis will merge the pack's ICP config into the campaign. The current config will be saved in the audit trail.`)) return;
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'apply_vertical_pack', campaign_id: intelCampaignId, pack_id: packId });
+        if (res.error) throw new Error(res.error);
+        toast(`"${packName}" pack applied to campaign`, 'success');
+        await loadCampaigns(); // Refresh campaign data
+    } catch (e) {
+        toast('Failed: ' + e.message, 'error');
+    }
 }
 </script>
 </body>
