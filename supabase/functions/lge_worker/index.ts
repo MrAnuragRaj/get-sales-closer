@@ -34,6 +34,9 @@ const BATCH_SIZE = 10;
 const LOCK_MINUTES = 5;
 const CONCURRENCY = 4;
 
+// Phase 17: per-org rate limit cache (loaded once per batch)
+const ORG_RATE_LIMIT_CACHE = new Map<string, Set<string>>(); // orgId → set of rate-limited providers
+
 function workerId(): string {
   return `lge_worker:${Date.now()}:${Math.random().toString(16).slice(2)}`;
 }
@@ -259,6 +262,55 @@ async function pushToGsc(
   return gscLead.id as string;
 }
 
+// ── Phase 17: Rate limit helpers ─────────────────────────────────────────────
+
+async function loadRateLimitedProviders(sb: ReturnType<typeof getServiceSupabaseClient>, orgId: string): Promise<Set<string>> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await sb.from("lge_rate_limits")
+    .select("provider, calls_made, calls_limit")
+    .eq("org_id", orgId).eq("window_date", today);
+  const limited = new Set<string>();
+  for (const row of data ?? []) {
+    if ((row as any).calls_made >= (row as any).calls_limit) limited.add((row as any).provider);
+  }
+  return limited;
+}
+
+async function incrementProviderCall(sb: ReturnType<typeof getServiceSupabaseClient>, orgId: string, provider: string) {
+  await sb.rpc("lge_increment_rate_limit", { p_org_id: orgId, p_provider: provider, p_amount: 1 }).then(undefined, () => {});
+}
+
+// ── Input format validators (pre-enrichment guards) ───────────────────────────
+// Prevents API quota waste on obviously invalid/synthetic contact data.
+
+function isValidEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim();
+  const atIdx = e.indexOf("@");
+  if (atIdx < 1) return false;                        // no @ or nothing before @
+  const domain = e.slice(atIdx + 1);
+  const dotIdx = domain.lastIndexOf(".");
+  if (dotIdx < 1) return false;                       // no dot in domain
+  const tld = domain.slice(dotIdx + 1);
+  if (tld.length < 2 || tld.length > 10) return false; // TLD sanity
+  const local = e.slice(0, atIdx);
+  if (local.length < 1) return false;
+  // Reject obviously fake patterns: test@, name@domain (no TLD)
+  if (/^(test|example|noreply|no-reply|null|undefined|none|fake|dummy|sample|user|admin|info)$/i.test(local)) return false;
+  return true;
+}
+
+function isValidPhone(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return false;                // too short
+  if (/^(\d)\1+$/.test(digits)) return false;         // all same digit (1111111, 0000000)
+  if (/^(0+1*2*3*4*5*6*7*8*9*)$/.test(digits)) return false; // ascending sequences like 1234567
+  // Reject known placeholders
+  if (["0000000", "1111111", "1234567", "9999999", "1234567890"].includes(digits)) return false;
+  return true;
+}
+
 // ── Per-lead processor ────────────────────────────────────────────────────────
 
 interface ClaimedLead {
@@ -293,7 +345,11 @@ async function processLead(
   orgKeyCache: Map<string, OrgKeys>,
   sourceAdjCache: Map<string, SourceAdjMap>,
   campaignConfigCache: Map<string, CampaignConfig>,
+  rateLimitedCache: Map<string, Set<string>>,
 ): Promise<void> {
+  // Phase 17: SLA — record enrichment start time
+  const enrichmentStartAt = new Date().toISOString();
+
   try {
     // Load and cache provider keys per org
     if (!orgKeyCache.has(lead.org_id)) {
@@ -379,12 +435,26 @@ async function processLead(
       company: lead.lead_company,
     };
 
+    // ── Pre-enrichment format validation ─────────────────────────────────────
+    const emailValid = isValidEmail(lead.lead_email);
+    const phoneValid = isValidPhone(lead.lead_phone);
+
+    // Phase 17: load rate-limited providers for this org (cached per batch)
+    if (!rateLimitedCache.has(lead.org_id)) {
+      rateLimitedCache.set(lead.org_id, await loadRateLimitedProviders(sb, lead.org_id));
+    }
+    const rateLimited = rateLimitedCache.get(lead.org_id)!;
+
     // ── Apollo enrichment ─────────────────────────────────────────────────────
     let apolloResult: ApolloResult | null = null;
-    const hasApolloInput = !!(lead.lead_email || lead.lead_name || lead.lead_company);
+    // Apollo needs at least one usable signal; treat invalid email as absent
+    const hasApolloInput = !!(
+      (lead.lead_email && emailValid) || lead.lead_name || lead.lead_company
+    );
 
-    if (keys.apollo && hasApolloInput) {
+    if (keys.apollo && hasApolloInput && !rateLimited.has("apollo")) {
       apolloResult = await enrichWithApollo(keys.apollo, leadContact);
+      void incrementProviderCall(sb, lead.org_id, "apollo");
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
         provider: "apollo",
@@ -395,15 +465,18 @@ async function processLead(
         raw_lead_id: lead.lead_id,
         provider: "apollo",
         status: "skipped",
-        error_detail: keys.apollo ? null : "no_api_key",
+        error_detail: !keys.apollo ? "no_api_key"
+          : rateLimited.has("apollo") ? "rate_limited"
+          : (!emailValid && lead.lead_email ? "invalid_email_format" : "no_usable_input"),
       });
     }
 
     // ── Hunter email verification ─────────────────────────────────────────────
     let hunterResult: HunterResult | null = null;
 
-    if (keys.hunter && lead.lead_email) {
+    if (keys.hunter && lead.lead_email && emailValid && !rateLimited.has("hunter")) {
       hunterResult = await verifyWithHunter(keys.hunter, lead.lead_email);
+      void incrementProviderCall(sb, lead.org_id, "hunter");
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
         provider: "hunter",
@@ -414,7 +487,10 @@ async function processLead(
         raw_lead_id: lead.lead_id,
         provider: "hunter",
         status: "skipped",
-        error_detail: !keys.hunter ? "no_api_key" : "no_email",
+        error_detail: !keys.hunter ? "no_api_key"
+          : !lead.lead_email ? "no_email"
+          : rateLimited.has("hunter") ? "rate_limited"
+          : "invalid_email_format",
       });
     }
 
@@ -423,7 +499,7 @@ async function processLead(
     let hunterDomainResult: HunterDomainResult | null = null;
     const apolloMissingFirmographic = !apolloResult?.industry && !apolloResult?.company_size;
 
-    if (keys.hunter && lead.lead_email && apolloMissingFirmographic) {
+    if (keys.hunter && lead.lead_email && emailValid && apolloMissingFirmographic && !rateLimited.has("hunter")) {
       hunterDomainResult = await enrichFromHunterDomain(keys.hunter, lead.lead_email);
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
@@ -437,6 +513,8 @@ async function processLead(
         status: "skipped",
         error_detail: !keys.hunter ? "no_api_key"
           : !lead.lead_email ? "no_email"
+          : !emailValid ? "invalid_email_format"
+          : rateLimited.has("hunter") ? "rate_limited"
           : "apollo_sufficient",
       });
     }
@@ -444,8 +522,9 @@ async function processLead(
     // ── AbstractAPI Phone Verification ────────────────────────────────────────
     let phoneVerifyResult: { valid: boolean; line_type: string; carrier: string | null } | null = null;
 
-    if (keys.abstract_phone && lead.lead_phone) {
+    if (keys.abstract_phone && lead.lead_phone && phoneValid && !rateLimited.has("abstract_phone")) {
       phoneVerifyResult = await verifyPhoneAbstract(keys.abstract_phone, lead.lead_phone);
+      void incrementProviderCall(sb, lead.org_id, "abstract_phone");
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
         provider: "abstract_phone",
@@ -456,7 +535,10 @@ async function processLead(
         raw_lead_id: lead.lead_id,
         provider: "abstract_phone",
         status: "skipped",
-        error_detail: !keys.abstract_phone ? "no_api_key" : "no_phone",
+        error_detail: !keys.abstract_phone ? "no_api_key"
+          : !lead.lead_phone ? "no_phone"
+          : rateLimited.has("abstract_phone") ? "rate_limited"
+          : "invalid_phone_format",
       });
     }
 
@@ -675,6 +757,9 @@ async function processLead(
       model_output_json: context ?? {},
     });
 
+    // Phase 17: SLA — record enrichment end time
+    const enrichmentEndAt = new Date().toISOString();
+
     // Final status update (gsc_handoff_key prevents double-push via unique index)
     const statusUpdate: Record<string, unknown> = {
       status: newStatus,
@@ -687,6 +772,26 @@ async function processLead(
     }
 
     await sb.from("lge_raw_leads").update(statusUpdate).eq("id", lead.lead_id);
+
+    // Phase 17: SLA metrics (fire-and-forget)
+    const routingEndAt = new Date().toISOString();
+    const enrichMs  = new Date(enrichmentEndAt).getTime() - new Date(enrichmentStartAt).getTime();
+    const pipelineMs = new Date(routingEndAt).getTime() - new Date(enrichmentStartAt).getTime();
+    sb.from("lge_sla_metrics").insert({
+      org_id: lead.org_id, campaign_id: lead.campaign_id, lead_id: lead.lead_id,
+      enrichment_start_at: enrichmentStartAt, enrichment_end_at: enrichmentEndAt,
+      routing_end_at: routingEndAt, enrichment_ms: enrichMs, total_pipeline_ms: pipelineMs,
+    }).then(undefined, () => {});
+
+    // Phase 18: usage metrics (fire-and-forget)
+    sb.rpc("lge_increment_usage", { p_org_id: lead.org_id, p_field: "leads_processed" }).then(undefined, () => {});
+    if (newStatus === "pushed") {
+      sb.rpc("lge_increment_usage", { p_org_id: lead.org_id, p_field: "leads_pushed" }).then(undefined, () => {});
+    }
+    if (apolloResult !== null || hunterResult !== null || hunterDomainResult !== null || phoneVerifyResult !== null) {
+      sb.rpc("lge_increment_usage", { p_org_id: lead.org_id, p_field: "enrichment_calls" }).then(undefined, () => {});
+    }
+
   } catch (e: any) {
     console.error("[lge_worker] lead error", lead.lead_id, e.message);
 
@@ -696,9 +801,20 @@ async function processLead(
       last_error: e.message ?? "Unknown error",
     };
     // attempt was already incremented by lge_claim_batch
-    failUpdate.status = lead.attempt >= lead.max_attempts ? "failed" : "pending";
+    const isFinal = lead.attempt >= lead.max_attempts;
+    failUpdate.status = isFinal ? "failed" : "pending";
 
     await sb.from("lge_raw_leads").update(failUpdate).eq("id", lead.lead_id).then(undefined, () => {});
+
+    // Phase 17: write to DLQ on final failure
+    if (isFinal) {
+      sb.from("lge_dead_letter").insert({
+        lead_id: lead.lead_id, org_id: lead.org_id, campaign_id: lead.campaign_id,
+        reason: e.message ?? "Unknown error",
+        payload: { lead_name: lead.lead_name, lead_email: lead.lead_email, attempt: lead.attempt },
+        retry_count: 0, max_retries: 3, status: "dead",
+      }).then(undefined, () => {});
+    }
   }
 }
 
@@ -734,10 +850,29 @@ serve(async (req: Request) => {
       });
     }
 
-    const orgKeyCache        = new Map<string, OrgKeys>();
-    const sourceAdjCache     = new Map<string, SourceAdjMap>();
+    const orgKeyCache         = new Map<string, OrgKeys>();
+    const sourceAdjCache      = new Map<string, SourceAdjMap>();
     const campaignConfigCache = new Map<string, CampaignConfig>();
-    await runPool(batch, CONCURRENCY, (lead) => processLead(lead, sb, orgKeyCache, sourceAdjCache, campaignConfigCache));
+    const rateLimitedCache    = new Map<string, Set<string>>();
+
+    const batchStart = Date.now();
+    let failCount = 0;
+
+    await runPool(batch, CONCURRENCY, async (lead) => {
+      try {
+        await processLead(lead, sb, orgKeyCache, sourceAdjCache, campaignConfigCache, rateLimitedCache);
+      } catch {
+        failCount++;
+      }
+    });
+
+    // Phase 17: upsert worker health (fire-and-forget)
+    const avgMs = Math.round((Date.now() - batchStart) / batch.length);
+    sb.from("lge_worker_health").upsert({
+      worker_id: wid, last_seen: new Date().toISOString(),
+      tasks_processed: batch.length, tasks_failed: failCount,
+      avg_processing_ms: avgMs, batch_size: batch.length, updated_at: new Date().toISOString(),
+    }, { onConflict: "worker_id" }).then(undefined, () => {});
 
     return new Response(JSON.stringify({ ok: true, processed: batch.length, worker: wid }), {
       status: 200,

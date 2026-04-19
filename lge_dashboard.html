@@ -563,6 +563,8 @@
         <button class="tab-btn" onclick="switchTab('intelligence',this)" id="intelligence-tab-btn">
             Intelligence <span id="intelligence-badge" class="hidden ml-1 bg-indigo-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span>
         </button>
+        <button class="tab-btn" onclick="switchTab('replay',this)" id="replay-tab-btn">Replay</button>
+        <button class="tab-btn" onclick="switchTab('settings',this)" id="settings-tab-btn">Settings</button>
     </div>
 
     <!-- Pipeline Status Strip -->
@@ -1321,6 +1323,288 @@
 
         </div><!-- /tab-intelligence -->
 
+        <!-- ── Replay Tab (Phase 16) ───────────────────────────────────────── -->
+        <div id="tab-replay" class="tab-body hidden p-6 space-y-6">
+
+            <!-- Create Replay -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Replay Console</p>
+                        <p class="text-xs text-slate-600 mt-0.5">Re-run historical leads through different routing thresholds — read-only, no live mutations</p>
+                    </div>
+                    <button onclick="openCreateReplayModal()" class="btn-primary text-xs py-1.5 px-4">
+                        <i class="fa-solid fa-rotate-right mr-1.5"></i>New Replay
+                    </button>
+                </div>
+
+                <!-- Replay list -->
+                <div id="replays-list" class="divide-y divide-white/5">
+                    <div class="px-5 py-6 text-center text-sm text-slate-600">Select a campaign and run a replay to see results here.</div>
+                </div>
+            </div>
+
+            <!-- Replay results panel (shown after clicking a replay) -->
+            <div id="replay-results-panel" class="hidden glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Replay Results</p>
+                        <p id="replay-results-title" class="text-xs text-slate-400 mt-0.5">—</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                            <input type="checkbox" id="replay-changed-only" onchange="loadReplayResults()" class="rounded">
+                            Changed only
+                        </label>
+                        <button onclick="closeReplayResults()" class="text-slate-500 hover:text-white text-sm"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead class="bg-white/5">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-slate-400 font-medium">Lead</th>
+                                <th class="px-4 py-2 text-right text-slate-400 font-medium">Score</th>
+                                <th class="px-4 py-2 text-center text-slate-400 font-medium">Original</th>
+                                <th class="px-4 py-2 text-center text-slate-400 font-medium">New</th>
+                                <th class="px-4 py-2 text-center text-slate-400 font-medium">Changed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="replay-results-tbody" class="divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+                <div id="replay-results-more" class="hidden px-5 py-3 border-t border-white/5 text-center">
+                    <button onclick="loadMoreReplayResults()" class="text-xs text-indigo-400 hover:text-indigo-300">Load more</button>
+                </div>
+            </div>
+
+            <!-- Simulation Profiles -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Outcome Simulation Profiles</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Expected reply/booked rates by score band, used to forecast replay impact</p>
+                </div>
+                <div id="sim-profiles-grid" class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="col-span-full text-center text-sm text-slate-600 py-4">Loading profiles...</div>
+                </div>
+            </div>
+
+            <!-- Operator Override Stats -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Operator Override Stats</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Manual force-push and discard frequency over the last 30 days</p>
+                </div>
+                <div id="operator-stats-wrap" class="p-5">
+                    <div class="text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+        </div><!-- /tab-replay -->
+
+        <!-- ── Settings Tab (Phase 18 + 19) ──────────────────────────────────── -->
+        <div id="tab-settings" class="tab-body hidden p-6 space-y-6">
+
+            <!-- Usage vs Quotas -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Today's Usage vs Quotas</p>
+                </div>
+                <div id="usage-quota-grid" class="p-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="col-span-full text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Rate Limits -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Provider Rate Limits — Today</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Daily API call usage per provider</p>
+                </div>
+                <div id="rate-limits-wrap" class="p-5">
+                    <div class="text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- DLQ -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Dead Letter Queue</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Leads that failed after max retries — retry or abandon</p>
+                </div>
+                <div id="dlq-wrap" class="p-5">
+                    <div class="text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Worker Health -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Worker Health</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Most recent worker run statistics</p>
+                </div>
+                <div id="worker-health-wrap" class="p-5">
+                    <div class="text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Retention Policy -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Data Retention Policy</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Configure how long data is kept per table (days)</p>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div><label class="text-xs text-slate-400 block mb-1">Raw Leads</label><input id="ret-raw-leads" type="number" min="7" max="730" class="input-field text-sm" value="90"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Enrichment</label><input id="ret-enrichment" type="number" min="7" max="730" class="input-field text-sm" value="90"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Scores</label><input id="ret-scores" type="number" min="7" max="730" class="input-field text-sm" value="180"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Decision Logs</label><input id="ret-decisions" type="number" min="7" max="730" class="input-field text-sm" value="180"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Outcomes</label><input id="ret-outcomes" type="number" min="7" max="730" class="input-field text-sm" value="365"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">SLA Metrics</label><input id="ret-sla" type="number" min="7" max="730" class="input-field text-sm" value="30"></div>
+                    </div>
+                    <button onclick="saveRetentionPolicy()" class="btn-primary text-xs py-1.5 px-4">Save Retention Policy</button>
+                </div>
+            </div>
+
+            <!-- Public API Keys -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Public API Keys</p>
+                        <p class="text-xs text-slate-600 mt-0.5">Keys for the LGE Public REST API — scoped to ingest / score / read</p>
+                    </div>
+                    <button onclick="openCreateApiKeyModal()" class="btn-primary text-xs py-1.5 px-4">
+                        <i class="fa-solid fa-plus mr-1.5"></i>New Key
+                    </button>
+                </div>
+                <div id="api-keys-wrap" class="divide-y divide-white/5">
+                    <div class="px-5 py-4 text-center text-sm text-slate-600">Loading...</div>
+                </div>
+            </div>
+
+            <!-- White-Label Branding -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">White-Label Branding</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Customize brand identity for white-label deployments</p>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div><label class="text-xs text-slate-400 block mb-1">Brand Name</label><input id="brand-name" type="text" class="input-field text-sm" placeholder="Your Company"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Primary Color</label><input id="brand-color" type="text" class="input-field text-sm" placeholder="#4F46E5"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Logo URL</label><input id="brand-logo" type="text" class="input-field text-sm" placeholder="https://..."></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Custom Domain</label><input id="brand-domain" type="text" class="input-field text-sm" placeholder="lge.yourco.com"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Email From Name</label><input id="brand-email-name" type="text" class="input-field text-sm" placeholder="YourCo Leads"></div>
+                        <div><label class="text-xs text-slate-400 block mb-1">Email From Address</label><input id="brand-email-addr" type="text" class="input-field text-sm" placeholder="leads@yourco.com"></div>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input type="checkbox" id="brand-white-label" class="rounded">
+                        Enable white-label mode (hides GetSalesCloser branding)
+                    </label>
+                    <button onclick="saveBranding()" class="btn-primary text-xs py-1.5 px-4">Save Branding</button>
+                </div>
+            </div>
+
+            <!-- Benchmarks -->
+            <div class="glass-panel rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-white/5">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Cross-Industry Benchmarks</p>
+                    <p class="text-xs text-slate-600 mt-0.5">Anonymized reply + booked rates by score band across all orgs (updated weekly)</p>
+                </div>
+                <div id="benchmarks-wrap" class="p-5">
+                    <div class="text-center text-sm text-slate-600 py-4">Loading...</div>
+                </div>
+            </div>
+
+        </div><!-- /tab-settings -->
+
+        <!-- Create Replay Modal -->
+        <div id="create-replay-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="glass-panel rounded-2xl w-full max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-semibold text-white">New Replay</h3>
+                    <button onclick="closeCreateReplayModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Campaign</label>
+                    <select id="replay-campaign-select" class="select-field text-sm">
+                        <option value="">Select campaign...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Replay Name</label>
+                    <input id="replay-name" type="text" class="input-field text-sm" placeholder="e.g. Test lower auto-push to 75">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Auto-push Threshold</label>
+                        <input id="replay-auto-threshold" type="number" min="50" max="100" value="80" class="input-field text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Review Threshold</label>
+                        <input id="replay-review-threshold" type="number" min="40" max="90" value="60" class="input-field text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Date From (optional)</label>
+                        <input id="replay-date-from" type="date" class="input-field text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1.5">Date To (optional)</label>
+                        <input id="replay-date-to" type="date" class="input-field text-sm">
+                    </div>
+                </div>
+                <div id="replay-modal-err" class="hidden text-xs text-red-400"></div>
+                <button onclick="runReplay()" class="btn-primary w-full text-sm py-2">
+                    <i class="fa-solid fa-rotate-right mr-1.5"></i>Run Replay
+                </button>
+            </div>
+        </div>
+
+        <!-- Create API Key Modal -->
+        <div id="create-api-key-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="glass-panel rounded-2xl w-full max-w-md p-6 space-y-4" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-semibold text-white">New Public API Key</h3>
+                    <button onclick="closeCreateApiKeyModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Key Name</label>
+                    <input id="api-key-name" type="text" class="input-field text-sm" placeholder="e.g. CRM Integration">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Scopes</label>
+                    <div class="space-y-1.5">
+                        <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" id="scope-ingest" checked class="rounded"> ingest — submit leads</label>
+                        <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" id="scope-score" checked class="rounded"> score — inline scoring</label>
+                        <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" id="scope-read" checked class="rounded"> read — read campaigns/leads/outcomes</label>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Rate Limit (requests/min)</label>
+                    <input id="api-key-rate-limit" type="number" min="1" max="600" value="60" class="input-field text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1.5">Expires in (days, blank = no expiry)</label>
+                    <input id="api-key-expires" type="number" min="1" max="365" class="input-field text-sm" placeholder="Leave blank for no expiry">
+                </div>
+                <!-- Raw key reveal (shown after creation) -->
+                <div id="api-key-reveal" class="hidden bg-green-900/20 border border-green-500/30 rounded-lg p-4 space-y-2">
+                    <p class="text-xs text-green-400 font-semibold">Key created — copy it now. It won't be shown again.</p>
+                    <div class="flex items-center gap-2">
+                        <code id="api-key-value" class="text-xs text-white bg-white/5 rounded px-3 py-2 flex-1 break-all"></code>
+                        <button onclick="copyApiKey()" class="btn-secondary text-xs py-1.5 px-3 flex-shrink-0">Copy</button>
+                    </div>
+                </div>
+                <div id="api-key-form-wrap">
+                    <button onclick="createApiKey()" class="btn-primary w-full text-sm py-2">
+                        <i class="fa-solid fa-key mr-1.5"></i>Generate Key
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Create Experiment Modal -->
         <div id="create-exp-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
             <div class="glass-panel rounded-2xl w-full max-w-lg p-6 space-y-4" onclick="event.stopPropagation()">
@@ -1462,6 +1746,8 @@ function switchTab(name, btn) {
     if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
     if (name === 'alerts') { loadAlerts(); loadNotifPrefs(); loadDigestHistory(); }
     if (name === 'intelligence') { populateIntelCampaignSelect(); loadVerticalPacks(); }
+    if (name === 'replay')   { loadReplayTab(); }
+    if (name === 'settings') { loadSettingsTab(); }
 }
 
 // ── Campaigns ─────────────────────────────────────────────────────────────────
@@ -4375,10 +4661,464 @@ async function applyVerticalPack(packId, packName) {
         const res = await callFn('lge_policy_manage', { action: 'apply_vertical_pack', campaign_id: intelCampaignId, pack_id: packId });
         if (res.error) throw new Error(res.error);
         toast(`"${packName}" pack applied to campaign`, 'success');
-        await loadCampaigns(); // Refresh campaign data
+        await loadCampaigns();
     } catch (e) {
         toast('Failed: ' + e.message, 'error');
     }
+}
+
+// ── Phase 16: Replay Tab ──────────────────────────────────────────────────────
+
+let activeReplayId = null;
+let replayResultsOffset = 0;
+
+async function loadReplayTab() {
+    await Promise.all([loadReplayList(), loadSimProfiles(), loadOperatorStats()]);
+}
+
+async function loadReplayList() {
+    const el = document.getElementById('replays-list');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'list_replays', limit: 30 });
+        const replays = res.replays ?? [];
+        if (!replays.length) {
+            el.innerHTML = '<div class="px-5 py-6 text-center text-sm text-slate-600">No replays yet — create one above.</div>';
+            return;
+        }
+        el.innerHTML = replays.map(r => {
+            const campName = campaigns.find(c => c.id === r.campaign_id)?.name ?? 'Campaign';
+            const delta = r.push_delta > 0 ? `+${r.push_delta}` : r.push_delta;
+            const deltaColor = r.push_delta > 0 ? 'text-green-400' : r.push_delta < 0 ? 'text-red-400' : 'text-slate-500';
+            const policy = r.policy_snapshot_json ?? {};
+            return `<div class="px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/2 cursor-pointer" onclick="openReplayResults('${r.id}', '${escHtml(r.name)}')">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-white truncate">${escHtml(r.name)}</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">${escHtml(campName)} &middot; auto-push &ge;${policy.auto_push_threshold ?? '?'} / review &ge;${policy.review_threshold ?? '?'} &middot; ${fmtDate(r.created_at)}</p>
+                </div>
+                <div class="flex items-center gap-6 text-xs flex-shrink-0">
+                    <div class="text-center"><div class="text-white font-semibold">${r.total_leads ?? 0}</div><div class="text-slate-500">Leads</div></div>
+                    <div class="text-center"><div class="text-amber-400 font-semibold">${r.changed_count ?? 0}</div><div class="text-slate-500">Changed</div></div>
+                    <div class="text-center"><div class="${deltaColor} font-semibold">${delta ?? 0}</div><div class="text-slate-500">Push delta</div></div>
+                    <i class="fa-solid fa-chevron-right text-slate-600"></i>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) { el.innerHTML = `<div class="px-5 py-4 text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function openReplayResults(replayId, replayName) {
+    activeReplayId = replayId;
+    replayResultsOffset = 0;
+    document.getElementById('replay-results-title').textContent = replayName;
+    document.getElementById('replay-results-panel').classList.remove('hidden');
+    document.getElementById('replay-results-tbody').innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500 text-xs">Loading...</td></tr>';
+    await loadReplayResults();
+}
+
+function closeReplayResults() {
+    activeReplayId = null;
+    document.getElementById('replay-results-panel').classList.add('hidden');
+}
+
+async function loadReplayResults() {
+    if (!activeReplayId) return;
+    const changedOnly = document.getElementById('replay-changed-only').checked;
+    replayResultsOffset = 0;
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_replay_results', replay_id: activeReplayId, changed_only: changedOnly, limit: 100, offset: 0 });
+        renderReplayResults(res.results ?? [], false);
+        document.getElementById('replay-results-more').classList.toggle('hidden', (res.results ?? []).length < 100);
+    } catch (e) {
+        document.getElementById('replay-results-tbody').innerHTML = `<tr><td colspan="5" class="px-4 py-4 text-xs text-red-400">${e.message}</td></tr>`;
+    }
+}
+
+async function loadMoreReplayResults() {
+    if (!activeReplayId) return;
+    const changedOnly = document.getElementById('replay-changed-only').checked;
+    replayResultsOffset += 100;
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_replay_results', replay_id: activeReplayId, changed_only: changedOnly, limit: 100, offset: replayResultsOffset });
+        renderReplayResults(res.results ?? [], true);
+        document.getElementById('replay-results-more').classList.toggle('hidden', (res.results ?? []).length < 100);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderReplayResults(results, append) {
+    const tbody = document.getElementById('replay-results-tbody');
+    const decisionLabel = d => ({ auto_push: 'Auto-push', review_queue: 'Review', discard: 'Discard', shadow_only: 'Shadow', unknown: '—' }[d] ?? d);
+    const decisionColor = d => ({ auto_push: 'text-green-400', review_queue: 'text-amber-400', discard: 'text-red-400', shadow_only: 'text-slate-500' }[d] ?? 'text-slate-400');
+    const rows = results.map(r => `<tr class="${r.decision_changed ? 'bg-amber-500/5' : ''}">
+        <td class="px-4 py-2.5 text-slate-400 font-mono text-[10px]">${r.lead_id.slice(0,8)}...</td>
+        <td class="px-4 py-2.5 text-right text-white font-semibold">${r.original_total_score ?? '—'}</td>
+        <td class="px-4 py-2.5 text-center"><span class="${decisionColor(r.original_decision)}">${decisionLabel(r.original_decision)}</span></td>
+        <td class="px-4 py-2.5 text-center"><span class="${decisionColor(r.new_decision)}">${decisionLabel(r.new_decision)}</span></td>
+        <td class="px-4 py-2.5 text-center">${r.decision_changed ? '<span class="text-amber-400"><i class="fa-solid fa-circle-exclamation"></i></span>' : '<span class="text-slate-600">—</span>'}</td>
+    </tr>`).join('');
+    if (append) tbody.insertAdjacentHTML('beforeend', rows);
+    else tbody.innerHTML = rows || '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-600 text-xs">No results</td></tr>';
+}
+
+function openCreateReplayModal() {
+    // Populate campaign select
+    const sel = document.getElementById('replay-campaign-select');
+    sel.innerHTML = '<option value="">Select campaign...</option>' + campaigns.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+    document.getElementById('create-replay-modal').classList.remove('hidden');
+}
+function closeCreateReplayModal() { document.getElementById('create-replay-modal').classList.add('hidden'); }
+
+async function runReplay() {
+    const campaignId = document.getElementById('replay-campaign-select').value;
+    const name       = document.getElementById('replay-name').value.trim();
+    const autoT      = Number(document.getElementById('replay-auto-threshold').value);
+    const reviewT    = Number(document.getElementById('replay-review-threshold').value);
+    const dateFrom   = document.getElementById('replay-date-from').value;
+    const dateTo     = document.getElementById('replay-date-to').value;
+    const errEl      = document.getElementById('replay-modal-err');
+
+    if (!campaignId) { errEl.textContent = 'Select a campaign.'; errEl.classList.remove('hidden'); return; }
+    if (!name)       { errEl.textContent = 'Enter a replay name.'; errEl.classList.remove('hidden'); return; }
+    if (autoT <= reviewT) { errEl.textContent = 'Auto-push threshold must be greater than review threshold.'; errEl.classList.remove('hidden'); return; }
+    errEl.classList.add('hidden');
+
+    const btn = event.currentTarget;
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Running...';
+
+    try {
+        const res = await callFn('lge_policy_manage', {
+            action: 'create_replay', campaign_id: campaignId, name,
+            auto_push_threshold: autoT, review_threshold: reviewT,
+            date_from: dateFrom ? new Date(dateFrom).toISOString() : undefined,
+            date_to:   dateTo   ? new Date(dateTo + 'T23:59:59').toISOString() : undefined,
+        });
+        if (res.error) throw new Error(res.error);
+        toast(`Replay complete — ${res.total_leads} leads, ${res.changed_count} changed, push delta ${res.push_delta > 0 ? '+' : ''}${res.push_delta}`, 'success');
+        closeCreateReplayModal();
+        await loadReplayList();
+        openReplayResults(res.replay_id, name);
+    } catch (e) {
+        errEl.textContent = e.message; errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right mr-1.5"></i>Run Replay';
+    }
+}
+
+async function loadSimProfiles() {
+    const el = document.getElementById('sim-profiles-grid');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'list_simulation_profiles' });
+        const profiles = res.profiles ?? [];
+        if (!profiles.length) { el.innerHTML = '<div class="col-span-full text-center text-sm text-slate-600 py-4">No profiles.</div>'; return; }
+        el.innerHTML = profiles.map(p => {
+            const bands = p.score_band_probabilities_json ?? {};
+            const rows = Object.entries(bands).map(([band, rates]) =>
+                `<div class="flex justify-between text-[10px]"><span class="text-slate-500">${band}</span><span class="text-slate-400">reply ${Math.round((rates.reply ?? 0)*100)}% / booked ${Math.round((rates.booked ?? 0)*100)}%</span></div>`
+            ).join('');
+            return `<div class="glass-panel rounded-xl p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded bg-indigo-900/30 flex items-center justify-center"><i class="fa-solid fa-chart-bar text-indigo-400 text-[10px]"></i></div>
+                    <div>
+                        <p class="text-xs font-semibold text-white">${escHtml(p.name)}</p>
+                        <p class="text-[10px] text-slate-600">${p.is_global ? 'Global' : 'Custom'} ${p.vertical ? '· ' + p.vertical : ''}</p>
+                    </div>
+                </div>
+                <div class="space-y-1">${rows}</div>
+            </div>`;
+        }).join('');
+    } catch (e) { el.innerHTML = `<div class="col-span-full text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function loadOperatorStats() {
+    const el = document.getElementById('operator-stats-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_operator_stats', days: 30 });
+        const summary = res.summary ?? {};
+        const total = Object.values(summary).reduce((a, b) => a + b, 0);
+        if (!total) { el.innerHTML = '<div class="text-center text-sm text-slate-600 py-4">No operator overrides in the last 30 days.</div>'; return; }
+        const labels = { force_push: 'Force Push', discard: 'Discard', score_override: 'Score Override', manual_outcome: 'Manual Outcome' };
+        el.innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${Object.entries(labels).map(([key, label]) => `
+            <div class="glass-panel rounded-xl p-3 text-center">
+                <div class="text-xl font-bold text-white">${summary[key] ?? 0}</div>
+                <div class="text-[10px] text-slate-500 mt-0.5">${label}</div>
+            </div>`).join('')}</div>`;
+    } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
+}
+
+// ── Phase 17/18/19: Settings Tab ─────────────────────────────────────────────
+
+async function loadSettingsTab() {
+    await Promise.all([loadUsageQuota(), loadRateLimits(), loadDLQ(), loadWorkerHealth(), loadRetentionPolicy(), loadApiKeys(), loadOrgBranding(), loadBenchmarks()]);
+}
+
+async function loadUsageQuota() {
+    const el = document.getElementById('usage-quota-grid');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_usage_metrics', days: 1 });
+        const today = (res.usage ?? [])[0] ?? {};
+        const quota = res.quotas ?? {};
+        const fields = [
+            { key: 'leads_ingested',   label: 'Ingested',    limit: quota.max_leads_per_day },
+            { key: 'leads_processed',  label: 'Processed',   limit: null },
+            { key: 'leads_pushed',     label: 'Pushed',      limit: quota.max_pushes_per_day },
+            { key: 'enrichment_calls', label: 'Enrichments', limit: quota.max_enrichments_per_day },
+            { key: 'replay_runs',      label: 'Replays',     limit: quota.max_replays_per_day },
+        ];
+        el.innerHTML = fields.map(f => {
+            const used  = today[f.key] ?? 0;
+            const pct   = f.limit ? Math.min(100, Math.round((used / f.limit) * 100)) : null;
+            const color = pct !== null ? (pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-indigo-500') : 'bg-slate-700';
+            return `<div class="glass-panel rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-slate-500">${f.label}</span>
+                    ${pct !== null ? `<span class="text-[10px] text-slate-500">${pct}%</span>` : ''}
+                </div>
+                <div class="text-lg font-bold text-white">${used.toLocaleString()}<span class="text-[10px] text-slate-600 font-normal ml-1">${f.limit ? '/ ' + f.limit.toLocaleString() : ''}</span></div>
+                ${pct !== null ? `<div class="h-1 bg-white/10 rounded-full"><div class="${color} h-1 rounded-full transition-all" style="width:${pct}%"></div></div>` : ''}
+            </div>`;
+        }).join('');
+    } catch (e) { el.innerHTML = `<div class="col-span-full text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function loadRateLimits() {
+    const el = document.getElementById('rate-limits-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_rate_limits' });
+        const limits = res.rate_limits ?? [];
+        if (!limits.length) { el.innerHTML = '<div class="text-center text-sm text-slate-600 py-2">No rate limit data for today.</div>'; return; }
+        el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-xs">
+            <thead class="bg-white/5"><tr>
+                <th class="px-4 py-2 text-left text-slate-400 font-medium">Provider</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Used</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Limit</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Usage</th>
+            </tr></thead>
+            <tbody class="divide-y divide-white/5">${limits.map(l => {
+                const pct = l.calls_limit > 0 ? Math.round((l.calls_made / l.calls_limit) * 100) : 0;
+                const color = pct >= 90 ? 'text-red-400' : pct >= 70 ? 'text-amber-400' : 'text-green-400';
+                return `<tr><td class="px-4 py-2.5 text-white capitalize">${l.provider}</td>
+                    <td class="px-4 py-2.5 text-right text-slate-300">${l.calls_made.toLocaleString()}</td>
+                    <td class="px-4 py-2.5 text-right text-slate-500">${l.calls_limit.toLocaleString()}</td>
+                    <td class="px-4 py-2.5 text-right ${color} font-semibold">${pct}%</td></tr>`;
+            }).join('')}</tbody>
+        </table></div>`;
+    } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function loadDLQ() {
+    const el = document.getElementById('dlq-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_dead_letter', status: 'dead', limit: 20 });
+        const items = res.items ?? [];
+        if (!items.length) { el.innerHTML = '<div class="text-center text-sm text-slate-600 py-2">Dead letter queue is empty.</div>'; return; }
+        el.innerHTML = `<div class="space-y-2">${items.map(item => `<div class="flex items-center gap-3 bg-white/3 rounded-lg p-3">
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-white truncate">${item.lead_id ? 'Lead ' + item.lead_id.slice(0,8) + '...' : 'No lead'}</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">${escHtml(item.reason)} &middot; ${item.retry_count}/${item.max_retries} retries &middot; ${fmtDate(item.created_at)}</p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button onclick="retryDLQItem('${item.id}')" class="btn-secondary text-[10px] py-1 px-2" ${item.retry_count >= item.max_retries ? 'disabled' : ''}>Retry</button>
+                <button onclick="abandonDLQItem('${item.id}')" class="text-red-400 hover:text-red-300 text-[10px]">Abandon</button>
+            </div>
+        </div>`).join('')}</div>`;
+    } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function retryDLQItem(dlqId) {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'retry_dead_letter', dlq_id: dlqId });
+        if (res.error) throw new Error(res.error);
+        toast('Lead reset to pending — will be picked up on next worker run', 'success');
+        await loadDLQ();
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function abandonDLQItem(dlqId) {
+    if (!confirm('Mark this item as abandoned? The lead will not be retried.')) return;
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'abandon_dead_letter', dlq_id: dlqId });
+        if (res.error) throw new Error(res.error);
+        toast('Item abandoned', 'success');
+        await loadDLQ();
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadWorkerHealth() {
+    const el = document.getElementById('worker-health-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_worker_health' });
+        const workers = res.workers ?? [];
+        if (!workers.length) { el.innerHTML = '<div class="text-center text-sm text-slate-600 py-2">No worker data yet.</div>'; return; }
+        el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-xs">
+            <thead class="bg-white/5"><tr>
+                <th class="px-4 py-2 text-left text-slate-400 font-medium">Worker</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Processed</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Failed</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Avg ms</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Last Seen</th>
+            </tr></thead>
+            <tbody class="divide-y divide-white/5">${workers.slice(0,5).map(w => `<tr>
+                <td class="px-4 py-2.5 font-mono text-[10px] text-slate-400">${w.worker_id.slice(0,24)}...</td>
+                <td class="px-4 py-2.5 text-right text-white">${w.tasks_processed}</td>
+                <td class="px-4 py-2.5 text-right ${w.tasks_failed > 0 ? 'text-red-400' : 'text-slate-500'}">${w.tasks_failed}</td>
+                <td class="px-4 py-2.5 text-right text-slate-400">${w.avg_processing_ms ?? '—'}</td>
+                <td class="px-4 py-2.5 text-right text-slate-500">${fmtDate(w.last_seen)}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`;
+    } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
+}
+
+async function loadRetentionPolicy() {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_retention_policy' });
+        const p = res.policy ?? {};
+        document.getElementById('ret-raw-leads').value  = p.raw_leads_days  ?? 90;
+        document.getElementById('ret-enrichment').value = p.enrichment_days  ?? 90;
+        document.getElementById('ret-scores').value     = p.scores_days      ?? 180;
+        document.getElementById('ret-decisions').value  = p.decisions_days   ?? 180;
+        document.getElementById('ret-outcomes').value   = p.outcomes_days    ?? 365;
+        document.getElementById('ret-sla').value        = p.sla_metrics_days ?? 30;
+    } catch { /* best effort */ }
+}
+
+async function saveRetentionPolicy() {
+    try {
+        const res = await callFn('lge_policy_manage', {
+            action: 'update_retention_policy',
+            raw_leads_days:      Number(document.getElementById('ret-raw-leads').value),
+            enrichment_days:     Number(document.getElementById('ret-enrichment').value),
+            scores_days:         Number(document.getElementById('ret-scores').value),
+            decisions_days:      Number(document.getElementById('ret-decisions').value),
+            outcomes_days:       Number(document.getElementById('ret-outcomes').value),
+            sla_metrics_days:    Number(document.getElementById('ret-sla').value),
+        });
+        if (res.error) throw new Error(res.error);
+        toast('Retention policy saved', 'success');
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadApiKeys() {
+    const el = document.getElementById('api-keys-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'list_api_keys' });
+        const keys = res.api_keys ?? [];
+        if (!keys.length) { el.innerHTML = '<div class="px-5 py-4 text-center text-sm text-slate-600">No API keys yet.</div>'; return; }
+        el.innerHTML = keys.map(k => {
+            const expired = k.expires_at && new Date(k.expires_at) < new Date();
+            return `<div class="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-white font-medium">${escHtml(k.name)} ${!k.is_active || expired ? '<span class="text-[10px] text-red-400 ml-1">revoked</span>' : ''}</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5 font-mono">${k.key_prefix}•••••••• &middot; ${(k.scopes ?? []).join(', ')} &middot; ${k.rate_limit_per_min}/min &middot; created ${fmtDate(k.created_at)}</p>
+                </div>
+                ${k.is_active && !expired ? `<button onclick="revokeApiKey('${k.id}', '${escHtml(k.name)}')" class="text-red-400 hover:text-red-300 text-xs">Revoke</button>` : ''}
+            </div>`;
+        }).join('');
+    } catch (e) { el.innerHTML = `<div class="px-5 py-4 text-xs text-red-400">${e.message}</div>`; }
+}
+
+function openCreateApiKeyModal() {
+    document.getElementById('api-key-reveal').classList.add('hidden');
+    document.getElementById('api-key-form-wrap').classList.remove('hidden');
+    document.getElementById('api-key-name').value = '';
+    document.getElementById('create-api-key-modal').classList.remove('hidden');
+}
+function closeCreateApiKeyModal() { document.getElementById('create-api-key-modal').classList.add('hidden'); }
+
+async function createApiKey() {
+    const name = document.getElementById('api-key-name').value.trim();
+    if (!name) { toast('Enter a key name', 'warn'); return; }
+    const scopes = [];
+    if (document.getElementById('scope-ingest').checked) scopes.push('ingest');
+    if (document.getElementById('scope-score').checked)  scopes.push('score');
+    if (document.getElementById('scope-read').checked)   scopes.push('read');
+    if (!scopes.length) { toast('Select at least one scope', 'warn'); return; }
+    const rateLimit   = Number(document.getElementById('api-key-rate-limit').value);
+    const expiresIn   = document.getElementById('api-key-expires').value;
+    try {
+        const res = await callFn('lge_policy_manage', {
+            action: 'create_api_key', name, scopes,
+            rate_limit_per_min: rateLimit,
+            expires_in_days: expiresIn ? Number(expiresIn) : undefined,
+        });
+        if (res.error) throw new Error(res.error);
+        // Show raw key
+        document.getElementById('api-key-value').textContent = res.raw_key;
+        document.getElementById('api-key-reveal').classList.remove('hidden');
+        document.getElementById('api-key-form-wrap').classList.add('hidden');
+        await loadApiKeys();
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+function copyApiKey() {
+    const val = document.getElementById('api-key-value').textContent;
+    navigator.clipboard.writeText(val).then(() => toast('API key copied', 'success'));
+}
+
+async function revokeApiKey(keyId, keyName) {
+    if (!confirm(`Revoke key "${keyName}"? Any integrations using this key will immediately stop working.`)) return;
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'revoke_api_key', api_key_id: keyId });
+        if (res.error) throw new Error(res.error);
+        toast(`Key "${keyName}" revoked`, 'success');
+        await loadApiKeys();
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadOrgBranding() {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_org_branding' });
+        const b = res.branding ?? {};
+        document.getElementById('brand-name').value       = b.brand_name        ?? '';
+        document.getElementById('brand-color').value      = b.primary_color     ?? '#4F46E5';
+        document.getElementById('brand-logo').value       = b.logo_url          ?? '';
+        document.getElementById('brand-domain').value     = b.custom_domain     ?? '';
+        document.getElementById('brand-email-name').value = b.email_from_name   ?? '';
+        document.getElementById('brand-email-addr').value = b.email_from_address ?? '';
+        document.getElementById('brand-white-label').checked = !!b.is_white_label;
+    } catch { /* best effort */ }
+}
+
+async function saveBranding() {
+    try {
+        const res = await callFn('lge_policy_manage', {
+            action: 'update_org_branding',
+            brand_name:          document.getElementById('brand-name').value.trim() || null,
+            primary_color:       document.getElementById('brand-color').value.trim() || null,
+            logo_url:            document.getElementById('brand-logo').value.trim() || null,
+            custom_domain:       document.getElementById('brand-domain').value.trim() || null,
+            email_from_name:     document.getElementById('brand-email-name').value.trim() || null,
+            email_from_address:  document.getElementById('brand-email-addr').value.trim() || null,
+            is_white_label:      document.getElementById('brand-white-label').checked,
+        });
+        if (res.error) throw new Error(res.error);
+        toast('Branding saved', 'success');
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadBenchmarks() {
+    const el = document.getElementById('benchmarks-wrap');
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_benchmarks' });
+        const bmarks = res.benchmarks ?? [];
+        if (!bmarks.length) { el.innerHTML = '<div class="text-center text-sm text-slate-600 py-4">No benchmark data yet — computed weekly on Sundays.</div>'; return; }
+        el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-xs">
+            <thead class="bg-white/5"><tr>
+                <th class="px-4 py-2 text-left text-slate-400 font-medium">Vertical</th>
+                <th class="px-4 py-2 text-center text-slate-400 font-medium">Score Band</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Sample</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Reply Rate</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">Booked Rate</th>
+                <th class="px-4 py-2 text-right text-slate-400 font-medium">False Push</th>
+            </tr></thead>
+            <tbody class="divide-y divide-white/5">${bmarks.map(b => `<tr>
+                <td class="px-4 py-2.5 text-white capitalize">${b.vertical}</td>
+                <td class="px-4 py-2.5 text-center text-slate-400">${b.score_band}</td>
+                <td class="px-4 py-2.5 text-right text-slate-500">${b.sample_count.toLocaleString()}</td>
+                <td class="px-4 py-2.5 text-right text-green-400">${b.avg_reply_rate ?? '—'}%</td>
+                <td class="px-4 py-2.5 text-right text-indigo-400">${b.avg_booked_rate ?? '—'}%</td>
+                <td class="px-4 py-2.5 text-right text-red-400">${b.avg_false_push_rate ?? '—'}%</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`;
+    } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
 }
 </script>
 </body>

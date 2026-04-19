@@ -872,6 +872,530 @@ serve(async (req: Request) => {
       return ok({ cost_metrics: data ?? [], days: Math.min(days, 365) });
     }
 
+    // ── Phase 16: Replay Engine ───────────────────────────────────────────────
+    // Runs in-memory: reads existing lge_scores, applies new thresholds, writes lge_replay_results.
+    // Does NOT mutate lge_raw_leads or any live table.
+    case "create_replay": {
+      if (role === "viewer") return err("Forbidden", 403);
+      const { campaign_id, name, auto_push_threshold = 80, review_threshold = 60,
+              date_from, date_to, source_adj_overrides } = body;
+      if (!campaign_id) return err("campaign_id required", 400);
+      if (!name) return err("name required", 400);
+      if (Number(auto_push_threshold) <= Number(review_threshold))
+        return err("auto_push_threshold must be greater than review_threshold", 400);
+
+      // Quota check
+      const { data: quotaExceeded } = await adminSb.rpc("lge_check_quota", { p_org_id: orgId, p_field: "replay_runs" });
+      if (quotaExceeded) return err("Daily replay quota exceeded", 429);
+
+      const { data: camp } = await adminSb.from("lge_campaigns")
+        .select("id, auto_push_threshold, review_threshold").eq("id", campaign_id).eq("org_id", orgId).maybeSingle();
+      if (!camp) return err("Campaign not found", 404);
+
+      // Fetch scored leads for the campaign
+      let leadsQuery = adminSb.from("lge_raw_leads")
+        .select("id, status, created_at")
+        .eq("org_id", orgId).eq("campaign_id", campaign_id)
+        .not("status", "in", '("pending","enriching")')
+        .limit(5000);
+      if (date_from) leadsQuery = leadsQuery.gte("created_at", date_from);
+      if (date_to)   leadsQuery = leadsQuery.lte("created_at", date_to);
+      const { data: leads } = await leadsQuery;
+
+      if (!leads?.length) {
+        return err("No processed leads found for this campaign (filter returned 0 results)", 422);
+      }
+
+      const ids = (leads as any[]).map((l: any) => l.id);
+      const { data: scores } = await adminSb.from("lge_scores")
+        .select("raw_lead_id, total_score").in("raw_lead_id", ids);
+      const scoreMap = new Map((scores ?? []).map((s: any) => [s.raw_lead_id, Number(s.total_score)]));
+
+      // Determine original decision from status
+      const decisionFromStatus = (status: string) =>
+        status === "pushed" ? "auto_push"
+        : status === "review_queue" ? "review_queue"
+        : status === "discarded" ? "discard"
+        : status === "scored" ? "shadow_only"
+        : "unknown";
+
+      const autoT   = Number(auto_push_threshold);
+      const reviewT = Number(review_threshold);
+
+      const newDecisionFn = (score: number) =>
+        score >= autoT ? "auto_push" : score >= reviewT ? "review_queue" : "discard";
+
+      // Build results
+      const results = (leads as any[]).map((l: any) => {
+        const origScore = scoreMap.get(l.id) ?? null;
+        const newScore  = origScore;  // score doesn't change, only routing thresholds
+        const origDec   = decisionFromStatus(l.status);
+        const newDec    = origScore !== null ? newDecisionFn(origScore) : "unknown";
+        const changed   = origDec !== newDec;
+        const pushChg   = (origDec === "auto_push") !== (newDec === "auto_push");
+        return {
+          replay_id: null as string | null,  // will be filled after insert
+          lead_id: l.id,
+          original_total_score: origScore,
+          new_total_score: newScore,
+          score_delta: 0,
+          original_decision: origDec,
+          new_decision: newDec,
+          decision_changed: changed,
+          push_changed: pushChg,
+        };
+      });
+
+      const changedCount = results.filter((r: any) => r.decision_changed).length;
+      const pushDelta    = results.filter((r: any) => r.new_decision === "auto_push").length
+                         - results.filter((r: any) => r.original_decision === "auto_push").length;
+
+      // Create replay record
+      const { data: replay, error: repErr } = await adminSb.from("lge_replays").insert({
+        org_id: orgId,
+        campaign_id,
+        name,
+        policy_snapshot_json: { auto_push_threshold: autoT, review_threshold: reviewT, source_adj_overrides: source_adj_overrides ?? null,
+                                 compared_against: { auto_push_threshold: camp.auto_push_threshold, review_threshold: camp.review_threshold } },
+        scope_filter_json: { date_from: date_from ?? null, date_to: date_to ?? null },
+        status: "completed",
+        total_leads: results.length,
+        changed_count: changedCount,
+        push_delta: pushDelta,
+        created_by: actorId,
+        completed_at: new Date().toISOString(),
+      }).select("id").single();
+
+      if (repErr || !replay) return err(repErr?.message ?? "Replay create failed", 500);
+
+      // Insert per-lead results in chunks of 500
+      const CHUNK = 500;
+      for (let i = 0; i < results.length; i += CHUNK) {
+        const chunk = results.slice(i, i + CHUNK).map((r: any) => ({ ...r, replay_id: replay.id }));
+        await adminSb.from("lge_replay_results").insert(chunk).then(undefined, (e: any) => console.warn("[replay] insert chunk err:", e.message));
+      }
+
+      // Increment usage
+      await adminSb.rpc("lge_increment_usage", { p_org_id: orgId, p_field: "replay_runs" }).then(undefined, () => {});
+
+      return ok({ replay_id: replay.id, total_leads: results.length, changed_count: changedCount, push_delta: pushDelta }, 201);
+    }
+
+    case "list_replays": {
+      const { campaign_id, limit: lim = 20 } = body;
+      let q = adminSb.from("lge_replays").select("id, name, campaign_id, status, total_leads, changed_count, push_delta, created_by, created_at, completed_at, policy_snapshot_json")
+        .eq("org_id", orgId).order("created_at", { ascending: false }).limit(Math.min(lim, 100));
+      if (campaign_id) q = q.eq("campaign_id", campaign_id);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ replays: data ?? [] });
+    }
+
+    case "get_replay": {
+      const { replay_id } = body;
+      if (!replay_id) return err("replay_id required", 400);
+      const { data: replay, error: re } = await adminSb.from("lge_replays")
+        .select("*").eq("id", replay_id).eq("org_id", orgId).maybeSingle();
+      if (re || !replay) return err("Replay not found", 404);
+      return ok({ replay });
+    }
+
+    case "get_replay_results": {
+      const { replay_id, changed_only = false, limit: lim = 100, offset: off = 0 } = body;
+      if (!replay_id) return err("replay_id required", 400);
+
+      // Verify replay belongs to org
+      const { data: rep } = await adminSb.from("lge_replays").select("id").eq("id", replay_id).eq("org_id", orgId).maybeSingle();
+      if (!rep) return err("Replay not found", 404);
+
+      let q = adminSb.from("lge_replay_results").select("*")
+        .eq("replay_id", replay_id)
+        .order("decision_changed", { ascending: false })
+        .range(Number(off), Number(off) + Math.min(Number(lim), 500) - 1);
+      if (changed_only) q = q.eq("decision_changed", true);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ results: data ?? [] });
+    }
+
+    // ── Phase 16: Simulation Profiles ─────────────────────────────────────────
+    case "list_simulation_profiles": {
+      const { data, error: qe } = await adminSb.from("lge_simulation_profiles")
+        .select("*")
+        .or(`is_global.eq.true,org_id.eq.${orgId}`)
+        .order("name");
+      if (qe) return err(qe.message, 500);
+      return ok({ profiles: data ?? [] });
+    }
+
+    case "create_simulation_profile": {
+      if (role === "viewer") return err("Forbidden", 403);
+      const { name, vertical, score_band_probabilities_json } = body;
+      if (!name || !score_band_probabilities_json) return err("name and score_band_probabilities_json required", 400);
+      const { data, error: ie } = await adminSb.from("lge_simulation_profiles").insert({
+        org_id: orgId, name, vertical: vertical ?? null,
+        score_band_probabilities_json, is_global: false, created_by: actorId,
+      }).select().single();
+      if (ie) return err(ie.message, 500);
+      return ok({ profile: data }, 201);
+    }
+
+    // ── Phase 16: Operator Stats ───────────────────────────────────────────────
+    case "track_operator_action": {
+      const { action: opAction, lead_id, original_decision, override_decision, campaign_id, score_band } = body;
+      if (!opAction || !lead_id) return err("action and lead_id required", 400);
+      const { error: ie } = await adminSb.from("lge_operator_stats").insert({
+        org_id: orgId, campaign_id: campaign_id ?? null, user_id: actorId,
+        action: opAction, lead_id, original_decision: original_decision ?? null,
+        override_decision: override_decision ?? null, score_band: score_band ?? null,
+      });
+      if (ie) return err(ie.message, 500);
+      return ok({ ok: true });
+    }
+
+    case "get_operator_stats": {
+      const { campaign_id, days = 30 } = body;
+      const since = new Date(Date.now() - Math.min(days, 365) * 24 * 60 * 60 * 1000).toISOString();
+      let q = adminSb.from("lge_operator_stats").select("action, score_band, original_decision, override_decision, outcome_within_14d, created_at")
+        .eq("org_id", orgId).gte("created_at", since).order("created_at", { ascending: false }).limit(1000);
+      if (campaign_id) q = q.eq("campaign_id", campaign_id);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+
+      // Aggregate: count by action type
+      const agg: Record<string, number> = {};
+      for (const r of data ?? []) {
+        agg[(r as any).action] = (agg[(r as any).action] ?? 0) + 1;
+      }
+      return ok({ stats: data ?? [], summary: agg });
+    }
+
+    // ── Phase 17: Worker Health & SLA ─────────────────────────────────────────
+    case "get_worker_health": {
+      const { data, error: qe } = await adminSb.from("lge_worker_health")
+        .select("*").order("last_seen", { ascending: false }).limit(20);
+      if (qe) return err(qe.message, 500);
+      return ok({ workers: data ?? [] });
+    }
+
+    case "get_sla_metrics": {
+      const { campaign_id, days = 7 } = body;
+      const since = new Date(Date.now() - Math.min(days, 90) * 24 * 60 * 60 * 1000).toISOString();
+      let q = adminSb.from("lge_sla_metrics")
+        .select("enrichment_ms, total_pipeline_ms, created_at")
+        .eq("org_id", orgId).gte("created_at", since).limit(5000);
+      if (campaign_id) q = q.eq("campaign_id", campaign_id);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+
+      const rows = data ?? [];
+      const enrichMs    = (rows as any[]).map((r: any) => r.enrichment_ms).filter(Boolean);
+      const pipelineMs  = (rows as any[]).map((r: any) => r.total_pipeline_ms).filter(Boolean);
+      const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+      const p95 = (arr: number[]) => {
+        if (!arr.length) return null;
+        const sorted = [...arr].sort((a, b) => a - b);
+        return sorted[Math.floor(sorted.length * 0.95)];
+      };
+
+      return ok({
+        sample_size: rows.length,
+        enrichment:  { avg_ms: avg(enrichMs),   p95_ms: p95(enrichMs) },
+        pipeline:    { avg_ms: avg(pipelineMs),  p95_ms: p95(pipelineMs) },
+      });
+    }
+
+    // ── Phase 17: Dead Letter Queue ───────────────────────────────────────────
+    case "get_dead_letter": {
+      const { status: dlqStatus = "dead", limit: lim = 50, campaign_id } = body;
+      let q = adminSb.from("lge_dead_letter").select("*").eq("org_id", orgId)
+        .eq("status", dlqStatus).order("created_at", { ascending: false }).limit(Math.min(lim, 200));
+      if (campaign_id) q = q.eq("campaign_id", campaign_id);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ items: data ?? [] });
+    }
+
+    case "retry_dead_letter": {
+      if (role === "viewer") return err("Forbidden", 403);
+      const { dlq_id } = body;
+      if (!dlq_id) return err("dlq_id required", 400);
+      const { data: item } = await adminSb.from("lge_dead_letter").select("*").eq("id", dlq_id).eq("org_id", orgId).maybeSingle();
+      if (!item) return err("DLQ item not found", 404);
+      if ((item as any).retry_count >= (item as any).max_retries) return err("Max retries reached — abandon instead", 409);
+
+      if ((item as any).lead_id) {
+        await adminSb.from("lge_raw_leads").update({ status: "pending", attempt: 0, locked_by: null, locked_until: null, last_error: null })
+          .eq("id", (item as any).lead_id).eq("status", "failed");
+      }
+      await adminSb.from("lge_dead_letter").update({ status: "retrying", retry_count: (item as any).retry_count + 1, last_retry_at: new Date().toISOString() }).eq("id", dlq_id);
+      return ok({ ok: true });
+    }
+
+    case "abandon_dead_letter": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { dlq_id } = body;
+      if (!dlq_id) return err("dlq_id required", 400);
+      const { error: ue } = await adminSb.from("lge_dead_letter").update({ status: "abandoned" }).eq("id", dlq_id).eq("org_id", orgId);
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 17: Rate Limits ─────────────────────────────────────────────────
+    case "get_rate_limits": {
+      const { data, error: qe } = await adminSb.from("lge_rate_limits")
+        .select("provider, window_date, calls_made, calls_limit, last_updated_at")
+        .eq("org_id", orgId)
+        .eq("window_date", new Date().toISOString().slice(0, 10))
+        .order("provider");
+      if (qe) return err(qe.message, 500);
+      return ok({ rate_limits: data ?? [] });
+    }
+
+    case "update_rate_limit": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { provider, calls_limit } = body;
+      if (!provider || calls_limit == null) return err("provider and calls_limit required", 400);
+      const { error: ue } = await adminSb.from("lge_rate_limits").upsert({
+        org_id: orgId, provider, window_date: new Date().toISOString().slice(0, 10),
+        calls_limit: Math.max(0, Number(calls_limit)), calls_made: 0,
+      }, { onConflict: "org_id,provider,window_date" });
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 18: Usage & Quotas ───────────────────────────────────────────────
+    case "get_usage_metrics": {
+      const { days = 7 } = body;
+      const since = new Date(Date.now() - Math.min(days, 90) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const [{ data: usage }, { data: quota }] = await Promise.all([
+        adminSb.from("lge_usage_metrics").select("*").eq("org_id", orgId)
+          .gte("window_date", since).order("window_date", { ascending: false }),
+        adminSb.from("lge_plan_quotas").select("*").eq("org_id", orgId).maybeSingle(),
+      ]);
+      return ok({ usage: usage ?? [], quotas: quota ?? null });
+    }
+
+    case "get_plan_quota": {
+      const { data, error: qe } = await adminSb.from("lge_plan_quotas").select("*").eq("org_id", orgId).maybeSingle();
+      if (qe) return err(qe.message, 500);
+      return ok({ quota: data ?? { org_id: orgId, plan_tier: "standard", max_leads_per_day: 500, max_enrichments_per_day: 1000, max_pushes_per_day: 200, max_campaigns: 10, max_replays_per_day: 5 } });
+    }
+
+    case "update_plan_quota": {
+      if (role !== "admin") return err("admin role required", 403);
+      const fields = ["plan_tier","max_leads_per_day","max_enrichments_per_day","max_pushes_per_day","max_campaigns","max_replays_per_day"];
+      const updates: Record<string, unknown> = { org_id: orgId, updated_at: new Date().toISOString() };
+      for (const f of fields) { if (body[f] != null) updates[f] = body[f]; }
+      const { error: ue } = await adminSb.from("lge_plan_quotas").upsert(updates, { onConflict: "org_id" });
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 18: Retention Policy ────────────────────────────────────────────
+    case "get_retention_policy": {
+      const { data, error: qe } = await adminSb.from("lge_retention_policies").select("*").eq("org_id", orgId).maybeSingle();
+      if (qe) return err(qe.message, 500);
+      return ok({ policy: data ?? { org_id: orgId, raw_leads_days: 90, enrichment_days: 90, scores_days: 180, decisions_days: 180, outcomes_days: 365, sla_metrics_days: 30, provider_calls_days: 60 } });
+    }
+
+    case "update_retention_policy": {
+      if (role !== "admin") return err("admin role required", 403);
+      const fields = ["raw_leads_days","enrichment_days","scores_days","decisions_days","outcomes_days","sla_metrics_days","provider_calls_days"];
+      const updates: Record<string, unknown> = { org_id: orgId, updated_at: new Date().toISOString() };
+      for (const f of fields) { if (body[f] != null) updates[f] = Math.max(7, Math.min(730, Number(body[f]))); }
+      const { error: ue } = await adminSb.from("lge_retention_policies").upsert(updates, { onConflict: "org_id" });
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 18: Audit Export ────────────────────────────────────────────────
+    case "export_audit": {
+      if (role === "viewer") return err("Forbidden", 403);
+      const { export_type = "decisions", format = "json", date_from, date_to, campaign_id } = body;
+      const validTypes = ["decisions","alerts","outcomes","policies","operator_actions"];
+      if (!validTypes.includes(export_type)) return err(`export_type must be one of: ${validTypes.join(", ")}`, 400);
+
+      const since = date_from ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const until = date_to   ?? new Date().toISOString();
+      let rows: any[] = [];
+
+      if (export_type === "decisions") {
+        let q = adminSb.from("lge_decision_logs").select("raw_lead_id, routing_decision, routing_reason, score_outputs_json, created_at")
+          .eq("org_id", orgId).gte("created_at", since).lte("created_at", until).limit(10000);
+        if (campaign_id) {
+          const { data: ids } = await adminSb.from("lge_raw_leads").select("id").eq("campaign_id", campaign_id).eq("org_id", orgId);
+          if (ids?.length) q = q.in("raw_lead_id", ids.map((r: any) => r.id));
+        }
+        const { data } = await q;
+        rows = data ?? [];
+      } else if (export_type === "alerts") {
+        let q = adminSb.from("lge_alerts").select("id, alert_type, severity, status, message, created_at, resolved_at")
+          .eq("org_id", orgId).gte("created_at", since).lte("created_at", until).limit(5000);
+        if (campaign_id) q = q.eq("campaign_id", campaign_id);
+        const { data } = await q;
+        rows = data ?? [];
+      } else if (export_type === "outcomes") {
+        let q = adminSb.from("lge_outcomes").select("id, raw_lead_id, gsc_lead_id, outcome_stage, observed_at, is_manual, manual_reason")
+          .eq("org_id", orgId).gte("observed_at", since).lte("observed_at", until).limit(10000);
+        const { data } = await q;
+        rows = data ?? [];
+      } else if (export_type === "operator_actions") {
+        let q = adminSb.from("lge_operator_stats").select("*")
+          .eq("org_id", orgId).gte("created_at", since).lte("created_at", until).limit(5000);
+        if (campaign_id) q = q.eq("campaign_id", campaign_id);
+        const { data } = await q;
+        rows = data ?? [];
+      } else if (export_type === "policies") {
+        const [{ data: recs }, { data: exps }] = await Promise.all([
+          adminSb.from("lge_policy_recommendations").select("*").eq("org_id", orgId).gte("created_at", since).limit(500),
+          adminSb.from("lge_experiments").select("*").eq("org_id", orgId).gte("created_at", since).limit(200),
+        ]);
+        rows = [...(recs ?? []), ...(exps ?? [])];
+      }
+
+      // Log export
+      await adminSb.from("lge_audit_exports").insert({
+        org_id: orgId, exported_by: actorId, export_type, format,
+        date_from: since, date_to: until, row_count: rows.length,
+      }).then(undefined, () => {});
+
+      // Increment usage
+      await adminSb.rpc("lge_increment_usage", { p_org_id: orgId, p_field: "export_runs" }).then(undefined, () => {});
+
+      if (format === "csv" && rows.length > 0) {
+        const keys = Object.keys(rows[0]);
+        const csv  = [keys.join(","), ...rows.map(r => keys.map(k => JSON.stringify(r[k] ?? "")).join(","))].join("\n");
+        return new Response(csv, { status: 200, headers: { ...corsHeaders, "Content-Type": "text/csv", "Content-Disposition": `attachment; filename="lge_${export_type}_${new Date().toISOString().slice(0,10)}.csv"` } });
+      }
+
+      return ok({ export_type, row_count: rows.length, date_from: since, date_to: until, data: rows });
+    }
+
+    case "list_audit_exports": {
+      const { limit: lim = 20 } = body;
+      const { data, error: qe } = await adminSb.from("lge_audit_exports").select("*").eq("org_id", orgId)
+        .order("created_at", { ascending: false }).limit(Math.min(lim, 100));
+      if (qe) return err(qe.message, 500);
+      return ok({ exports: data ?? [] });
+    }
+
+    // ── Phase 19: Public API Keys ─────────────────────────────────────────────
+    case "create_api_key": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { name: keyName, scopes: keyScopes = ["ingest","score","read"], rate_limit_per_min = 60, expires_in_days } = body;
+      if (!keyName) return err("name required", 400);
+
+      // Generate raw key: "lge_" + 32 random bytes base64url
+      const rawBytes = new Uint8Array(32);
+      crypto.getRandomValues(rawBytes);
+      const b64 = btoa(String.fromCharCode(...rawBytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+      const rawKey   = `lge_${b64}`;
+      const keyPrefix = rawKey.slice(0, 12);
+
+      // Hash
+      const msgBuf   = new TextEncoder().encode(rawKey);
+      const hashBuf  = await crypto.subtle.digest("SHA-256", msgBuf);
+      const keyHash  = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+      const expiresAt = expires_in_days ? new Date(Date.now() + Number(expires_in_days) * 86400_000).toISOString() : null;
+
+      const { data: apiKey, error: ie } = await adminSb.from("lge_api_keys").insert({
+        org_id: orgId, key_hash: keyHash, key_prefix: keyPrefix, name: keyName,
+        scopes: keyScopes, rate_limit_per_min: Math.max(1, Math.min(600, Number(rate_limit_per_min))),
+        is_active: true, created_by: actorId, expires_at: expiresAt,
+      }).select("id, key_prefix, name, scopes, rate_limit_per_min, created_at, expires_at").single();
+
+      if (ie) return err(ie.message, 500);
+      // Return raw key ONCE — never stored, never retrievable again
+      return ok({ ...apiKey, raw_key: rawKey, warning: "Store this key now — it cannot be retrieved again." }, 201);
+    }
+
+    case "list_api_keys": {
+      const { data, error: qe } = await adminSb.from("lge_api_keys")
+        .select("id, key_prefix, name, scopes, rate_limit_per_min, is_active, last_used_at, created_at, expires_at")
+        .eq("org_id", orgId).order("created_at", { ascending: false });
+      if (qe) return err(qe.message, 500);
+      return ok({ api_keys: data ?? [] });
+    }
+
+    case "revoke_api_key": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { api_key_id } = body;
+      if (!api_key_id) return err("api_key_id required", 400);
+      const { error: ue } = await adminSb.from("lge_api_keys").update({ is_active: false }).eq("id", api_key_id).eq("org_id", orgId);
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 19: Branding ────────────────────────────────────────────────────
+    case "get_org_branding": {
+      const { data, error: qe } = await adminSb.from("lge_org_branding").select("*").eq("org_id", orgId).maybeSingle();
+      if (qe) return err(qe.message, 500);
+      return ok({ branding: data ?? { org_id: orgId, is_white_label: false } });
+    }
+
+    case "update_org_branding": {
+      if (role !== "admin") return err("admin role required", 403);
+      const fields = ["brand_name","logo_url","primary_color","accent_color","custom_domain","email_from_name","email_from_address","is_white_label"];
+      const updates: Record<string, unknown> = { org_id: orgId, updated_at: new Date().toISOString() };
+      for (const f of fields) { if (body[f] != null) updates[f] = body[f]; }
+      const { error: ue } = await adminSb.from("lge_org_branding").upsert(updates, { onConflict: "org_id" });
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 19: Plugins ─────────────────────────────────────────────────────
+    case "list_plugins": {
+      const { plugin_type } = body;
+      let q = adminSb.from("lge_plugins").select("id, name, plugin_type, endpoint_url, config_json, is_active, is_sandboxed, created_at")
+        .or(`org_id.eq.${orgId},org_id.is.null`)
+        .eq("is_active", true)
+        .order("name");
+      if (plugin_type) q = q.eq("plugin_type", plugin_type);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ plugins: data ?? [] });
+    }
+
+    case "register_plugin": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { name: pName, plugin_type: pType, endpoint_url, config_json = {} } = body;
+      if (!pName || !pType) return err("name and plugin_type required", 400);
+      const validTypes = ["enrichment","scoring","routing","notification"];
+      if (!validTypes.includes(pType)) return err(`plugin_type must be one of: ${validTypes.join(", ")}`, 400);
+      const { data, error: ie } = await adminSb.from("lge_plugins").insert({
+        org_id: orgId, name: pName, plugin_type: pType, endpoint_url: endpoint_url ?? null,
+        config_json, is_active: true, is_sandboxed: true, created_by: actorId,
+      }).select().single();
+      if (ie) return err(ie.message, 500);
+      return ok({ plugin: data }, 201);
+    }
+
+    case "toggle_plugin": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { plugin_id, is_active } = body;
+      if (!plugin_id || is_active == null) return err("plugin_id and is_active required", 400);
+      const { error: ue } = await adminSb.from("lge_plugins").update({ is_active: Boolean(is_active) }).eq("id", plugin_id).eq("org_id", orgId);
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 19: Benchmarks ──────────────────────────────────────────────────
+    case "get_benchmarks": {
+      const { vertical } = body;
+      let q = adminSb.from("lge_benchmarks")
+        .select("vertical, score_band, sample_count, avg_reply_rate, avg_booked_rate, avg_false_push_rate, computed_at")
+        .order("computed_at", { ascending: false })
+        .order("vertical")
+        .order("score_band")
+        .limit(200);
+      if (vertical) q = q.eq("vertical", vertical);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ benchmarks: data ?? [] });
+    }
+
     default:
       return err(`Unknown action: ${action}`, 400);
   }
