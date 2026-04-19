@@ -852,6 +852,26 @@
                             </div>
                         </div>
 
+                        <!-- Lead Generation Engine -->
+                        <div class="relative flex items-start justify-between p-4 rounded-xl bg-indigo-900/10 border border-indigo-500/20">
+                            <div class="text-left flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-white font-bold text-xs uppercase tracking-wider">Lead Generation Engine ($299)</span>
+                                    <div class="group relative">
+                                        <span class="text-slate-500 hover:text-[#00D1FF] cursor-help text-sm leading-none select-none">ⓘ</span>
+                                        <div class="absolute left-6 bottom-1 w-72 bg-slate-900 border border-slate-700 rounded-xl p-4 text-left shadow-2xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                                            <p class="text-[10px] text-[#00D1FF] font-bold uppercase mb-1">What it does</p>
+                                            <p class="text-[10px] text-slate-300 mb-3">CSV import, Apollo enrichment, ICP scoring, and auto-push to your AI pipeline. Bring your own Apollo &amp; Hunter keys.</p>
+                                            <p class="text-[10px] text-[#39FF14] font-bold uppercase mb-1">Benefit</p>
+                                            <p class="text-[10px] text-slate-300">Finds and qualifies your own leads, then fires GSC AI the moment a high-score contact is ready.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1">Find, enrich, and score leads against your ICP — auto-push high-score contacts into GSC</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-4 mt-0.5"><input type="checkbox" id="toggleLGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-indigo-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+
                         <!-- Growth Engine -->
                         <div class="relative flex items-start justify-between p-4 rounded-xl bg-emerald-900/10 border border-emerald-500/20">
                             <div class="text-left flex-1">
@@ -1203,6 +1223,7 @@
                     safe_voice: toggles.SafeVoice?.checked || false,
                     priority: toggles.Priority?.checked || false,
                     growth_engine: toggles.GE?.checked || false,
+                    lead_gen: toggles.LGE?.checked || false,
                     sce: toggles.SCE?.checked || false,
                     sce_plan: toggles.SCE?.checked && sceSelected ? sceSelected.value : null,
                     eb: toggles.EB?.checked || false,
@@ -1351,6 +1372,7 @@
             Intake: document.getElementById('toggleIntake'), SafeVoice: document.getElementById('toggleSafeVoice'),
             Priority: document.getElementById('togglePriority'),
             GE: document.getElementById('toggleGE'),
+            LGE: document.getElementById('toggleLGE'),
             SCE: document.getElementById('toggleSCE'),
             EB: document.getElementById('toggleEB')
         };
@@ -1366,7 +1388,7 @@
         }
 
         function calculate(event) {
-            const { S, B, A, L, Intake, SafeVoice, Priority, GE, SCE, EB } = Object.fromEntries(
+            const { S, B, A, L, Intake, SafeVoice, Priority, GE, LGE, SCE, EB } = Object.fromEntries(
                 Object.entries(toggles).map(([k, v]) => [k, v ? v.checked : false])
             );
 
@@ -1435,7 +1457,7 @@
             const scePremium = SCE && sceSelected ? parseInt(sceSelected.value) : 0;
             const ebPremium = EB && ebSelected ? parseInt(ebSelected.value) : 0;
 
-            const premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0) + scePremium + ebPremium + (GE ? 660 : 0);
+            const premium = (Intake ? 149 : 0) + (SafeVoice ? 199 : 0) + (Priority ? 99 : 0) + scePremium + ebPremium + (LGE ? 299 : 0) + (GE ? 660 : 0);
             const total = base + premium;
 
             let start = parseInt(priceDisp.innerText) || 0;
@@ -1541,17 +1563,17 @@
         const stackConfigs = {
             starter: {
                 services: { sentinel: true, brain: true, architect: true, voice: false },
-                addons: { intake: false, safe_voice: false, priority: false, growth_engine: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
+                addons: { intake: false, safe_voice: false, priority: false, growth_engine: false, lead_gen: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
                 channels: { sms: false, whatsapp: true, fb: false }
             },
             growth: {
                 services: { sentinel: true, brain: true, architect: true, voice: false },
-                addons: { intake: true, safe_voice: false, priority: true, growth_engine: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
+                addons: { intake: true, safe_voice: false, priority: true, growth_engine: false, lead_gen: false, sce: false, sce_plan: null, eb: false, eb_plan: null },
                 channels: { sms: false, whatsapp: true, fb: true }
             },
             revenue: {
                 services: { sentinel: true, brain: true, architect: true, voice: false },
-                addons: { intake: true, safe_voice: false, priority: true, growth_engine: true, sce: true, sce_plan: '299', eb: true, eb_plan: '99' },
+                addons: { intake: true, safe_voice: false, priority: true, growth_engine: true, lead_gen: false, sce: true, sce_plan: '299', eb: true, eb_plan: '99' },
                 channels: { sms: true, whatsapp: true, fb: true }
             }
         };
@@ -1578,6 +1600,7 @@
             if (toggles.SafeVoice) toggles.SafeVoice.checked = cfg.addons.safe_voice;
             if (toggles.Priority) toggles.Priority.checked = cfg.addons.priority;
             if (toggles.GE) toggles.GE.checked = cfg.addons.growth_engine;
+            if (toggles.LGE) toggles.LGE.checked = cfg.addons.lead_gen;
             if (toggles.SCE) toggles.SCE.checked = cfg.addons.sce;
             if (toggles.EB) toggles.EB.checked = cfg.addons.eb;
             ['sms', 'whatsapp', 'fb'].forEach(id => {

@@ -252,6 +252,27 @@
                 </div>
             </div>
 
+            <!-- Lead Generation Engine -->
+            <div class="mt-4">
+                <div class="flex items-center gap-2 mb-3">
+                    <p class="text-blue-400 font-bold text-xs uppercase tracking-widest">Lead Generation Engine</p>
+                </div>
+                <div id="card_LGE" class="relative flex items-center justify-between p-4 rounded-xl bg-blue-900/10 border border-blue-500/20">
+                    <div class="text-left flex-1 mr-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-white font-bold text-xs uppercase tracking-wider">Lead Gen Engine</span>
+                            <span id="badge_LGE" class="hidden owned-badge">ACTIVE</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400">CSV import · Apollo enrichment · ICP scoring · auto-push high-score leads into AI pipeline</p>
+                        <p class="text-[10px] text-blue-600 mt-1">BYO Apollo + Hunter API keys — you control enrichment costs</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-[10px] text-blue-400 font-bold whitespace-nowrap">+$299/mo</span>
+                        <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleLGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Growth Engine -->
             <div class="mt-4 mb-6">
                 <div class="flex items-center gap-2 mb-3">
@@ -297,7 +318,8 @@
             Priority: document.getElementById('togglePriority'),
             Chatbot: document.getElementById('toggleChatbot'), Install: document.getElementById('toggleInstall'),
             SCE: document.getElementById('toggleSCE'), EB: document.getElementById('toggleEB'),
-            GE: document.getElementById('toggleGE')
+            GE: document.getElementById('toggleGE'),
+            LGE: document.getElementById('toggleLGE')
         };
         const cards = {
             S: document.getElementById('card_S'), B: document.getElementById('card_B'),
@@ -306,7 +328,8 @@
             Priority: document.getElementById('card_Priority'),
             Chatbot: document.getElementById('card_Chatbot'), Install: document.getElementById('card_Install'),
             SCE: document.getElementById('card_SCE'), EB: document.getElementById('card_EB'),
-            GE: document.getElementById('card_GE')
+            GE: document.getElementById('card_GE'),
+            LGE: document.getElementById('card_LGE')
         };
         const badges = {
             S: document.getElementById('badge_S'), B: document.getElementById('badge_B'),
@@ -315,7 +338,8 @@
             Priority: document.getElementById('badge_Priority'),
             Chatbot: document.getElementById('badge_Chatbot'), Install: document.getElementById('badge_Install'),
             SCE: document.getElementById('badge_SCE'), EB: document.getElementById('badge_EB'),
-            GE: document.getElementById('badge_GE')
+            GE: document.getElementById('badge_GE'),
+            LGE: document.getElementById('badge_LGE')
         };
         const deployBtn = document.getElementById('deployBtn');
         const overlay = document.getElementById('deploymentOverlay');
@@ -366,6 +390,7 @@
                 'sce':         { key: 'SCE',       cardId: 'card_SCE'       },
                 'eb':          { key: 'EB',        cardId: 'card_EB'        },
                 'growth_engine': { key: 'GE',      cardId: 'card_GE'        },
+                'lead_gen':      { key: 'LGE',     cardId: 'card_LGE'       },
             };
             if (lockParam && lockMap[lockParam]) {
                 const { key, cardId } = lockMap[lockParam];
@@ -396,7 +421,7 @@
                     'sentinel': 'S', 'brain': 'B', 'architect': 'A', 'voice': 'L',
                     'intake': 'Intake', 'safe_voice': 'SafeVoice', 'priority': 'Priority',
                     'chatbot': 'Chatbot',
-                    'sce': 'SCE', 'eb': 'EB', 'growth_engine': 'GE'
+                    'sce': 'SCE', 'eb': 'EB', 'growth_engine': 'GE', 'lead_gen': 'LGE'
                 };
 
                 (data?.keys || []).forEach(key => {
@@ -477,6 +502,7 @@
             if (sceOn && sceSelected)       premium += parseInt(sceSelected.value);
             if (ebOn  && ebSelected)        premium += parseInt(ebSelected.value);
             if (toggles.GE?.checked)        premium += 660;
+            if (toggles.LGE?.checked)       premium += 299;
 
             // Install is one-time, never discounted
             const oneTime = toggles.Install?.checked ? 99 : 0;
@@ -536,7 +562,8 @@
                     sce_plan:     sceNew && sceSelected ? sceSelected.value : null,
                     eb:           ebNew,
                     eb_plan:      ebNew && ebSelected ? ebSelected.value : null,
-                    growth_engine: toggles.GE?.checked && !owned.addons.has('GE')
+                    growth_engine: toggles.GE?.checked  && !owned.addons.has('GE'),
+                    lead_gen:      toggles.LGE?.checked && !owned.addons.has('LGE')
                 },
                 channels: {
                     sms:      document.querySelector('.chan-box[data-id="sms"]')?.checked      || false,

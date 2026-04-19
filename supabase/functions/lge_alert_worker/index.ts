@@ -271,17 +271,47 @@ serve(async (req: Request) => {
       }
     }
 
-    // 5. Fetch existing open alerts for dedup/cooldown check
-    const allDedupeKeys = candidates.map(c => c.dedupe_key);
+    // 5. Fetch existing non-resolved alerts (including suppressed for expiry/silence checks)
     const { data: existingAlerts } = await sb
       .from("lge_alerts")
-      .select("id, dedupe_key, severity, last_seen_at, last_emailed_at, status")
+      .select("id, dedupe_key, severity, last_seen_at, last_emailed_at, status, suppressed_until")
       .in("org_id", orgIds)
-      .not("status", "in", '("resolved","suppressed")');
+      .neq("status", "resolved");
 
-    const existingMap = new Map<string, any>(
-      (existingAlerts ?? []).map((a: any) => [a.dedupe_key, a])
-    );
+    // Categorise suppressed alerts: actively suppressed vs expired
+    const activelySuppressedKeys = new Set<string>();
+    const expiredSuppressedIds: string[] = [];
+
+    for (const a of existingAlerts ?? []) {
+      if (a.status === "suppressed") {
+        if (a.suppressed_until && new Date(a.suppressed_until) > new Date(nowMs)) {
+          activelySuppressedKeys.add(a.dedupe_key); // Still within suppression window — stay silent
+        } else {
+          expiredSuppressedIds.push(a.id); // Suppression expired — re-open
+        }
+      }
+    }
+
+    // Re-open expired suppressed alerts so conditions can re-trigger normally
+    if (expiredSuppressedIds.length) {
+      await sb.from("lge_alerts")
+        .update({ status: "open", updated_at: now })
+        .in("id", expiredSuppressedIds);
+    }
+
+    // Build existingMap from open/acknowledged + freshly re-opened alerts
+    const existingMap = new Map<string, any>();
+    for (const a of existingAlerts ?? []) {
+      if (a.status === "suppressed") {
+        if (expiredSuppressedIds.includes(a.id)) {
+          // Re-opened — treat as open for last_seen_at update
+          existingMap.set(a.dedupe_key, { ...a, status: "open" });
+        }
+        // Actively suppressed — do NOT add to existingMap (handled via activelySuppressedKeys)
+      } else {
+        existingMap.set(a.dedupe_key, a);
+      }
+    }
 
     // 6. Fetch notification prefs
     const { data: prefsRows } = await sb
@@ -318,6 +348,9 @@ serve(async (req: Request) => {
     const resendKey = Deno.env.get("RESEND_API_KEY");
 
     for (const c of candidates) {
+      // Skip: condition recurred during active suppression window — stay silent
+      if (activelySuppressedKeys.has(c.dedupe_key)) continue;
+
       const existing = existingMap.get(c.dedupe_key);
 
       if (existing) {
@@ -369,7 +402,7 @@ serve(async (req: Request) => {
         .in("id", staleAlerts.map((a: any) => a.id));
     }
 
-    return ok({ ok: true, candidates: candidates.length, created, updated, emailed, auto_resolved: staleAlerts.length });
+    return ok({ ok: true, candidates: candidates.length, created, updated, emailed, auto_resolved: staleAlerts.length, suppression_expired_reopened: expiredSuppressedIds.length, suppression_silenced: activelySuppressedKeys.size });
   } catch (e: any) {
     console.error("[lge_alert_worker] error:", e.message);
     return new Response(JSON.stringify({ error: e.message ?? "Internal error" }), {

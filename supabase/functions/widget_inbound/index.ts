@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { buildPersonaBlock, type PersonaSettings } from "../_shared/persona_builder.ts";
+import { MASTER_GUARDRAILS, buildKnowledgeBlock } from "../_shared/prompt_builder.ts";
 
 const CORS: HeadersInit = {
   "Access-Control-Allow-Origin":  "*",
@@ -168,23 +169,26 @@ serve(async (req) => {
   const { data: org } = await supabase.from("organizations").select("id, name").eq("id", org_id).maybeSingle();
   if (!org) return new Response(JSON.stringify({ error: "Invalid org_id" }), { status: 404, headers: CORS });
 
-  // Fetch persona settings, custom prompt, and architect service status in parallel
-  const [{ data: settings }, { data: promptRow }, { data: archSvc }] = await Promise.all([
-    supabase.from("org_settings")
-      .select("persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides, industry, cal_link")
-      .eq("org_id", org_id)
-      .maybeSingle(),
-    supabase.from("active_org_prompts")
-      .select("system_prompt")
-      .eq("org_id", org_id)
-      .eq("channel", "sms")
-      .maybeSingle(),
-    supabase.from("org_services")
-      .select("status")
-      .eq("org_id", org_id)
-      .eq("service_key", "architect")
-      .maybeSingle(),
-  ]);
+  // Fetch persona settings, custom prompt, architect service status, and
+  // knowledge base in parallel (task 10: widget now gets full org context).
+  const [{ data: settings }, { data: promptRow }, { data: archSvc }, knowledgeBlock] =
+    await Promise.all([
+      supabase.from("org_settings")
+        .select("persona_name, tone_preset, bot_disclosure, conversion_objective, terminology_overrides, industry, cal_link")
+        .eq("org_id", org_id)
+        .maybeSingle(),
+      supabase.from("active_org_prompts")
+        .select("system_prompt")
+        .eq("org_id", org_id)
+        .eq("channel", "sms")
+        .maybeSingle(),
+      supabase.from("org_services")
+        .select("status")
+        .eq("org_id", org_id)
+        .eq("service_key", "architect")
+        .maybeSingle(),
+      buildKnowledgeBlock(supabase, org_id),
+    ]);
 
   const agentName        = settings?.persona_name || "Alex";
   const canScheduleOnline = !!(settings?.cal_link && archSvc?.status === "active");
@@ -201,8 +205,12 @@ serve(async (req) => {
     : `Once you have name, phone, AND email, confirm: "Perfect, I've got your contact details. Our team will reach out shortly to schedule a time and send you a meeting invite."`;
 
   const systemPrompt = [
+    // Task 10: safety guardrails — same block used by brain.ts for SMS/email.
+    MASTER_GUARDRAILS,
     personaBlock,
     promptRow?.system_prompt ? `CUSTOM INSTRUCTIONS:\n${promptRow.system_prompt}` : null,
+    // Task 10: org knowledge base (product facts, intake rules, pricing, etc.)
+    knowledgeBlock || null,
     `=== SITE LIAISON DIRECTIVE ===`,
     `You are the AI chat assistant on the company website. Be helpful and engaging.`,
     contactGoal,
@@ -327,6 +335,66 @@ serve(async (req) => {
           console.error(`[widget_inbound] Lead insert error:`, leadErr.message);
         }
       }
+    }
+  }
+
+  // Task 9: preferred_contact change detection.
+  // If the lead just expressed a channel preference (e.g. "call me", "email me"),
+  // cancel any pending execution_tasks for the OLD channel so we don't send on
+  // a channel the lead has already opted out of for this session.
+  if (currentLeadId) {
+    const PREF_MAP: Record<string, string> = {
+      "email": "email",
+      "sms": "sms",
+      "voice": "voice",
+    };
+
+    // Detect new preference from the current message
+    let newPreferredChannel: string | null = null;
+    if (/email me/i.test(allUserText)) newPreferredChannel = "email";
+    else if (/text me|message me/i.test(allUserText)) newPreferredChannel = "sms";
+    else if (/call me|phone/i.test(allUserText)) newPreferredChannel = "voice";
+
+    if (newPreferredChannel) {
+      // Read the old preference from conversation_state
+      const { data: csRow } = await supabase
+        .from("conversation_state")
+        .select("memory_json")
+        .eq("lead_id", currentLeadId)
+        .maybeSingle();
+
+      const oldPreferredChannel: string | null =
+        csRow?.memory_json?.preferred_contact ?? null;
+
+      if (oldPreferredChannel && oldPreferredChannel !== newPreferredChannel) {
+        // Cancel pending tasks for the old channel (best-effort)
+        await supabase
+          .rpc("cancel_pending_retries_channel", {
+            p_plan_id: null,
+            p_channel: oldPreferredChannel,
+            p_exclude_task_id: null,
+            p_reason: "PREFERRED_CONTACT_CHANGED",
+          })
+          .then(undefined, (e: any) =>
+            console.warn("[widget_inbound] cancel_pending_retries_channel failed:", e));
+      }
+
+      // Persist new preference in conversation_state memory_json
+      const updatedMemory = {
+        ...(csRow?.memory_json ?? {}),
+        preferred_contact: newPreferredChannel,
+        preferred_contact_updated_at: new Date().toISOString(),
+      };
+      await supabase
+        .from("conversation_state")
+        .upsert({
+          lead_id: currentLeadId,
+          org_id,
+          memory_json: updatedMemory,
+          updated_at: new Date().toISOString(),
+        })
+        .then(undefined, (e: any) =>
+          console.warn("[widget_inbound] conversation_state preference upsert failed:", e));
     }
   }
 

@@ -89,14 +89,40 @@ async function requireAuth(options = {}) {
             }
         }
 
-        // 4. Session Watchdog (Handle multi-tab logout)
+        // 4. Pending Consent Check (existing users who already completed onboarding)
+        // New docs added after sign-up must also be consented to by existing users.
+        if (profile && profile.onboarding_completed && !window.location.pathname.endsWith('consent.html')) {
+            const { data: activeDocs } = await sb
+                .from('onboarding_consent_docs')
+                .select('id, version')
+                .eq('is_active', true);
+
+            if (activeDocs && activeDocs.length > 0) {
+                const { data: userConsents } = await sb
+                    .from('onboarding_consents')
+                    .select('doc_id, doc_version')
+                    .eq('user_id', user.id);
+
+                const consentMap = {};
+                (userConsents || []).forEach(c => { consentMap[c.doc_id] = c.doc_version; });
+
+                const hasPending = activeDocs.some(d => consentMap[d.id] !== d.version);
+                if (hasPending) {
+                    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                    window.location.replace('consent.html?return=' + returnUrl);
+                    return;
+                }
+            }
+        }
+
+        // 5. Session Watchdog (Handle multi-tab logout)
         sb.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT') {
                 redirectToLogin();
             }
         });
 
-        // 5. Success - Remove Loader & Execute Page Logic
+        // 6. Success - Remove Loader & Execute Page Logic
         const loader = document.getElementById(AUTH_CONFIG.authLoaderId);
         if (loader) loader.style.display = 'none';
 

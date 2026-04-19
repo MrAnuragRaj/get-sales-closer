@@ -1,0 +1,321 @@
+name,email,phone,company,source
+Chris Brown,chris.brown@lawfirm.com,+13654095016,LegalEdge,apollo_csv
+Nancy Davis,,+18756803877,SunCore,apollo_csv
+John Jones,john.jones@lawfirm.com,+16636665575,Prime Legal,apollo_csv
+David Garcia,david.garcia@clinic.com,+13390245678,HealthBridge,apollo_csv
+Nancy Garcia,nancy.garcia@lawfirm.com,+19954253973,LegalEdge,apollo_csv
+Anna Smith,anna.smith@lawfirm.com,+15293505301,Prime Legal,apollo_csv
+Emily Jones,emily.jones@lawfirm.com,+18040950667,JusticeHub,apollo_csv
+David Garcia,,+15491813756,SolarX,apollo_csv
+John Smith,john.smith@lawfirm.com,+12963385995,LegalEdge,apollo_csv
+Robert Jones,robert.jones@realestate.com,+18568247833,EstatePro,apollo_csv
+David Williams,david.williams@realestate.com,+16398681155,EstatePro,apollo_csv
+Nancy Davis,invalid_email,+17672470154,HomeFinders,apollo_csv
+Mike Garcia,mike.garcia@realestate.com,+12733527229,Urban Realty,apollo_csv
+Sarah Garcia,sarah.garcia@solarco.com,+15553732926,SunCore,apollo_csv
+Anna Brown,anna.brown@solarco.com,+13114182110,SunCore,apollo_csv
+Chris Brown,chris.brown@lawfirm.com,+15878822786,JusticeHub,apollo_csv
+Emily Davis,emily.davis@solarco.com,+12336332280,SolarX,apollo_csv
+Chris Brown,invalid_email,+17021383502,LegalEdge,apollo_csv
+Emily Smith,emily.smith@clinic.com,,CarePlus Clinic,apollo_csv
+Emily Garcia,emily.garcia@lawfirm.com,,Acme Law,apollo_csv
+Lisa Johnson,,+12114839577,RealHub,apollo_csv
+John Johnson,,+16903633806,Bright Solar,apollo_csv
+Chris Jones,chris.jones@realestate.com,+13977182878,RealHub,apollo_csv
+Mike Davis,mike.davis@lawfirm.com,+18033219857,LegalEdge,apollo_csv
+Chris Davis,chris.davis@clinic.com,+13140067522,HealthBridge,apollo_csv
+Lisa Williams,lisa.williams@realestate.com,+18297421098,HomeFinders,apollo_csv
+Mike Miller,invalid_email,+18126858532,Acme Law,apollo_csv
+John Garcia,john.garcia@clinic.com,+14780490245,CarePlus Clinic,apollo_csv
+Nancy Garcia,nancy.garcia@clinic.com,+12571870665,Wellness Center,apollo_csv
+Nancy Jones,nancy.jones@solarco.com,,GreenVolt,apollo_csv
+Sarah Smith,sarah.smith@clinic.com,,Unknown Corp,apollo_csv
+Robert Smith,robert.smith@lawfirm.com,,JusticeHub,apollo_csv
+David Brown,david.brown@realestate.com,+13882777760,EstatePro,apollo_csv
+Nancy Miller,nancy.miller@clinic.com,12345,Unknown Corp,apollo_csv
+David Smith,david.smith@solarco.com,+19940274920,SolarX,apollo_csv
+Mike Jones,mike.jones@solarco.com,+12244878305,GreenVolt,apollo_csv
+John Brown,john.brown@lawfirm.com,+15489523039,Acme Law,apollo_csv
+David Garcia,david.garcia@clinic.com,+14600069481,Wellness Center,apollo_csv
+Lisa Brown,lisa.brown@lawfirm.com,,JusticeHub,apollo_csv
+Sarah Jones,sarah.jones@lawfirm.com,+13936563352,Prime Legal,apollo_csv
+Emily Johnson,emily.johnson@lawfirm.com,+13289788209,Prime Legal,apollo_csv
+David Smith,david.smith@realestate.com,+14212506980,RealHub,apollo_csv
+John Smith,john.smith@clinic.com,+14459471892,MedCore,apollo_csv
+Lisa Brown,lisa.brown@lawfirm.com,+15644078214,Prime Legal,apollo_csv
+David Miller,david.miller@solarco.com,+12651722885,GreenVolt,apollo_csv
+Lisa Garcia,lisa.garcia@solarco.com,,Bright Solar,apollo_csv
+Nancy Johnson,nancy.johnson@realestate.com,+12531305881,HomeFinders,apollo_csv
+Robert Smith,robert.smith@solarco.com,+18867080100,Bright Solar,apollo_csv
+David Williams,david.williams@clinic.com,+14055260136,Wellness Center,apollo_csv
+Emily Davis,emily.davis@clinic.com,,Wellness Center,apollo_csv
+Emily Davis,emily.davis@clinic.com,+19479780769,Wellness Center,apollo_csv
+Mike Garcia,mike.garcia@realestate.com,+15332554740,RealHub,apollo_csv
+Chris Smith,chris.smith@lawfirm.com,+14902008485,JusticeHub,apollo_csv
+Mike Brown,mike.brown@realestate.com,+15044259794,RealHub,apollo_csv
+Emily Williams,emily.williams@realestate.com,+18912555053,RealHub,apollo_csv
+Anna Smith,anna.smith@realestate.com,+16812087125,EstatePro,apollo_csv
+Sarah Davis,sarah.davis@lawfirm.com,+12684651279,JusticeHub,apollo_csv
+Sarah Garcia,,+14897039781,SolarX,apollo_csv
+Chris Jones,chris.jones@realestate.com,+19462378093,RealHub,apollo_csv
+Nancy Jones,nancy.jones@lawfirm.com,12345,Acme Law,apollo_csv
+Sarah Miller,sarah.miller@clinic.com,12345,HealthBridge,apollo_csv
+Chris Garcia,chris.garcia@clinic.com,+14892849373,Wellness Center,apollo_csv
+John Davis,john.davis@solarco.com,,SolarX,apollo_csv
+Mike Jones,,+15177898715,LegalEdge,apollo_csv
+Lisa Brown,lisa.brown@clinic.com,+18159699787,CarePlus Clinic,apollo_csv
+John Jones,,,SolarX,apollo_csv
+Lisa Davis,lisa.davis@realestate.com,,HomeFinders,apollo_csv
+John Smith,john.smith@realestate.com,+14773216302,HomeFinders,apollo_csv
+Nancy Jones,nancy.jones@solarco.com,+16633377912,SunCore,apollo_csv
+John Williams,john.williams@realestate.com,+17678699488,RealHub,apollo_csv
+Nancy Williams,,+16126087579,Unknown Corp,apollo_csv
+Chris Brown,chris.brown@realestate.com,+19960927854,Urban Realty,apollo_csv
+Robert Garcia,robert.garcia@clinic.com,+19238704659,HealthBridge,apollo_csv
+Mike Johnson,mike.johnson@realestate.com,+12640110123,RealHub,apollo_csv
+Anna Brown,anna.brown@lawfirm.com,+14426052525,JusticeHub,apollo_csv
+Lisa Williams,lisa.williams@solarco.com,+19854541537,SolarX,apollo_csv
+David Jones,david.jones@solarco.com,+17533540457,SolarX,apollo_csv
+Emily Jones,emily.jones@lawfirm.com,+17512379075,Acme Law,apollo_csv
+David Williams,david.williams@solarco.com,+19829390455,Unknown Corp,apollo_csv
+Mike Williams,mike.williams@realestate.com,+13490233510,Urban Realty,apollo_csv
+Lisa Johnson,lisa.johnson@lawfirm.com,12345,JusticeHub,apollo_csv
+Mike Davis,mike.davis@lawfirm.com,+12486288688,Acme Law,apollo_csv
+David Garcia,david.garcia@solarco.com,+18147619789,Bright Solar,apollo_csv
+Sarah Williams,sarah.williams@realestate.com,+12318220657,EstatePro,apollo_csv
+Anna Miller,anna.miller@solarco.com,+13728276197,SolarX,apollo_csv
+Lisa Williams,lisa.williams@lawfirm.com,,Acme Law,apollo_csv
+John Garcia,,+19260494062,CarePlus Clinic,apollo_csv
+John Smith,john.smith@lawfirm.com,,Acme Law,apollo_csv
+Lisa Brown,lisa.brown@realestate.com,+12802128379,HomeFinders,apollo_csv
+David Garcia,david.garcia@lawfirm.com,+12719873583,JusticeHub,apollo_csv
+John Smith,john.smith@clinic.com,+15912671264,HealthBridge,apollo_csv
+Chris Brown,chris.brown@solarco.com,+16926016905,SolarX,apollo_csv
+Chris Miller,chris.miller@clinic.com,12345,HealthBridge,apollo_csv
+Anna Miller,anna.miller@lawfirm.com,+17786115861,JusticeHub,apollo_csv
+Emily Johnson,emily.johnson@clinic.com,+19493378327,Wellness Center,apollo_csv
+Anna Miller,anna.miller@realestate.com,+17711622860,RealHub,apollo_csv
+Anna Brown,anna.brown@clinic.com,+19180908568,HealthBridge,apollo_csv
+Robert Davis,robert.davis@clinic.com,+19486167406,CarePlus Clinic,apollo_csv
+Lisa Smith,lisa.smith@clinic.com,,CarePlus Clinic,apollo_csv
+Lisa Jones,,+15182274345,Bright Solar,apollo_csv
+Lisa Garcia,,+12928630390,CarePlus Clinic,apollo_csv
+Nancy Brown,nancy.brown@clinic.com,+15538726551,CarePlus Clinic,apollo_csv
+Mike Jones,mike.jones@realestate.com,+19455620141,Unknown Corp,apollo_csv
+Chris Brown,chris.brown@solarco.com,+18744913108,GreenVolt,apollo_csv
+Lisa Smith,,+14579478649,Acme Law,apollo_csv
+Emily Johnson,emily.johnson@solarco.com,+17920565450,SunCore,apollo_csv
+Robert Garcia,,+14649462954,Prime Legal,apollo_csv
+David Miller,david.miller@solarco.com,+15038567599,SolarX,apollo_csv
+Chris Garcia,chris.garcia@lawfirm.com,+13446308425,Prime Legal,apollo_csv
+Lisa Smith,lisa.smith@lawfirm.com,+16198506664,Prime Legal,apollo_csv
+Nancy Jones,nancy.jones@solarco.com,+14925157065,SunCore,apollo_csv
+Chris Williams,chris.williams@realestate.com,+12952029863,RealHub,apollo_csv
+Robert Miller,robert.miller@solarco.com,,Bright Solar,apollo_csv
+Mike Brown,mike.brown@solarco.com,+16274246620,GreenVolt,apollo_csv
+Emily Jones,,+12083924359,SolarX,apollo_csv
+John Miller,john.miller@realestate.com,+12377833313,Urban Realty,apollo_csv
+Emily Davis,emily.davis@lawfirm.com,+18472135786,Prime Legal,apollo_csv
+Nancy Brown,nancy.brown@realestate.com,+13667430108,HomeFinders,apollo_csv
+Lisa Jones,lisa.jones@solarco.com,+16837912465,GreenVolt,apollo_csv
+Robert Johnson,robert.johnson@lawfirm.com,+13696568990,Acme Law,apollo_csv
+Emily Johnson,emily.johnson@lawfirm.com,+14490002145,JusticeHub,apollo_csv
+Anna Smith,,+17747359505,JusticeHub,apollo_csv
+Emily Johnson,emily.johnson@lawfirm.com,+17588604462,Acme Law,apollo_csv
+Anna Garcia,anna.garcia@solarco.com,+14010336797,Unknown Corp,apollo_csv
+Anna Williams,anna.williams@clinic.com,,Unknown Corp,apollo_csv
+Nancy Williams,nancy.williams@clinic.com,+15783161067,CarePlus Clinic,apollo_csv
+Sarah Williams,sarah.williams@realestate.com,,RealHub,apollo_csv
+John Johnson,,+15894240248,RealHub,apollo_csv
+Sarah Davis,sarah.davis@solarco.com,12345,SunCore,apollo_csv
+Nancy Smith,nancy.smith@realestate.com,+18824496700,Urban Realty,apollo_csv
+Anna Smith,anna.smith@solarco.com,+17189003128,Bright Solar,apollo_csv
+Lisa Miller,lisa.miller@clinic.com,+19113862637,CarePlus Clinic,apollo_csv
+Chris Johnson,chris.johnson@lawfirm.com,12345,Prime Legal,apollo_csv
+Chris Davis,chris.davis@lawfirm.com,+16393855183,JusticeHub,apollo_csv
+Anna Garcia,anna.garcia@realestate.com,+18297843447,Urban Realty,apollo_csv
+Nancy Davis,nancy.davis@lawfirm.com,+14740444273,JusticeHub,apollo_csv
+Robert Garcia,invalid_email,+19224464075,HomeFinders,apollo_csv
+Sarah Williams,sarah.williams@clinic.com,,HealthBridge,apollo_csv
+Robert Jones,robert.jones@clinic.com,+16781147789,CarePlus Clinic,apollo_csv
+Anna Williams,anna.williams@clinic.com,+14254499872,HealthBridge,apollo_csv
+Chris Williams,chris.williams@realestate.com,,EstatePro,apollo_csv
+Anna Johnson,anna.johnson@realestate.com,+19671526575,EstatePro,apollo_csv
+Emily Brown,emily.brown@realestate.com,,EstatePro,apollo_csv
+Mike Davis,mike.davis@realestate.com,+15732325464,EstatePro,apollo_csv
+Robert Miller,robert.miller@solarco.com,+14360820281,Bright Solar,apollo_csv
+Nancy Garcia,,12345,RealHub,apollo_csv
+Nancy Davis,nancy.davis@clinic.com,+19003782914,MedCore,apollo_csv
+Emily Jones,emily.jones@clinic.com,+13169010129,HealthBridge,apollo_csv
+Mike Garcia,mike.garcia@clinic.com,+13509674541,MedCore,apollo_csv
+John Jones,john.jones@lawfirm.com,+16974412889,Acme Law,apollo_csv
+Chris Davis,chris.davis@clinic.com,+18875588910,CarePlus Clinic,apollo_csv
+Robert Garcia,robert.garcia@clinic.com,+18557221592,MedCore,apollo_csv
+Emily Garcia,emily.garcia@realestate.com,,HomeFinders,apollo_csv
+Chris Brown,invalid_email,,SunCore,apollo_csv
+Nancy Brown,nancy.brown@lawfirm.com,+14597841900,LegalEdge,apollo_csv
+Mike Garcia,mike.garcia@clinic.com,+14411765541,Wellness Center,apollo_csv
+Sarah Jones,sarah.jones@solarco.com,12345,SunCore,apollo_csv
+Chris Brown,chris.brown@solarco.com,+16774007705,Bright Solar,apollo_csv
+Nancy Johnson,nancy.johnson@realestate.com,+18325405259,Unknown Corp,apollo_csv
+Robert Williams,robert.williams@realestate.com,+18161155675,Urban Realty,apollo_csv
+John Brown,john.brown@clinic.com,+17468438627,MedCore,apollo_csv
+Robert Brown,robert.brown@clinic.com,+15963341799,CarePlus Clinic,apollo_csv
+Nancy Garcia,,+13660845438,RealHub,apollo_csv
+Robert Williams,robert.williams@clinic.com,,MedCore,apollo_csv
+David Miller,david.miller@realestate.com,+15293318275,EstatePro,apollo_csv
+Chris Garcia,,+12996624833,Acme Law,apollo_csv
+David Garcia,david.garcia@realestate.com,+13085715510,Urban Realty,apollo_csv
+Anna Davis,anna.davis@lawfirm.com,12345,Prime Legal,apollo_csv
+Anna Jones,invalid_email,,GreenVolt,apollo_csv
+Chris Johnson,chris.johnson@clinic.com,+19740009268,CarePlus Clinic,apollo_csv
+Mike Jones,mike.jones@clinic.com,,HealthBridge,apollo_csv
+Chris Jones,chris.jones@lawfirm.com,+14342114796,Acme Law,apollo_csv
+David Williams,david.williams@lawfirm.com,+18110989307,Prime Legal,apollo_csv
+John Johnson,john.johnson@solarco.com,+14432722420,Bright Solar,apollo_csv
+Emily Garcia,emily.garcia@clinic.com,+13008973891,Unknown Corp,apollo_csv
+Anna Johnson,anna.johnson@realestate.com,+19134950165,Urban Realty,apollo_csv
+Robert Smith,robert.smith@lawfirm.com,+12241357770,Prime Legal,apollo_csv
+Robert Johnson,robert.johnson@solarco.com,+17303117551,SunCore,apollo_csv
+Anna Johnson,anna.johnson@clinic.com,+15718076355,Wellness Center,apollo_csv
+Nancy Garcia,nancy.garcia@lawfirm.com,+15961453210,Acme Law,apollo_csv
+Lisa Garcia,lisa.garcia@realestate.com,+17719151622,HomeFinders,apollo_csv
+Anna Brown,anna.brown@realestate.com,+15643744257,RealHub,apollo_csv
+Emily Jones,emily.jones@realestate.com,,HomeFinders,apollo_csv
+John Jones,john.jones@solarco.com,+13144151135,GreenVolt,apollo_csv
+Mike Smith,mike.smith@lawfirm.com,+15993424455,Prime Legal,apollo_csv
+Chris Brown,chris.brown@clinic.com,+15528522341,Unknown Corp,apollo_csv
+John Williams,john.williams@realestate.com,+15095373765,Unknown Corp,apollo_csv
+Chris Brown,invalid_email,+18027408298,MedCore,apollo_csv
+Emily Johnson,emily.johnson@realestate.com,+19125648574,HomeFinders,apollo_csv
+Emily Garcia,invalid_email,+18064473815,HealthBridge,apollo_csv
+Mike Brown,mike.brown@solarco.com,+18274088042,GreenVolt,apollo_csv
+Mike Johnson,mike.johnson@solarco.com,12345,SunCore,apollo_csv
+Robert Garcia,robert.garcia@lawfirm.com,+13386025006,LegalEdge,apollo_csv
+Lisa Williams,lisa.williams@realestate.com,+14739733485,RealHub,apollo_csv
+Anna Williams,invalid_email,+16418224862,Acme Law,apollo_csv
+Nancy Garcia,nancy.garcia@lawfirm.com,+17727771370,Acme Law,apollo_csv
+Robert Davis,robert.davis@realestate.com,12345,HomeFinders,apollo_csv
+Chris Smith,,,Bright Solar,apollo_csv
+Chris Jones,chris.jones@clinic.com,+18653379515,CarePlus Clinic,apollo_csv
+Mike Davis,mike.davis@clinic.com,,HealthBridge,apollo_csv
+Robert Miller,robert.miller@realestate.com,+17837210046,RealHub,apollo_csv
+Mike Davis,mike.davis@solarco.com,+19052868361,SolarX,apollo_csv
+Nancy Smith,nancy.smith@lawfirm.com,+13125241803,Acme Law,apollo_csv
+Anna Williams,anna.williams@realestate.com,+13705706907,Urban Realty,apollo_csv
+Emily Jones,emily.jones@realestate.com,+19765263629,RealHub,apollo_csv
+Lisa Williams,lisa.williams@lawfirm.com,+18043610772,JusticeHub,apollo_csv
+Sarah Jones,sarah.jones@solarco.com,+13907324671,SunCore,apollo_csv
+Robert Brown,robert.brown@realestate.com,+14239144241,Urban Realty,apollo_csv
+Emily Smith,emily.smith@solarco.com,+15034081415,GreenVolt,apollo_csv
+Nancy Davis,nancy.davis@solarco.com,,GreenVolt,apollo_csv
+Anna Davis,anna.davis@clinic.com,+16495175891,HealthBridge,apollo_csv
+John Brown,john.brown@realestate.com,+15946298041,RealHub,apollo_csv
+Emily Miller,,+14518833414,Prime Legal,apollo_csv
+David Smith,invalid_email,+14586192814,Bright Solar,apollo_csv
+Anna Smith,,+14779635646,Wellness Center,apollo_csv
+Nancy Brown,nancy.brown@clinic.com,+17101955721,HealthBridge,apollo_csv
+John Miller,john.miller@lawfirm.com,+12263728940,LegalEdge,apollo_csv
+Chris Smith,chris.smith@realestate.com,+16624710618,HomeFinders,apollo_csv
+John Davis,john.davis@realestate.com,+19216942047,EstatePro,apollo_csv
+Sarah Johnson,sarah.johnson@realestate.com,+16833823442,EstatePro,apollo_csv
+Chris Williams,chris.williams@solarco.com,12345,GreenVolt,apollo_csv
+John Johnson,invalid_email,+17725166440,Prime Legal,apollo_csv
+Mike Brown,,+13560527430,EstatePro,apollo_csv
+Emily Brown,emily.brown@lawfirm.com,+17677818767,LegalEdge,apollo_csv
+Sarah Jones,,+13584398833,Bright Solar,apollo_csv
+Nancy Johnson,nancy.johnson@lawfirm.com,+14680038281,LegalEdge,apollo_csv
+Lisa Brown,lisa.brown@solarco.com,,Bright Solar,apollo_csv
+Emily Williams,emily.williams@clinic.com,+19408378272,HealthBridge,apollo_csv
+Anna Smith,,,JusticeHub,apollo_csv
+Lisa Johnson,lisa.johnson@solarco.com,+17452789798,SolarX,apollo_csv
+Mike Garcia,mike.garcia@solarco.com,+12293735841,GreenVolt,apollo_csv
+Lisa Jones,lisa.jones@lawfirm.com,+17655627942,LegalEdge,apollo_csv
+Nancy Williams,nancy.williams@clinic.com,+15663928588,MedCore,apollo_csv
+Anna Johnson,anna.johnson@realestate.com,+19592884867,EstatePro,apollo_csv
+Lisa Jones,,+19345394938,RealHub,apollo_csv
+Mike Smith,mike.smith@solarco.com,+19092152370,SolarX,apollo_csv
+Mike Brown,mike.brown@clinic.com,,MedCore,apollo_csv
+Nancy Miller,nancy.miller@realestate.com,+14184650902,EstatePro,apollo_csv
+Sarah Johnson,invalid_email,+13907179250,Wellness Center,apollo_csv
+Robert Smith,robert.smith@realestate.com,+13325595292,RealHub,apollo_csv
+John Smith,john.smith@realestate.com,+18662757787,RealHub,apollo_csv
+Nancy Brown,nancy.brown@lawfirm.com,+19577101408,JusticeHub,apollo_csv
+Chris Miller,chris.miller@realestate.com,+17481529916,RealHub,apollo_csv
+Robert Smith,robert.smith@solarco.com,+17266178576,SolarX,apollo_csv
+Chris Davis,chris.davis@solarco.com,+18439932622,SunCore,apollo_csv
+Emily Johnson,emily.johnson@realestate.com,12345,Urban Realty,apollo_csv
+John Miller,john.miller@realestate.com,+18394999599,EstatePro,apollo_csv
+Lisa Jones,lisa.jones@clinic.com,+14799083482,Wellness Center,apollo_csv
+Sarah Jones,sarah.jones@realestate.com,+12514038834,HomeFinders,apollo_csv
+Chris Jones,,+18815656020,Acme Law,apollo_csv
+Robert Smith,robert.smith@realestate.com,+13691335260,Urban Realty,apollo_csv
+Mike Smith,mike.smith@clinic.com,+17624975418,CarePlus Clinic,apollo_csv
+Nancy Jones,nancy.jones@clinic.com,,MedCore,apollo_csv
+Anna Davis,invalid_email,+19717843969,HealthBridge,apollo_csv
+Mike Garcia,mike.garcia@realestate.com,+16123617377,Urban Realty,apollo_csv
+Robert Johnson,robert.johnson@clinic.com,+14008527375,Wellness Center,apollo_csv
+Robert Brown,robert.brown@lawfirm.com,+17760132962,Acme Law,apollo_csv
+Nancy Williams,nancy.williams@lawfirm.com,+17422331859,Acme Law,apollo_csv
+Lisa Jones,lisa.jones@solarco.com,+16321583251,GreenVolt,apollo_csv
+Robert Davis,robert.davis@solarco.com,+15251552310,GreenVolt,apollo_csv
+Sarah Miller,sarah.miller@clinic.com,+18332107203,Wellness Center,apollo_csv
+Lisa Johnson,,+17838649974,GreenVolt,apollo_csv
+David Miller,david.miller@lawfirm.com,+14350759624,Prime Legal,apollo_csv
+Chris Jones,chris.jones@solarco.com,+15927840212,SunCore,apollo_csv
+Nancy Brown,nancy.brown@realestate.com,+19857551476,EstatePro,apollo_csv
+Chris Miller,chris.miller@lawfirm.com,+19609431019,Acme Law,apollo_csv
+Anna Jones,anna.jones@realestate.com,+15667971102,HomeFinders,apollo_csv
+Robert Johnson,robert.johnson@lawfirm.com,+17783312839,LegalEdge,apollo_csv
+Robert Miller,robert.miller@lawfirm.com,,JusticeHub,apollo_csv
+John Williams,john.williams@clinic.com,+15977258555,CarePlus Clinic,apollo_csv
+Nancy Smith,nancy.smith@clinic.com,+16344330845,CarePlus Clinic,apollo_csv
+Anna Johnson,anna.johnson@realestate.com,+15320511079,EstatePro,apollo_csv
+Sarah Williams,sarah.williams@lawfirm.com,+17422565771,JusticeHub,apollo_csv
+Lisa Garcia,lisa.garcia@realestate.com,+19706853403,Urban Realty,apollo_csv
+John Davis,john.davis@clinic.com,+14931320604,HealthBridge,apollo_csv
+Lisa Brown,lisa.brown@realestate.com,+18053696712,HomeFinders,apollo_csv
+Emily Smith,emily.smith@realestate.com,+18833680138,HomeFinders,apollo_csv
+Anna Brown,anna.brown@lawfirm.com,+18470736532,JusticeHub,apollo_csv
+Lisa Brown,lisa.brown@realestate.com,+18243591404,EstatePro,apollo_csv
+Mike Garcia,mike.garcia@lawfirm.com,+13571502924,Prime Legal,apollo_csv
+Robert Brown,robert.brown@clinic.com,+13911595680,Wellness Center,apollo_csv
+Emily Johnson,emily.johnson@lawfirm.com,+19435457566,Prime Legal,apollo_csv
+Sarah Brown,invalid_email,+15872011120,EstatePro,apollo_csv
+Lisa Brown,lisa.brown@lawfirm.com,+19230117744,LegalEdge,apollo_csv
+John Miller,john.miller@clinic.com,+17613573405,Wellness Center,apollo_csv
+Nancy Garcia,nancy.garcia@lawfirm.com,+15890795593,LegalEdge,apollo_csv
+Sarah Miller,sarah.miller@clinic.com,+15904546346,HealthBridge,apollo_csv
+Lisa Williams,lisa.williams@lawfirm.com,+13026346454,JusticeHub,apollo_csv
+Mike Johnson,mike.johnson@clinic.com,+17310026493,Wellness Center,apollo_csv
+Sarah Miller,sarah.miller@realestate.com,+18620584175,Urban Realty,apollo_csv
+John Miller,john.miller@clinic.com,+18136427160,HealthBridge,apollo_csv
+John Johnson,john.johnson@realestate.com,+17887594806,Urban Realty,apollo_csv
+Mike Garcia,mike.garcia@realestate.com,+14510085436,HomeFinders,apollo_csv
+Robert Johnson,robert.johnson@lawfirm.com,+16235627075,LegalEdge,apollo_csv
+Chris Miller,chris.miller@lawfirm.com,+14163777310,Acme Law,apollo_csv
+Lisa Miller,lisa.miller@clinic.com,+17854728651,CarePlus Clinic,apollo_csv
+Sarah Miller,sarah.miller@realestate.com,+13604343168,RealHub,apollo_csv
+Chris Johnson,chris.johnson@realestate.com,+17554787136,Urban Realty,apollo_csv
+Nancy Davis,nancy.davis@realestate.com,+16414050245,RealHub,apollo_csv
+Robert Brown,robert.brown@realestate.com,+16992473465,Urban Realty,apollo_csv
+Chris Brown,chris.brown@lawfirm.com,+13654095016,LegalEdge,apollo_csv
+Nancy Davis,,+18756803877,SunCore,apollo_csv
+John Jones,john.jones@lawfirm.com,+16636665575,Prime Legal,apollo_csv
+David Garcia,david.garcia@clinic.com,+13390245678,HealthBridge,apollo_csv
+Nancy Garcia,nancy.garcia@lawfirm.com,+19954253973,LegalEdge,apollo_csv
+Anna Smith,anna.smith@lawfirm.com,+15293505301,Prime Legal,apollo_csv
+Emily Jones,emily.jones@lawfirm.com,+18040950667,JusticeHub,apollo_csv
+David Garcia,,+15491813756,SolarX,apollo_csv
+John Smith,john.smith@lawfirm.com,+12963385995,LegalEdge,apollo_csv
+Robert Jones,robert.jones@realestate.com,+18568247833,EstatePro,apollo_csv
+David Williams,david.williams@realestate.com,+16398681155,EstatePro,apollo_csv
+Nancy Davis,invalid_email,+17672470154,HomeFinders,apollo_csv
+Mike Garcia,mike.garcia@realestate.com,+12733527229,Urban Realty,apollo_csv
+Sarah Garcia,sarah.garcia@solarco.com,+15553732926,SunCore,apollo_csv
+Anna Brown,anna.brown@solarco.com,+13114182110,SunCore,apollo_csv
+Chris Brown,chris.brown@lawfirm.com,+15878822786,JusticeHub,apollo_csv
+Emily Davis,emily.davis@solarco.com,+12336332280,SolarX,apollo_csv
+Chris Brown,invalid_email,+17021383502,LegalEdge,apollo_csv
+Emily Smith,emily.smith@clinic.com,,CarePlus Clinic,apollo_csv
+Emily Garcia,emily.garcia@lawfirm.com,,Acme Law,apollo_csv

@@ -429,6 +429,20 @@ serve(async (req) => {
       p_reason: "UNSUBSCRIBE",
     });
 
+    // Task 8: persist DNC stage so future inbound messages on any channel
+    // correctly see stage=’dnc’ instead of the prior engaged/outreach stage.
+    await supabase
+      .from("conversation_state")
+      .upsert({
+        lead_id,
+        org_id,
+        stage: "dnc",
+        last_intent: "unsubscribe",
+        updated_at: new Date().toISOString(),
+      })
+      .then(undefined, (e: any) =>
+        console.warn("[voice_turn] conversation_state dnc upsert failed:", e));
+
     const msg = "Understood. I’ll stop contacting you. Goodbye.";
 
     await supabase
@@ -461,6 +475,19 @@ serve(async (req) => {
       p_channel: null,
       p_reason: intent === "not_interested" ? "NOT_INTERESTED" : "OBJECTION_HARD",
     });
+
+    // Task 8: persist DNC stage for non-unsubscribe hard stops too.
+    await supabase
+      .from("conversation_state")
+      .upsert({
+        lead_id,
+        org_id,
+        stage: "dnc",
+        last_intent: intent,
+        updated_at: new Date().toISOString(),
+      })
+      .then(undefined, (e: any) =>
+        console.warn("[voice_turn] conversation_state dnc upsert failed:", e));
 
     const msg = "Got it. I won’t bother you again. Take care.";
 

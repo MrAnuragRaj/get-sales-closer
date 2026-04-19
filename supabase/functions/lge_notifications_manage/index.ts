@@ -218,6 +218,19 @@ serve(async (req: Request) => {
       // ── trigger_digest ───────────────────────────────────────────────────────
       case "trigger_digest": {
         if (role !== "admin") return err("Permission denied — admin role required", 403);
+
+        // Idempotency guard: prevent duplicate digests within 5 minutes
+        const { data: recentDigest } = await adminSb.from("lge_digests")
+          .select("id, created_at")
+          .eq("org_id", orgId)
+          .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (recentDigest) {
+          return err("A digest was already triggered in the last 5 minutes. Please wait before retrying.", 429);
+        }
+
         // Build a manual on-demand digest and email it
         const periodEnd = new Date().toISOString();
         const periodStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

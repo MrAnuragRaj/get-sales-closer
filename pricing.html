@@ -229,6 +229,24 @@
                     </div>
                 </div>
 
+                <!-- Lead Generation Engine standalone add-on -->
+                <div class="pt-8 pb-4 text-left">
+                    <p class="text-indigo-400 font-bold text-xs uppercase tracking-widest mb-4">Lead Generation Engine</p>
+                    <div class="relative flex items-center justify-between p-4 rounded-xl bg-indigo-900/10 border border-indigo-500/20">
+                        <div class="text-left flex-1 mr-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-white font-bold text-xs uppercase tracking-wider">Lead Generation Engine</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400">CSV import · Apollo enrichment · ICP scoring · auto-push to AI pipeline</p>
+                            <p class="text-[10px] text-indigo-500 mt-1">Find, score, and route your own leads straight into GSC — bring your Apollo &amp; Hunter keys</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-[10px] text-indigo-400 font-bold whitespace-nowrap">+$299/mo</span>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggleLGE" class="sr-only peer"><div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-indigo-500 after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Growth Engine standalone add-on -->
                 <div class="pt-8 pb-4 text-left">
                     <div class="flex items-center gap-2 mb-3">
@@ -277,6 +295,7 @@
             Chatbot: document.getElementById('toggleChatbot'),
             Install: document.getElementById('toggleInstall'),
             GE: document.getElementById('toggleGE'),
+            LGE: document.getElementById('toggleLGE'),
             SCE: document.getElementById('toggleSCE'),
             EB: document.getElementById('toggleEB')
         };
@@ -346,6 +365,7 @@
             if (toggles.SafeVoice.checked) premium += 199;
             if (toggles.Priority.checked)  premium += 99;
             if (toggles.Chatbot.checked)   premium += 149;
+            if (toggles.LGE?.checked)      premium += 299;
             if (toggles.GE?.checked)       premium += 660;
             premium += scePremium + ebPremium;
 
@@ -397,6 +417,7 @@
                     if (cfg.addons.chatbot !== undefined) toggles.Chatbot.checked = cfg.addons.chatbot;
                     if (cfg.addons.installation !== undefined) toggles.Install.checked = cfg.addons.installation;
                     if (cfg.addons.growth_engine !== undefined) toggles.GE.checked = cfg.addons.growth_engine;
+                    if (cfg.addons.lead_gen !== undefined) toggles.LGE.checked = cfg.addons.lead_gen;
                     if (cfg.addons.sce !== undefined) toggles.SCE.checked = cfg.addons.sce;
                     if (cfg.addons.eb !== undefined) toggles.EB.checked = cfg.addons.eb;
                     if (cfg.addons.sce_plan) {
@@ -502,6 +523,7 @@
                         chatbot: toggles.Chatbot.checked,
                         installation: toggles.Install.checked,
                         growth_engine: toggles.GE?.checked || false,
+                        lead_gen: toggles.LGE?.checked || false,
                         sce: toggles.SCE.checked,
                         sce_plan: toggles.SCE.checked && sceSelected ? sceSelected.value : null,
                         eb: toggles.EB.checked,

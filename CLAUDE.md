@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-04-18 (LGE Phases 7–10 complete. Phase 10: audit trail viewer, controlled manual outcome marking, non-destructive per-lead re-enrichment, lead processing timeline) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-04-19 (LGE Phase 12 validated + hardened; Phase 14 — Activated Intelligence; Phase 15 — Self-Improving System) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -158,6 +158,12 @@
 | 18 | `*/5 * * * *` | `lge_release_stale_locks()` — resets expired LGE enriching locks |
 | 19 | `*/2 * * * *` | `lge_worker` edge function — LGE enrichment + scoring + routing |
 | 22 | `0 1 * * *` | `lge_outcome_sync` edge function — GSC outcome feedback loop |
+| 26 | `*/30 * * * *` | `lge_alert_worker` edge function — LGE alert rule evaluator (Phase 12) |
+| 27 | `0 */6 * * *` | `lge_reliability_worker` — source reliability scorer (Phase 14) |
+| 28 | `30 3 * * *` | `lge_recommendation_feedback_worker` — rec effectiveness evaluator (Phase 14) |
+| 29 | `*/30 * * * *` | `lge_auto_assist_worker` — bounded auto-assist for ASSIST-mode campaigns (Phase 14) |
+| 30 | `0 4 * * *` | `lge_global_pattern_worker` — cross-campaign pattern aggregator (Phase 15) |
+| 31 | `30 4 * * *` | `lge_cost_worker` — cost per enriched/pushed/booked lead (Phase 15) |
 
 ### Storage Buckets
 `logos` (company branding), `documents` (Knowledge Brain PDFs), `legal-docs` (public; onboarding consent PDFs/DOCXs — 4 seeded: ToS, MSA, Privacy, AUP)
@@ -382,6 +388,12 @@ CSV upload / Apollo export (customer-side)
 **pg_cron Jobs:**
 - `#18` `*/5 * * * *` → `lge_release_stale_locks()` — resets expired enriching locks back to pending
 - `#19` `*/2 * * * *` → `lge_worker` edge function — main processing loop
+- `#26` `*/30 * * * *` → `lge_alert_worker` — alert rule evaluator (Phase 12)
+- `#27` `0 */6 * * *` → `lge_reliability_worker` — source reliability scorer (Phase 14)
+- `#28` `30 3 * * *` → `lge_recommendation_feedback_worker` — rec effectiveness evaluator (Phase 14)
+- `#29` `*/30 * * * *` → `lge_auto_assist_worker` — bounded auto-assist for ASSIST-mode campaigns (Phase 14)
+- `#30` `0 4 * * *` → `lge_global_pattern_worker` — cross-campaign pattern aggregator (Phase 15)
+- `#31` `30 4 * * *` → `lge_cost_worker` — cost per enriched/pushed/booked lead (Phase 15)
 
 **Frontend (`lge_dashboard.html`):**
 - Locked-preview overlay if `lead_gen` not active (same pattern as `growth_dashboard.html`)
@@ -411,6 +423,12 @@ CSV upload / Apollo export (customer-side)
 | LGE Phase 8 | Import history tab, lead notes thread | ✅ |
 | LGE Phase 8 Hardening + Phase 9 | Idempotency on import batches, source enum check, score override (±30 ceiling, system snapshot), campaign lifecycle (pause/resume/archive, pre_pause_mode, lge_campaign_state_logs), server-side search | ✅ |
 | LGE Phase 10 | Audit trail viewer (diff-based, filterable, CSV export), manual outcome marking (ladder enforcement, reason required, sync-aware), non-destructive re-enrichment (processing_version, cooldown), lead processing timeline, permission resolver (admin/operator/viewer) | ✅ |
+| LGE Phase 11 | Score calibration analytics, calibration snapshots, performance indexes | ✅ |
+| LGE Phase 12 | Alerts system (lge_alerts, lge_notification_prefs, lge_digests), lge_alert_worker, lge_notifications_manage — deduplication, cooldowns, suppression, auto-resolution, digest delivery | ✅ |
+| LGE Phase 12 Validation | Suppression active-window bug fixed (new alerts no longer created while suppressed), expired suppression re-open, digest 5-min idempotency guard, lge_alert_worker pg_cron job #26 added | ✅ 2026-04-19 |
+| LGE Phase 13 | lge_source_stats reliability fields, lge_policy_recommendations, lge_experiments (shadow/alternating), lge_vertical_packs + lge_pack_applications, lge_policy_manage edge function | ✅ |
+| LGE Phase 14 | Activated intelligence: lge_reliability_worker (source reliability scoring every 6h), reliability_modifier applied in lge_worker (±5 pts, ≥100 sample), lge_recommendation_feedback + lge_recommendation_feedback_worker (14-day effectiveness eval), lge_policy_simulations (simulate_policy action), lge_auto_assist_actions + lge_auto_assist_worker (threshold nudge ±3, source downweight, reverse action), statistical z-test for experiment evaluation (min 100/variant, 90% CI), auto_assist_mode per campaign (off/suggest_only/assist), new policy_manage actions: simulate_policy, update_auto_assist_mode, list_auto_assist_actions, reverse_auto_assist_action, list_recommendation_feedback | ✅ 2026-04-19 |
+| LGE Phase 15 | Self-improving system: lge_global_patterns (score bands + source effectiveness + ICP segments, daily), lge_global_pattern_worker, lge_org_policies (enterprise policy engine — max_daily_push, blocked/allowed sources, compliance filters, risk_threshold, PII rules) enforced in lge_worker routing, lge_cost_metrics + lge_cost_worker (cost per enriched/pushed/booked lead, daily), recommendation_quality_score computed by feedback worker, new policy_manage actions: list_global_patterns, get_org_policy, update_org_policy, get_cost_metrics | ✅ 2026-04-19 |
 | LGE 4 | E2E test — upload CSV, watch enrichment, verify push to GSC, verify AI fires | ⬜ Defer until Twilio USA live |
 
 ---

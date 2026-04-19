@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agreement Update Required — GetSalesCloser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
+  <style>
+    body { background: #0a0a0a; color: #e5e7eb; font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Auth Loader -->
+  <div id="auth-loader" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]">
+    <div class="text-center">
+      <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm text-gray-400">Loading agreements...</p>
+    </div>
+  </div>
+
+  <!-- Page Content -->
+  <div id="page-content" class="hidden flex-1 flex flex-col">
+
+    <!-- Header -->
+    <header class="glass border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+          <i class="fa-solid fa-shield-halved text-emerald-400 text-sm"></i>
+        </div>
+        <div>
+          <div class="font-semibold text-white text-sm">GetSalesCloser</div>
+          <div class="text-[11px] text-gray-400">Agreement Update Required</div>
+        </div>
+      </div>
+      <div id="progress-label" class="text-xs text-gray-400"></div>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col items-center justify-start px-4 py-8 gap-6 max-w-4xl mx-auto w-full">
+
+      <!-- Notice Banner -->
+      <div class="w-full glass rounded-xl p-4 flex items-start gap-3 border border-amber-500/20 bg-amber-500/5">
+        <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0"></i>
+        <div>
+          <p class="text-sm font-medium text-amber-300">Action Required Before Continuing</p>
+          <p class="text-xs text-gray-400 mt-0.5">Our legal agreements have been updated. You must review and accept each document to continue using GetSalesCloser.</p>
+        </div>
+      </div>
+
+      <!-- Document Card -->
+      <div id="doc-card" class="w-full glass rounded-2xl overflow-hidden">
+
+        <!-- Doc Header -->
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <p id="doc-title" class="font-semibold text-white text-sm"></p>
+            <p id="doc-description" class="text-xs text-gray-400 mt-0.5"></p>
+          </div>
+          <span id="doc-version-badge" class="text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 text-gray-300 uppercase tracking-wide"></span>
+        </div>
+
+        <!-- iframe viewer -->
+        <div class="relative" style="height: 60vh;">
+          <iframe id="consent-doc-frame"
+            src=""
+            class="w-full h-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            title="Legal Document Viewer">
+          </iframe>
+          <div id="iframe-loading" class="absolute inset-0 flex items-center justify-center bg-[#111]">
+            <div class="text-center">
+              <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p class="text-xs text-gray-400">Loading document...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scroll Gate -->
+        <div class="px-6 py-4 border-t border-white/10 bg-white/[0.02]">
+          <div id="scroll-gate" class="flex items-center gap-2 text-xs text-amber-400 mb-3">
+            <i id="gate-icon" class="fa-solid fa-arrow-down animate-bounce"></i>
+            <span id="gate-text">Scroll down to read the full document, then accept below.</span>
+          </div>
+
+          <label id="consent-label" class="flex items-start gap-3 cursor-not-allowed select-none">
+            <input type="checkbox" id="consent-checkbox"
+              class="mt-0.5 w-4 h-4 rounded accent-emerald-500 disabled:opacity-40 shrink-0"
+              disabled />
+            <span id="consent-text" class="text-sm text-gray-300 leading-relaxed"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Row -->
+      <div id="action-row" class="w-full flex items-center justify-between gap-4">
+        <p id="doc-counter" class="text-xs text-gray-500"></p>
+        <button id="accept-btn"
+          onclick="acceptCurrentDoc()"
+          disabled
+          class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-emerald-400 transition-colors">
+          Accept &amp; Continue
+        </button>
+      </div>
+
+      <!-- All Done (hidden initially) -->
+      <div id="all-done" class="hidden w-full text-center py-12">
+        <div class="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-2xl"></i>
+        </div>
+        <h2 class="text-lg font-semibold text-white mb-2">All Agreements Accepted</h2>
+        <p class="text-sm text-gray-400 mb-6">Thank you. You're being redirected now...</p>
+        <div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      </div>
+
+    </main>
+  </div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let _sb = null;
+let _userId = null;
+let _pendingDocs = [];
+let _currentIndex = 0;
+let _scrollUnlocked = false;
+
+// ── Scroll detection on the window ────────────────────────────────────────
+function _onWindowScroll() {
+  if (_scrollUnlocked) return;
+  const scrolled = window.scrollY + window.innerHeight;
+  const total    = document.documentElement.scrollHeight;
+  if (scrolled >= total - 100) {
+    _scrollUnlocked = true;
+    document.getElementById('gate-icon').className = 'fa-solid fa-circle-check text-green-400';
+    document.getElementById('gate-text').textContent = 'You may now accept this document.';
+    document.getElementById('gate-text').classList.remove('text-amber-400');
+    document.getElementById('gate-text').classList.add('text-green-400');
+    document.getElementById('consent-checkbox').disabled = false;
+    document.getElementById('consent-label').classList.remove('cursor-not-allowed');
+    document.getElementById('consent-label').classList.add('cursor-pointer');
+  }
+}
+
+// ── Show a specific pending doc ────────────────────────────────────────────
+function _showDoc(index) {
+  const doc = _pendingDocs[index];
+  _scrollUnlocked = false;
+
+  // Reset checkbox
+  const cb = document.getElementById('consent-checkbox');
+  cb.checked  = false;
+  cb.disabled = true;
+  document.getElementById('accept-btn').disabled = true;
+  document.getElementById('consent-label').classList.add('cursor-not-allowed');
+  document.getElementById('consent-label').classList.remove('cursor-pointer');
+
+  // Reset gate
+  document.getElementById('gate-icon').className = 'fa-solid fa-arrow-down animate-bounce text-amber-400';
+  document.getElementById('gate-text').textContent = 'Scroll down to read the full document, then accept below.';
+  document.getElementById('gate-text').className = 'text-amber-400';
+
+  // Populate header
+  document.getElementById('doc-title').textContent        = doc.title;
+  document.getElementById('doc-description').textContent  = doc.description || '';
+  document.getElementById('doc-version-badge').textContent = 'v' + doc.version;
+
+  // Consent label text
+  document.getElementById('consent-text').textContent =
+    `I have read and agree to the ${doc.title} (version ${doc.version}).`;
+
+  // Doc counter + progress
+  document.getElementById('doc-counter').textContent =
+    `Document ${index + 1} of ${_pendingDocs.length}`;
+  document.getElementById('progress-label').textContent =
+    `${index + 1} / ${_pendingDocs.length} agreements`;
+
+  // Load iframe
+  document.getElementById('iframe-loading').style.display = 'flex';
+  const frame = document.getElementById('consent-doc-frame');
+  const viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(doc.file_url);
+  frame.src = viewerUrl;
+  frame.onload = () => { document.getElementById('iframe-loading').style.display = 'none'; };
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Re-attach scroll listener
+  window.removeEventListener('scroll', _onWindowScroll);
+  window.addEventListener('scroll', _onWindowScroll, { passive: true });
+}
+
+// ── Checkbox toggles Accept button ────────────────────────────────────────
+document.getElementById('consent-checkbox').addEventListener('change', function() {
+  document.getElementById('accept-btn').disabled = !this.checked;
+});
+
+// ── Accept current doc → record consent → advance ─────────────────────────
+async function acceptCurrentDoc() {
+  const btn = document.getElementById('accept-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const doc = _pendingDocs[_currentIndex];
+
+  const { error } = await _sb
+    .from('onboarding_consents')
+    .upsert({
+      user_id:     _userId,
+      doc_id:      doc.id,
+      doc_version: doc.version,
+      consented_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,doc_id' });
+
+  if (error) {
+    btn.disabled  = false;
+    btn.textContent = 'Accept & Continue';
+    alert('Failed to save consent. Please try again.');
+    return;
+  }
+
+  _currentIndex++;
+
+  if (_currentIndex >= _pendingDocs.length) {
+    // All done
+    window.removeEventListener('scroll', _onWindowScroll);
+    document.getElementById('doc-card').classList.add('hidden');
+    document.getElementById('action-row').classList.add('hidden');
+    document.getElementById('all-done').classList.remove('hidden');
+
+    setTimeout(() => {
+      const params   = new URLSearchParams(window.location.search);
+      const returnTo = params.get('return') || 'dashboard.html';
+      window.location.replace(decodeURIComponent(returnTo));
+    }, 1800);
+  } else {
+    btn.textContent = 'Accept & Continue';
+    _showDoc(_currentIndex);
+  }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+requireAuth({
+  requireProfile:    true,
+  requireOnboarding: false,   // existing users may not have completed onboarding yet
+  onAuthenticated: async (profile, user, sb) => {
+    _sb     = sb;
+    _userId = user.id;
+
+    // Fetch all active docs
+    const { data: activeDocs, error: docsErr } = await sb
+      .from('onboarding_consent_docs')
+      .select('id, title, description, version, file_url, display_order')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (docsErr || !activeDocs || activeDocs.length === 0) {
+      // Nothing to consent to — go back
+      const params   = new URLSearchParams(window.location.search);
+      const returnTo = params.get('return') || 'dashboard.html';
+      window.location.replace(decodeURIComponent(returnTo));
+      return;
+    }
+
+    // Fetch what this user has already consented to
+    const { data: existing } = await sb
+      .from('onboarding_consents')
+      .select('doc_id, doc_version')
+      .eq('user_id', user.id);
+
+    const consentMap = {};
+    (existing || []).forEach(c => { consentMap[c.doc_id] = c.doc_version; });
+
+    // Only show docs not yet accepted at current version
+    _pendingDocs = activeDocs.filter(d => consentMap[d.id] !== d.version);
+
+    if (_pendingDocs.length === 0) {
+      // All caught up — redirect
+      const params   = new URLSearchParams(window.location.search);
+      const returnTo = params.get('return') || 'dashboard.html';
+      window.location.replace(decodeURIComponent(returnTo));
+      return;
+    }
+
+    // Show page
+    document.getElementById('auth-loader').style.display = 'none';
+    document.getElementById('page-content').classList.remove('hidden');
+
+    _showDoc(0);
+  }
+});
+</script>
+</body>
+</html>

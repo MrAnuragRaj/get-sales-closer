@@ -220,85 +220,106 @@ Return ONLY the JSON array, no prose.`;
   return rows;
 }
 
-// ── Experiment evaluation ────────────────────────────────────────────────────
+// ── Experiment evaluation (Phase 14 upgrade: statistical significance) ─────────
+// Uses a two-proportion z-test to determine if the difference between variant
+// reply rates is statistically significant at 90% confidence (z ≥ 1.645).
+// Minimum sample: 100 outcome-eligible leads per variant (shadow) or 50 each (alternating).
 async function evaluateExperiment(adminSb: ReturnType<typeof createClient>, experimentId: string, orgId: string) {
   const { data: exp, error } = await adminSb.from("lge_experiments")
     .select("*").eq("id", experimentId).eq("org_id", orgId).maybeSingle();
   if (error || !exp) return null;
 
-  // Get leads processed since experiment started
   const { data: rawLeads } = await adminSb.from("lge_raw_leads")
     .select("id, status, created_at")
     .eq("org_id", orgId)
     .eq("campaign_id", exp.campaign_id)
     .gte("created_at", exp.started_at)
-    .limit(2000);
+    .limit(5000);
 
-  if (!rawLeads || rawLeads.length < 10) {
-    return { evaluated: false, reason: "insufficient_data", lead_count: rawLeads?.length ?? 0 };
+  const MIN_PER_VARIANT = 100; // Phase 14: require 100 outcome-eligible leads per variant
+
+  if (!rawLeads || rawLeads.length < MIN_PER_VARIANT) {
+    return { evaluated: false, reason: "insufficient_data", lead_count: rawLeads?.length ?? 0, min_required: MIN_PER_VARIANT };
   }
 
-  const ids = rawLeads.map((r: any) => r.id);
   const lagCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  const lagIds = rawLeads
+  const lagIds = (rawLeads as any[])
     .filter((r: any) => new Date(r.created_at) <= new Date(lagCutoff))
     .map((r: any) => r.id);
 
-  if (lagIds.length < 10) {
-    return { evaluated: false, reason: "insufficient_outcome_data", outcome_eligible: lagIds.length };
+  if (lagIds.length < MIN_PER_VARIANT) {
+    return { evaluated: false, reason: "insufficient_outcome_data", outcome_eligible: lagIds.length, min_required: MIN_PER_VARIANT };
   }
 
   const { data: outcomes } = await adminSb.from("lge_outcomes")
     .select("raw_lead_id, outcome_stage").in("raw_lead_id", lagIds);
-
   const outcomeMap = new Map((outcomes ?? []).map((o: any) => [o.raw_lead_id, o]));
-
-  // For shadow experiments: variant_b is the shadow; we simulate what would have happened
-  // For alternating: leads alternate between A and B — we'd need metadata tagging (not yet built)
-  // Current evaluation: compare overall reply rate vs variant thresholds
-  const variantA = exp.variant_a_json as any;
-  const variantB = exp.variant_b_json as any;
 
   const { data: scores } = await adminSb.from("lge_scores")
     .select("raw_lead_id, total_score").in("raw_lead_id", lagIds);
-  const scoreMap = new Map((scores ?? []).map((s: any) => [s.raw_lead_id, s.total_score]));
+  const scoreMap = new Map((scores ?? []).map((s: any) => [s.raw_lead_id, Number(s.total_score)]));
 
+  const variantA = exp.variant_a_json as any;
+  const variantB = exp.variant_b_json as any;
   const aThreshold = variantA.auto_push ?? 80;
   const bThreshold = variantB.auto_push ?? 75;
 
   let aWouldPush = 0, aReplied = 0, bWouldPush = 0, bReplied = 0;
 
   for (const id of lagIds) {
-    const score = scoreMap.get(id) ?? 0;
-    const o = outcomeMap.get(id);
-    const replied = o && ["replied","booked","closed"].includes(o.outcome_stage);
+    const score   = scoreMap.get(id) ?? 0;
+    const o       = outcomeMap.get(id);
+    const replied = !!o && ["replied","booked","closed"].includes((o as any).outcome_stage);
 
-    if (score >= aThreshold) {
-      aWouldPush++;
-      if (replied) aReplied++;
-    }
-    if (score >= bThreshold) {
-      bWouldPush++;
-      if (replied) bReplied++;
-    }
+    if (score >= aThreshold) { aWouldPush++; if (replied) aReplied++; }
+    if (score >= bThreshold) { bWouldPush++; if (replied) bReplied++; }
   }
 
-  const aReplyRate = aWouldPush > 0 ? (aReplied / aWouldPush) * 100 : 0;
-  const bReplyRate = bWouldPush > 0 ? (bReplied / bWouldPush) * 100 : 0;
+  if (aWouldPush < MIN_PER_VARIANT || bWouldPush < MIN_PER_VARIANT) {
+    return {
+      evaluated: false,
+      reason: "insufficient_variant_sample",
+      variant_a_sample: aWouldPush,
+      variant_b_sample: bWouldPush,
+      min_per_variant:  MIN_PER_VARIANT,
+    };
+  }
 
-  const SIGNIFICANCE_DELTA = 5; // 5pp minimum meaningful difference
+  const aReplyRate = (aReplied / aWouldPush) * 100;
+  const bReplyRate = (bReplied / bWouldPush) * 100;
+
+  // Two-proportion z-test
+  const pA = aReplied / aWouldPush;
+  const pB = bReplied / bWouldPush;
+  const pPool = (aReplied + bReplied) / (aWouldPush + bWouldPush);
+  const se = Math.sqrt(pPool * (1 - pPool) * (1 / aWouldPush + 1 / bWouldPush));
+  const zStat = se > 0 ? Math.abs(pA - pB) / se : 0;
+
+  // 90% CI → z = 1.645; 95% CI → z = 1.96
+  const Z_90 = 1.645;
+  const Z_95 = 1.96;
+  const significant90 = zStat >= Z_90;
+  const significant95 = zStat >= Z_95;
+  const confidence    = significant95 ? 0.95 : significant90 ? 0.90 : Math.min(0.89, zStat / Z_90 * 0.89);
+
   let winner: "a" | "b" | "inconclusive" = "inconclusive";
-  if (Math.abs(aReplyRate - bReplyRate) >= SIGNIFICANCE_DELTA) {
-    winner = aReplyRate > bReplyRate ? "a" : "b";
-  }
+  if (significant90) winner = aReplyRate > bReplyRate ? "a" : "b";
+
+  const status = significant90 ? "significant" : "inconclusive";
+  const delta  = Math.abs(aReplyRate - bReplyRate);
 
   const result = {
-    variant_a: { threshold: aThreshold, would_push: aWouldPush, replied: aReplied, reply_rate: aReplyRate },
-    variant_b: { threshold: bThreshold, would_push: bWouldPush, replied: bReplied, reply_rate: bReplyRate },
-    outcome_eligible: lagIds.length,
-    significance_delta: SIGNIFICANCE_DELTA,
+    variant_a:          { threshold: aThreshold, would_push: aWouldPush, replied: aReplied, reply_rate: Math.round(aReplyRate * 10) / 10 },
+    variant_b:          { threshold: bThreshold, would_push: bWouldPush, replied: bReplied, reply_rate: Math.round(bReplyRate * 10) / 10 },
+    outcome_eligible:   lagIds.length,
+    z_stat:             Math.round(zStat * 1000) / 1000,
+    confidence:         Math.round(confidence * 1000) / 1000,
+    significant_at_90:  significant90,
+    significant_at_95:  significant95,
+    delta:              Math.round(delta * 10) / 10,
+    status,
     winner,
-    evaluated_at: new Date().toISOString(),
+    evaluated_at:       new Date().toISOString(),
   };
 
   await adminSb.from("lge_experiments")
@@ -306,6 +327,99 @@ async function evaluateExperiment(adminSb: ReturnType<typeof createClient>, expe
     .eq("id", experimentId);
 
   return { evaluated: true, result, winner };
+}
+
+// ── Policy simulation (Phase 14) ────────────────────────────────────────────────
+// Simulates the effect of changing push/review thresholds on historical leads
+// (last 30 days, outcome-eligible) without actually applying any change.
+async function simulatePolicy(
+  adminSb: ReturnType<typeof createClient>,
+  orgId: string,
+  campaignId: string,
+  newAutoThreshold: number,
+  newReviewThreshold: number,
+  actorId: string,
+) {
+  const LAG_MS    = 48 * 60 * 60 * 1000;
+  const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+  const lagCutoff   = new Date(Date.now() - LAG_MS).toISOString();
+  const windowStart = new Date(Date.now() - WINDOW_MS).toISOString();
+
+  const { data: campaign } = await adminSb.from("lge_campaigns")
+    .select("auto_push_threshold, review_threshold")
+    .eq("id", campaignId).eq("org_id", orgId).maybeSingle();
+  if (!campaign) throw new Error("Campaign not found");
+
+  const { data: rawLeads } = await adminSb.from("lge_raw_leads")
+    .select("id, status")
+    .eq("org_id", orgId).eq("campaign_id", campaignId)
+    .gte("created_at", windowStart).lt("updated_at", lagCutoff)
+    .limit(5000);
+
+  if (!rawLeads?.length) {
+    return { simulated: false, reason: "no_outcome_eligible_leads" };
+  }
+
+  const ids = (rawLeads as any[]).map((l: any) => l.id);
+  const { data: scores } = await adminSb.from("lge_scores")
+    .select("raw_lead_id, total_score").in("raw_lead_id", ids);
+  const scoreMap = new Map((scores ?? []).map((s: any) => [s.raw_lead_id, Number(s.total_score)]));
+
+  const { data: outcomes } = await adminSb.from("lge_outcomes")
+    .select("raw_lead_id, outcome_stage").in("raw_lead_id", ids);
+  const outcomeMap = new Map((outcomes ?? []).map((o: any) => [o.raw_lead_id, (o as any).outcome_stage]));
+
+  const oldAuto   = campaign.auto_push_threshold;
+  const oldReview = campaign.review_threshold;
+
+  const simulate = (autoT: number, reviewT: number) => {
+    let push = 0, review = 0, discard = 0;
+    let pushReplied = 0, pushNoReply = 0;
+    for (const id of ids) {
+      const score = scoreMap.get(id) ?? 0;
+      if (score >= autoT) {
+        push++;
+        const stage = outcomeMap.get(id);
+        if (stage && ["replied","booked","closed"].includes(stage)) pushReplied++;
+        else if (stage === "no_reply") pushNoReply++;
+      } else if (score >= reviewT) { review++; }
+      else { discard++; }
+    }
+    const withOutcome = pushReplied + pushNoReply;
+    return {
+      push, review, discard,
+      reply_rate:       withOutcome > 0 ? Math.round((pushReplied / withOutcome) * 100 * 10) / 10 : null,
+      false_push_rate:  withOutcome > 0 ? Math.round((pushNoReply / withOutcome) * 100 * 10) / 10 : null,
+    };
+  };
+
+  const oldResult = simulate(oldAuto,         oldReview);
+  const newResult = simulate(newAutoThreshold, newReviewThreshold);
+
+  const simulatedOutput = {
+    old_policy:    { auto_push_threshold: oldAuto, review_threshold: oldReview,         ...oldResult },
+    new_policy:    { auto_push_threshold: newAutoThreshold, review_threshold: newReviewThreshold, ...newResult },
+    delta: {
+      push:            newResult.push   - oldResult.push,
+      review:          newResult.review - oldResult.review,
+      discard:         newResult.discard - oldResult.discard,
+      reply_rate_est:  (newResult.reply_rate ?? 0) - (oldResult.reply_rate ?? 0),
+      false_push_est:  (newResult.false_push_rate ?? 0) - (oldResult.false_push_rate ?? 0),
+    },
+    sample_size:   ids.length,
+    simulated_at:  new Date().toISOString(),
+  };
+
+  // Persist simulation for audit/reference
+  await adminSb.from("lge_policy_simulations").insert({
+    org_id: orgId,
+    campaign_id: campaignId,
+    input_policy_json: { auto_push_threshold: newAutoThreshold, review_threshold: newReviewThreshold },
+    simulated_output_json: simulatedOutput,
+    created_by: actorId,
+  });
+
+  return { simulated: true, result: simulatedOutput };
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -607,6 +721,156 @@ serve(async (req: Request) => {
     case "apply_vertical_pack":
       if (role === "viewer") return err("Forbidden", 403);
       return handleApplyVerticalPack(adminSb, orgId, body, actorId);
+
+    // ── Phase 14: Policy Simulation ──────────────────────────────────────────
+    case "simulate_policy": {
+      if (role === "viewer") return err("Forbidden", 403);
+      const { campaign_id, auto_push_threshold, review_threshold } = body;
+      if (!campaign_id || auto_push_threshold == null || review_threshold == null) {
+        return err("campaign_id, auto_push_threshold, review_threshold required", 400);
+      }
+      if (Number(auto_push_threshold) <= Number(review_threshold)) {
+        return err("auto_push_threshold must be greater than review_threshold", 400);
+      }
+      try {
+        const result = await simulatePolicy(adminSb, orgId, campaign_id, Number(auto_push_threshold), Number(review_threshold), actorId);
+        return ok(result);
+      } catch (e: any) { return err(e.message, 500); }
+    }
+
+    // ── Phase 14: Auto-Assist Mode ────────────────────────────────────────────
+    case "update_auto_assist_mode": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { campaign_id, auto_assist_mode } = body;
+      if (!campaign_id || !auto_assist_mode) return err("campaign_id, auto_assist_mode required", 400);
+      if (!["off","suggest_only","assist"].includes(auto_assist_mode)) return err("auto_assist_mode must be off|suggest_only|assist", 400);
+
+      const { data: camp } = await adminSb.from("lge_campaigns")
+        .select("id").eq("id", campaign_id).eq("org_id", orgId).maybeSingle();
+      if (!camp) return err("Campaign not found", 404);
+
+      const { error: ue } = await adminSb.from("lge_campaigns")
+        .update({ auto_assist_mode }).eq("id", campaign_id);
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true, campaign_id, auto_assist_mode });
+    }
+
+    // ── Phase 14: Auto-Assist Action History ──────────────────────────────────
+    case "list_auto_assist_actions": {
+      const { campaign_id, limit: lim = 50 } = body;
+      if (!campaign_id) return err("campaign_id required", 400);
+      const { data, error: qe } = await adminSb.from("lge_auto_assist_actions")
+        .select("*")
+        .eq("campaign_id", campaign_id).eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(Math.min(lim, 200));
+      if (qe) return err(qe.message, 500);
+      return ok({ actions: data ?? [] });
+    }
+
+    case "reverse_auto_assist_action": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { action_id } = body;
+      if (!action_id) return err("action_id required", 400);
+
+      const { data: action } = await adminSb.from("lge_auto_assist_actions")
+        .select("*").eq("id", action_id).eq("org_id", orgId).maybeSingle();
+      if (!action) return err("Action not found", 404);
+      if (!action.is_reversible) return err("Action is not reversible", 400);
+      if (action.reversed_at) return err("Action already reversed", 409);
+
+      // Reverse the threshold or source_downweight
+      if (action.action_type === "threshold_adjust") {
+        const before = action.before_json as any;
+        await adminSb.from("lge_campaigns")
+          .update({ auto_push_threshold: before.auto_push_threshold })
+          .eq("id", action.campaign_id);
+      } else if (action.action_type === "source_downweight") {
+        const before = action.before_json as any;
+        await adminSb.from("lge_source_stats").upsert(
+          { org_id: orgId, source: before.source, confidence_adj: before.confidence_adj },
+          { onConflict: "org_id,source" }
+        );
+      }
+
+      await adminSb.from("lge_auto_assist_actions")
+        .update({ reversed_at: new Date().toISOString(), reversed_by: actorId })
+        .eq("id", action_id);
+
+      return ok({ ok: true, action_id, reversed: true });
+    }
+
+    // ── Phase 14: Recommendation feedback ────────────────────────────────────
+    case "list_recommendation_feedback": {
+      const { campaign_id, limit: lim = 30 } = body;
+      let q = adminSb.from("lge_recommendation_feedback")
+        .select("id, recommendation_id, evaluation_window_days, before_metrics_json, after_metrics_json, effectiveness_score, evaluated_at")
+        .eq("org_id", orgId)
+        .order("evaluated_at", { ascending: false })
+        .limit(Math.min(lim, 100));
+      if (campaign_id) {
+        // Join via recommendation_id (filter by campaign's recs)
+        const { data: campRecs } = await adminSb.from("lge_policy_recommendations")
+          .select("id").eq("campaign_id", campaign_id).eq("org_id", orgId);
+        const recIds = (campRecs ?? []).map((r: any) => r.id);
+        if (recIds.length) q = q.in("recommendation_id", recIds);
+        else return ok({ feedback: [] });
+      }
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ feedback: data ?? [] });
+    }
+
+    // ── Phase 15: Global Patterns ─────────────────────────────────────────────
+    case "list_global_patterns": {
+      const { pattern_type, limit: lim = 50 } = body;
+      let q = adminSb.from("lge_global_patterns")
+        .select("*").eq("org_id", orgId)
+        .order("computed_at", { ascending: false })
+        .limit(Math.min(lim, 200));
+      if (pattern_type) q = q.eq("pattern_type", pattern_type);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ patterns: data ?? [] });
+    }
+
+    // ── Phase 15: Org Policy Engine ───────────────────────────────────────────
+    case "get_org_policy": {
+      const { data } = await adminSb.from("lge_org_policies")
+        .select("*").eq("org_id", orgId).maybeSingle();
+      return ok({ policy: data ?? { org_id: orgId, max_daily_push: 100, allowed_sources: null, blocked_sources: null, compliance_filters: {}, risk_threshold: 0, pii_handling_rules: {} } });
+    }
+
+    case "update_org_policy": {
+      if (role !== "admin") return err("admin role required", 403);
+      const { max_daily_push, allowed_sources, blocked_sources, compliance_filters, risk_threshold, pii_handling_rules } = body;
+      const updates: Record<string, unknown> = { org_id: orgId, updated_at: new Date().toISOString() };
+      if (max_daily_push     != null) updates.max_daily_push      = Math.max(1, Math.min(10000, Number(max_daily_push)));
+      if (allowed_sources    != null) updates.allowed_sources     = Array.isArray(allowed_sources) ? allowed_sources : null;
+      if (blocked_sources    != null) updates.blocked_sources     = Array.isArray(blocked_sources) ? blocked_sources : null;
+      if (compliance_filters != null) updates.compliance_filters  = compliance_filters;
+      if (risk_threshold     != null) updates.risk_threshold      = Math.max(0, Math.min(100, Number(risk_threshold)));
+      if (pii_handling_rules != null) updates.pii_handling_rules  = pii_handling_rules;
+      const { error: ue } = await adminSb.from("lge_org_policies").upsert(updates, { onConflict: "org_id" });
+      if (ue) return err(ue.message, 500);
+      return ok({ ok: true });
+    }
+
+    // ── Phase 15: Cost Metrics ────────────────────────────────────────────────
+    case "get_cost_metrics": {
+      const { campaign_id, days = 30 } = body;
+      const since = new Date(Date.now() - Math.min(days, 365) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      let q = adminSb.from("lge_cost_metrics")
+        .select("*").eq("org_id", orgId)
+        .gte("period_date", since)
+        .order("period_date", { ascending: false })
+        .limit(365);
+      if (campaign_id) q = q.eq("campaign_id", campaign_id);
+      else q = q.is("campaign_id", null);
+      const { data, error: qe } = await q;
+      if (qe) return err(qe.message, 500);
+      return ok({ cost_metrics: data ?? [], days: Math.min(days, 365) });
+    }
 
     default:
       return err(`Unknown action: ${action}`, 400);

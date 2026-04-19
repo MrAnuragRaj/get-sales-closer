@@ -483,7 +483,7 @@
                 <h1 class="text-xl font-bold text-white group-hover:text-indigo-300 transition">Deal Commander</h1>
                 <p class="text-xs text-slate-400 group-hover:text-slate-300 transition">Revenue Radar & Diagnostics — click to top up credits</p>
             </div>
-            <div class="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center"><span class="text-sm font-bold">U</span></div>
+            <div class="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center"><span id="user-avatar-initials" class="text-sm font-bold">U</span></div>
         </header>
 
         <div class="flex-1 overflow-auto p-4 md:p-8 relative">
@@ -592,12 +592,15 @@
                     <div id="manual-actions-list" class="space-y-3"></div>
                 </div>
 
+                <!-- AI Configuration Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
                 <!-- AI Persona Settings Card -->
                 <div class="bg-slate-900/70 border border-slate-700 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <i class="fa fa-robot text-indigo-400 text-lg"></i>
                         <h2 class="text-lg font-bold text-white">AI Persona Settings</h2>
-                        <span class="text-xs text-slate-500 ml-auto">Customize your AI assistant's voice & behavior</span>
+                        <span class="text-xs text-slate-500 ml-auto">Customize your AI assistant's voice &amp; behavior</span>
                     </div>
                     <!-- Compliance notice (shown for law/medical/finance/solar) -->
                     <div id="persona-compliance-notice" class="hidden mb-4 bg-amber-900/30 border border-amber-600/40 rounded-lg p-3 text-xs text-amber-300"></div>
@@ -666,6 +669,8 @@
                     <div id="deploy-grid"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
+                </div><!-- /AI Configuration Grid -->
+
                 <!-- CRM Webhook — API Key -->
                 <div class="bg-slate-900/70 border border-slate-700 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-5">
@@ -688,6 +693,23 @@
                     </div>
                 </div>
 
+
+                <!-- Credit Wallet Card -->
+                <div id="credit-wallet-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-wallet text-indigo-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Credit Wallet</h2>
+                        <button onclick="window.Credits.showTopupModal('sms_msg', true)" class="ml-auto text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg transition">+ Buy Credits</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3" id="dash-wallet-grid">
+                        <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
+                    </div>
+                </div>
+
+                <!-- Revenue Add-ons Section -->
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">Revenue Add-ons</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 <!-- AI Social Content Engine (SCE) Gate -->
                 <div id="sce-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
@@ -768,6 +790,47 @@
                             <i class="fa fa-robot text-violet-400 text-2xl mb-2 block"></i>
                             <p class="text-xs text-slate-400">Engagement automation workspace launching shortly. Your subscription is active and being configured.</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Lead Generation Engine Gate -->
+                <div id="lge-gate-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fa fa-rocket text-indigo-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Lead Generation Engine</h2>
+                        <span id="lge-active-badge" class="hidden text-xs bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full font-bold ml-auto">Active</span>
+                    </div>
+                    <!-- Locked state (default) -->
+                    <div id="lge-locked-body">
+                        <p class="text-sm text-slate-400 mb-4">Find, enrich, and score leads against your ICP — then auto-push high-score contacts straight into your GSC AI pipeline.</p>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-indigo-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Leads/mo</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-white">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Pushed</p>
+                            </div>
+                            <div class="bg-slate-900/60 rounded-xl p-3 text-center opacity-40">
+                                <p class="text-xl font-bold text-green-400">—</p>
+                                <p class="text-[11px] text-slate-500 mt-1">Booked</p>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10">
+                            <i class="fa fa-lock text-slate-500 text-2xl mb-3"></i>
+                            <p class="text-sm font-bold text-white mb-1">Lead Generation Engine</p>
+                            <p class="text-xs text-slate-400 mb-4 text-center px-8">CSV import, Apollo enrichment, ICP scoring, and auto-push to your AI pipeline.</p>
+                            <a href="billing.html?lock=lead_gen" class="text-xs font-bold px-5 py-2.5 rounded-lg transition" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)">Unlock Add-on</a>
+                        </div>
+                    </div>
+                    <!-- Active state -->
+                    <div id="lge-active-body" class="hidden">
+                        <p class="text-sm text-slate-400 mb-4">Your Lead Generation Engine is active. Import leads, configure your ICP, and let the pipeline enrich and score them automatically.</p>
+                        <a href="lge_dashboard.html" class="flex items-center justify-center gap-2 w-full bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold py-3 rounded-xl transition text-sm">
+                            <i class="fa fa-rocket"></i>
+                            Open Lead Generation Engine
+                        </a>
                     </div>
                 </div>
 
@@ -854,15 +917,13 @@
                     </div>
                 </div>
 
-                <!-- WhatsApp Settings Card -->
-                <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-5">
-                        <i class="fa-brands fa-whatsapp text-green-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">WhatsApp Settings</h2>
-                        <span class="text-xs text-slate-500 ml-auto">Channel capability</span>
-                    </div>
-                    <div id="dash-wa-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
-                </div>
+                    </div><!-- /Revenue Add-ons grid -->
+                </div><!-- /Revenue Add-ons section -->
+
+                <!-- Channels & Infrastructure Section -->
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">Channels &amp; Infrastructure</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 <!-- Delivery Status Dashboard -->
                 <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
@@ -884,14 +945,14 @@
                     <div id="dash-channel-health-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
-                <!-- Channel Infrastructure -->
+                <!-- WhatsApp Settings Card -->
                 <div class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
                     <div class="flex items-center gap-3 mb-5">
-                        <i class="fa fa-tower-broadcast text-cyan-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">Channel Infrastructure</h2>
-                        <span class="text-xs text-slate-500 ml-auto">Sender status</span>
+                        <i class="fa-brands fa-whatsapp text-green-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">WhatsApp Settings</h2>
+                        <span class="text-xs text-slate-500 ml-auto">Channel capability</span>
                     </div>
-                    <div id="dash-infra-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
+                    <div id="dash-wa-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
                 <!-- Connect Facebook Page -->
@@ -904,17 +965,19 @@
                     <div id="dash-fb-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
 
-                <!-- Credit Wallet Card -->
-                <div id="credit-wallet-card" class="bg-slate-800/50 border border-white/10 rounded-2xl p-6">
-                    <div class="flex items-center gap-3 mb-4">
-                        <i class="fa fa-wallet text-indigo-400 text-lg"></i>
-                        <h2 class="text-lg font-bold text-white">Credit Wallet</h2>
-                        <button onclick="window.Credits.showTopupModal('sms_msg', true)" class="ml-auto text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg transition">+ Buy Credits</button>
+                    </div><!-- /channels 2-col grid -->
+
+                <!-- Channel Infrastructure -->
+                <div class="mt-6 bg-slate-800/50 border border-white/10 rounded-2xl p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <i class="fa fa-tower-broadcast text-cyan-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white">Channel Infrastructure</h2>
+                        <span class="text-xs text-slate-500 ml-auto">Sender status</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-3" id="dash-wallet-grid">
-                        <p class="text-slate-600 text-xs col-span-2 text-center py-4">Loading wallets...</p>
-                    </div>
+                    <div id="dash-infra-body"><p class="text-slate-600 text-sm italic">Loading...</p></div>
                 </div>
+
+                </div><!-- /Channels & Infrastructure section -->
 
                 <!-- Revenue Intelligence Upsell Card -->
                 <div id="upsell-card" class="hidden bg-slate-900/70 border border-slate-700 rounded-2xl p-6">
@@ -1078,6 +1141,7 @@
             'sce':           { label: 'AI Social Content Engine',    icon: 'fa-pen-nib',         locked: false, link: '#',                   module: 'sce' },
             'eb':            { label: 'Engagement Bot',              icon: 'fa-robot',           locked: false, link: '#',                   module: 'eb' },
             'chatbot':       { label: 'Interactive ChatBot',         icon: 'fa-comments',        locked: false, link: '#',                   module: 'chatbot' },
+            'lead_gen':      { label: 'Lead Generation Engine',     icon: 'fa-rocket',          locked: false, link: 'lge_dashboard.html',   module: 'lead_gen'      },
             'growth_engine': { label: 'AI Social Growth System',     icon: 'fa-seedling',        locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
             'b':             { label: 'Knowledge Brain',             icon: 'fa-brain',           locked: false, link: 'Knowledge Brain.html', module: 'brain' },
             's':             { label: 'Instant Sentinel',            icon: 'fa-bolt',            locked: false, link: 'sentinel.html',        module: 'sentinel' },
@@ -1148,6 +1212,7 @@
                 { key: 'sce',           lockedId: 'sce-locked-body',     activeId: 'sce-active-body',     badgeId: 'sce-active-badge'     },
                 { key: 'eb',            lockedId: 'eb-locked-body',      activeId: 'eb-active-body',      badgeId: 'eb-active-badge'      },
                 { key: 'chatbot',       lockedId: 'chatbot-locked-body', activeId: 'chatbot-active-body', badgeId: 'chatbot-active-badge' },
+                { key: 'lead_gen',      lockedId: 'lge-locked-body',     activeId: 'lge-active-body',     badgeId: 'lge-active-badge'     },
                 { key: 'growth_engine', lockedId: 'ge-locked-body',      activeId: 'ge-active-body',      badgeId: 'ge-active-badge'      },
             ];
             addons.forEach(({ key, lockedId, activeId, badgeId }) => {
@@ -1267,7 +1332,17 @@
         async function toggleBranding() { const checkbox = document.getElementById('branding-toggle'); const mode = checkbox.checked; applyBrandingUI(mode); try { await sbClient.from('profiles').update({ branding_mode: mode }).eq('id', currentUser.id); currentProfile.branding_mode = mode; } catch(e) {} }
         function applyBrandingUI(mode) { const txt = document.getElementById('brand-text'); const sub = document.getElementById('brand-sub'); const img = document.getElementById('brand-img'); const icon = document.getElementById('brand-icon'); if (mode) { txt.innerText = currentProfile.company || "Company"; sub.innerText = "Powered by GetSalesCloser"; if (currentProfile.logo_url) { icon.classList.add('hidden'); img.classList.remove('hidden'); } } else { txt.innerText = "GetSalesCloser"; sub.innerText = "Autonomous Revenue"; icon.classList.remove('hidden'); img.classList.add('hidden'); } }
         async function handleLogoUpdate(input) { if (isUploading || input.files.length === 0) return; isUploading = true; const loader = document.createElement('div'); loader.id = 'logo-loader'; loader.className = 'absolute inset-0 bg-black/80 flex items-center justify-center text-xs text-white z-50 rounded-md'; loader.innerText = 'Uploading...'; document.getElementById('brand-container').appendChild(loader); try { const file = input.files[0]; const fileExt = file.name.split('.').pop(); const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`; await sbClient.storage.from('logos').upload(fileName, file); const { data } = sbClient.storage.from('logos').getPublicUrl(fileName); await sbClient.from('profiles').update({ logo_url: data.publicUrl }).eq('id', currentUser.id); currentProfile.logo_url = data.publicUrl; document.getElementById('brand-img').src = data.publicUrl; if (document.getElementById('branding-toggle').checked) applyBrandingUI(true); } catch(e) { alert("Upload failed: " + e.message); } finally { document.getElementById('logo-loader').remove(); isUploading = false; } }
-        function updateDashboardUI(profile) { document.getElementById('user-name-display').innerText = profile.full_name || "User"; document.getElementById('user-ref-id').innerText = profile.reference_id || "..."; if(profile.logo_url) document.getElementById('brand-img').src = profile.logo_url; const toggle = document.getElementById('branding-toggle'); if (profile.branding_mode) { toggle.checked = true; applyBrandingUI(true); } else { toggle.checked = false; applyBrandingUI(false); } }
+        function updateDashboardUI(profile) {
+            document.getElementById('user-name-display').innerText = profile.full_name || "User";
+            document.getElementById('user-ref-id').innerText = profile.reference_id || "...";
+            if (profile.logo_url) document.getElementById('brand-img').src = profile.logo_url;
+            const toggle = document.getElementById('branding-toggle');
+            if (profile.branding_mode) { toggle.checked = true; applyBrandingUI(true); } else { toggle.checked = false; applyBrandingUI(false); }
+            const name = profile.full_name || '';
+            const parts = name.trim().split(/\s+/);
+            const initials = parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (name[0] || 'U').toUpperCase();
+            document.getElementById('user-avatar-initials').textContent = initials;
+        }
         // ── Legal Consent (Onboarding Step 0) ────────────────────────────────────
         let _consentDocs = [], _consentDocIndex = 0, _consentUserId = null, _consentSb = null;
         let _consentTimer = null, _consentUnlocked = false;
@@ -1298,29 +1373,15 @@
             const viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(doc.file_url);
             document.getElementById('consent-doc-frame').src = viewerUrl;
             _lockConsentCheckbox();
-            // Reading timer: 20 seconds minimum, OR scroll past bottom of modal
-            let s = 20;
-            document.getElementById('consent-gate-icon').className = 'fa-solid fa-hourglass-half text-amber-400 text-xs';
-            document.getElementById('consent-timer-text').textContent = 'Please read the document. You may accept in ' + s + 's';
-            _consentTimer = setInterval(() => {
-                s--;
-                if (s > 0) {
-                    document.getElementById('consent-timer-text').textContent = 'Please read the document. You may accept in ' + s + 's';
-                } else {
-                    clearInterval(_consentTimer);
-                    document.getElementById('consent-gate-icon').className = 'fa-solid fa-circle-check text-green-400 text-xs';
-                    document.getElementById('consent-timer-text').textContent = 'You may now accept this document.';
-                    _unlockConsentCheckbox();
-                }
-            }, 1000);
-            // Also unlock if user scrolls the modal to reveal the checkbox
+            document.getElementById('consent-gate-icon').className = 'fa-solid fa-arrow-down text-amber-400 text-xs animate-bounce';
+            document.getElementById('consent-timer-text').textContent = 'Scroll to the bottom of this panel to unlock acceptance.';
+            // Unlock only when user scrolls the modal to its bottom
             const modal = document.getElementById('onb-modal-inner');
             modal.onscroll = function() {
                 if (_consentUnlocked) return;
                 const atBottom = modal.scrollTop + modal.clientHeight >= modal.scrollHeight - 80;
                 if (atBottom) {
                     _consentUnlocked = true;
-                    clearInterval(_consentTimer);
                     document.getElementById('consent-gate-icon').className = 'fa-solid fa-circle-check text-green-400 text-xs';
                     document.getElementById('consent-timer-text').textContent = 'You may now accept this document.';
                     _unlockConsentCheckbox();
