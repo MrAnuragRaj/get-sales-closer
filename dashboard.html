@@ -22,6 +22,12 @@
         .nav-item.active { background: rgba(99, 102, 241, 0.1); border-left-color: #6366f1; color: #a5b4fc; }
         .nav-item.locked { opacity: 0.6; cursor: not-allowed; }
         .nav-item.locked:hover { opacity: 1; background: rgba(234, 179, 8, 0.1); border-left-color: #eab308; }
+        .nav-group-header { transition: all 0.2s; cursor: pointer; user-select: none; }
+        .nav-group-header:hover { background: rgba(255,255,255,0.02); }
+        .nav-group-body { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; }
+        .nav-group-body.collapsed { max-height: 0 !important; opacity: 0; }
+        .nav-group-chevron { transition: transform 0.25s ease; }
+        .nav-group-chevron.open { transform: rotate(90deg); }
         .toggle-checkbox:checked { right: 0; border-color: #68D391; }
         .toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; }
@@ -446,31 +452,31 @@
                 <p class="text-[10px] text-slate-500 mt-1 pl-1" id="brand-sub">Autonomous Revenue</p>
             </div>
 
-            <div class="overflow-y-auto h-[calc(100vh-300px)] no-scrollbar py-6">
-                <div class="px-6 mb-6">
+            <div class="overflow-y-auto h-[calc(100vh-160px)] no-scrollbar py-4">
+                <div class="px-4 mb-4">
                     <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
                         <div class="flex justify-between items-center mb-2"><span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voice Usage</span><span class="text-[10px] text-green-400" id="voice-cost">$0.00</span></div>
                         <div class="w-full bg-slate-900 rounded-full h-1 mb-1"><div class="bg-indigo-500 h-1 rounded-full" style="width: 0%" id="voice-bar"></div></div>
                         <p class="text-[9px] text-slate-500 text-right" id="voice-mins">0 mins this month</p>
                     </div>
                 </div>
-                <div class="px-6 mb-2"><p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">AI Revenue Stack</p></div>
-                <nav class="space-y-1" id="revenue-stack-nav"></nav>
+                <nav id="revenue-stack-nav"></nav>
+
+                <div class="px-4 mt-4 pt-4 border-t border-white/5">
+                    <a href="cancel.html" class="flex items-center gap-2 text-xs text-slate-500 hover:text-red-400 py-2 transition"><i class="fa-solid fa-ban w-4 text-center"></i><span>Cancel Subscription</span></a>
+                    <button onclick="handleLogout()" class="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 w-full py-2 transition"><i class="fa-solid fa-power-off w-4 text-center"></i><span>Sign Out</span></button>
+                    <div class="mt-3 text-xs overflow-hidden">
+                        <p class="text-white font-semibold truncate" id="user-name-display">Loading...</p>
+                        <div class="flex items-center gap-1 mt-0.5 group cursor-pointer" onclick="copyRefId()" title="Copy Reference ID">
+                            <p class="text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-indigo-500/50 transition" id="user-ref-id">...</p>
+                            <i class="fa-regular fa-copy text-[10px] text-slate-500 group-hover:text-indigo-400"></i>
+                        </div>
+                        <p class="text-green-400 mt-1">Custom Configuration</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="p-4 border-t border-white/5 bg-slate-900/50 absolute bottom-0 left-0 w-72">
-            <a href="cancel.html" class="text-xs text-slate-400 hover:text-red-400 w-full block text-left mb-1 transition"><i class="fa-solid fa-ban mr-2"></i> Cancel Subscription</a>
-            <button onclick="handleLogout()" class="text-xs text-red-400 hover:text-red-300 w-full text-left mb-4"><i class="fa-solid fa-power-off mr-2"></i> Sign Out</button>
-            <div class="text-xs overflow-hidden">
-                <p class="text-white font-semibold truncate" id="user-name-display">Loading...</p>
-                <div class="flex items-center gap-1 mt-0.5 group cursor-pointer" onclick="copyRefId()" title="Copy Reference ID">
-                    <p class="text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-indigo-500/50 transition" id="user-ref-id">...</p>
-                    <i class="fa-regular fa-copy text-[10px] text-slate-500 group-hover:text-indigo-400"></i>
-                </div>
-                <p class="text-green-400 mt-1">Custom Configuration</p>
-            </div>
-        </div>
     </aside>
 
     <main class="flex-1 flex flex-col relative overflow-hidden md:ml-72 h-screen">
@@ -540,7 +546,7 @@
                 </div>
 
                 <!-- My Leads Section -->
-                <div class="bg-slate-900/70 border border-white/5 rounded-2xl overflow-hidden">
+                <div id="my-leads" class="bg-slate-900/70 border border-white/5 rounded-2xl overflow-hidden">
                     <div class="flex items-center justify-between p-5 border-b border-white/5">
                         <div class="flex items-center gap-3">
                             <div class="h-3 w-3 rounded-full bg-green-400"></div>
@@ -1136,18 +1142,41 @@
         let currentDiagnosis = null;
 
         const SIDEBAR_CONFIG = {
-            'niche_closer':  { label: 'Deal Commander',              icon: 'fa-bullseye',        locked: false, link: '#',                   module: null },
-            'content_roi':   { label: 'Pipeline Intelligence',       icon: 'fa-chart-line',      locked: false, link: '#',                   module: null },
-            'sce':           { label: 'AI Social Content Engine',    icon: 'fa-pen-nib',         locked: false, link: '#',                   module: 'sce' },
-            'eb':            { label: 'Engagement Bot',              icon: 'fa-robot',           locked: false, link: '#',                   module: 'eb' },
-            'chatbot':       { label: 'Interactive ChatBot',         icon: 'fa-comments',        locked: false, link: '#',                   module: 'chatbot' },
-            'lead_gen':      { label: 'Lead Generation Engine',     icon: 'fa-rocket',          locked: false, link: 'lge_dashboard.html',   module: 'lead_gen'      },
-            'growth_engine': { label: 'AI Social Growth System',     icon: 'fa-seedling',        locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
-            'b':             { label: 'Knowledge Brain',             icon: 'fa-brain',           locked: false, link: 'Knowledge Brain.html', module: 'brain' },
-            's':             { label: 'Instant Sentinel',            icon: 'fa-bolt',            locked: false, link: 'sentinel.html',        module: 'sentinel' },
-            'a':             { label: 'Appt. Architect',             icon: 'fa-calendar-check',  locked: false, link: 'App Architect.html',   module: 'architect' },
-            'l':             { label: 'Voice Liaison',               icon: 'fa-microphone-lines', locked: false, link: 'Voice Liaison.html',   module: 'voice' }
+            'niche_closer':    { label: 'Deal Commander',           icon: 'fa-bullseye',         locked: false, link: '#',                    module: null },
+            'content_roi':     { label: 'Pipeline Intelligence',    icon: 'fa-chart-line',       locked: false, link: '#',                    module: null },
+            'sce':             { label: 'AI Social Content Engine', icon: 'fa-pen-nib',          locked: false, link: '#',                    module: 'sce' },
+            'eb':              { label: 'Engagement Bot',           icon: 'fa-robot',            locked: false, link: '#',                    module: 'eb' },
+            'chatbot':         { label: 'Interactive ChatBot',      icon: 'fa-comments',         locked: false, link: '#',                    module: 'chatbot' },
+            'lead_gen':        { label: 'Lead Generation Engine',   icon: 'fa-rocket',           locked: false, link: 'lge_dashboard.html',   module: 'lead_gen' },
+            'my_leads_anchor': { label: 'My Leads',                 icon: 'fa-users',            locked: false, link: '#my-leads',            module: null },
+            'growth_engine':   { label: 'AI Social Growth System',  icon: 'fa-seedling',         locked: false, link: 'growth_dashboard.html', module: 'growth_engine' },
+            'b':               { label: 'Knowledge Brain',          icon: 'fa-brain',            locked: false, link: 'Knowledge Brain.html', module: 'brain' },
+            's':               { label: 'Instant Sentinel',         icon: 'fa-bolt',             locked: false, link: 'sentinel.html',        module: 'sentinel' },
+            'a':               { label: 'Appt. Architect',          icon: 'fa-calendar-check',   locked: false, link: 'App Architect.html',   module: 'architect' },
+            'l':               { label: 'Voice Liaison',            icon: 'fa-microphone-lines', locked: false, link: 'Voice Liaison.html',   module: 'voice' }
         };
+
+        // Grouped sidebar layout — order within each group is preserved
+        const SIDEBAR_GROUPS = [
+            {
+                key:   'ai_revenue_stack',
+                label: 'AI Revenue Stack',
+                icon:  'fa-layer-group',
+                items: ['niche_closer', 'content_roi', 'sce', 'eb', 'chatbot'],
+            },
+            {
+                key:   'leads_pipeline',
+                label: 'Leads & Pipeline',
+                icon:  'fa-funnel-dollar',
+                items: ['lead_gen', 'my_leads_anchor'],
+            },
+            {
+                key:   'tools',
+                label: 'Tools & Growth',
+                icon:  'fa-toolbox',
+                items: ['b', 's', 'a', 'l', 'growth_engine'],
+            },
+        ];
 
         window.addEventListener('load', () => {
             requireAuth({
@@ -1229,25 +1258,104 @@
             });
         }
 
+        // ── Collapsible sidebar ────────────────────────────────────────────────
+        // State stored in localStorage: 'sidebar_groups' = { groupKey: true/false (open) }
+
+        function getSidebarGroupState() {
+            try { return JSON.parse(localStorage.getItem('sidebar_groups') || '{}'); } catch { return {}; }
+        }
+        function saveSidebarGroupState(state) {
+            localStorage.setItem('sidebar_groups', JSON.stringify(state));
+        }
+
+        function toggleNavGroup(groupKey) {
+            const state = getSidebarGroupState();
+            state[groupKey] = !state[groupKey];
+            saveSidebarGroupState(state);
+
+            const body    = document.getElementById(`navgroup-body-${groupKey}`);
+            const chevron = document.getElementById(`navgroup-chevron-${groupKey}`);
+            if (!body || !chevron) return;
+
+            if (state[groupKey]) {
+                body.classList.remove('collapsed');
+                body.style.maxHeight = '800px';
+                chevron.classList.add('open');
+            } else {
+                body.classList.add('collapsed');
+                body.style.maxHeight = '0';
+                chevron.classList.remove('open');
+            }
+        }
+
         function renderSidebar() {
             const container = document.getElementById('revenue-stack-nav');
             container.innerHTML = '';
-            
-            Object.entries(SIDEBAR_CONFIG).forEach(([key, config]) => {
-                const isEntitled = !config.module || orgEntitlements[config.module] === 'active';
-                const isLocked = config.locked || !isEntitled;
+            const state = getSidebarGroupState();
 
-                const div = document.createElement('div');
-                div.className = `nav-item flex items-center px-6 py-3 text-slate-400 ${isLocked ? 'locked' : 'active cursor-pointer'}`;
-                div.onclick = () => handleNavClick(key, isLocked);
-                
-                const statusHtml = isLocked 
-                    ? `<i class="fa-solid fa-lock text-[10px] text-slate-600 ml-auto"></i>` 
-                    : `<div class="status-icon ml-auto"><div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]"></div></div>`;
+            SIDEBAR_GROUPS.forEach(group => {
+                // Determine if any child in this group is the active page anchor
+                const hasActiveChild = group.items.some(key => {
+                    const cfg = SIDEBAR_CONFIG[key];
+                    return cfg && cfg.link !== '#' && cfg.link !== '#my-leads' && window.location.pathname.endsWith(cfg.link);
+                });
 
-                div.innerHTML = `<i class="fa-solid ${config.icon} w-6 text-center"></i><span class="text-sm font-medium ml-2">${config.label}</span>${statusHtml}`;
-                container.appendChild(div);
+                // Default open for: ai_revenue_stack always, others follow stored state
+                const isOpen = state[group.key] !== undefined
+                    ? state[group.key]
+                    : (group.key === 'ai_revenue_stack' || hasActiveChild);
+
+                if (state[group.key] === undefined) {
+                    state[group.key] = isOpen;
+                }
+
+                // If an active child is in a closed group, auto-open it
+                const groupIsOpen = hasActiveChild ? true : isOpen;
+                if (hasActiveChild && !isOpen) {
+                    state[group.key] = true;
+                    saveSidebarGroupState(state);
+                }
+
+                // ── Group header ──────────────────────────────────────────────
+                const header = document.createElement('div');
+                header.className = 'nav-group-header flex items-center px-5 py-2.5 text-slate-500 hover:text-slate-300';
+                header.onclick = () => toggleNavGroup(group.key);
+                header.innerHTML = `
+                    <i class="fa-solid ${group.icon} text-[11px] w-5 text-center opacity-70"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-widest ml-2 flex-1">${group.label}</span>
+                    <i id="navgroup-chevron-${group.key}" class="fa-solid fa-chevron-right nav-group-chevron text-[9px] ${groupIsOpen ? 'open' : ''}"></i>
+                `;
+                container.appendChild(header);
+
+                // ── Group body ────────────────────────────────────────────────
+                const body = document.createElement('div');
+                body.id = `navgroup-body-${group.key}`;
+                body.className = `nav-group-body space-y-0.5 ${groupIsOpen ? '' : 'collapsed'}`;
+                body.style.maxHeight = groupIsOpen ? '800px' : '0';
+
+                group.items.forEach(key => {
+                    const config = SIDEBAR_CONFIG[key];
+                    if (!config) return;
+
+                    const isEntitled = !config.module || orgEntitlements[config.module] === 'active';
+                    const isLocked   = config.locked || !isEntitled;
+
+                    const div = document.createElement('div');
+                    div.className = `nav-item flex items-center pl-10 pr-5 py-2.5 text-slate-400 ${isLocked ? 'locked' : 'cursor-pointer'}`;
+                    div.onclick = () => handleNavClick(key, isLocked);
+
+                    const statusHtml = isLocked
+                        ? `<i class="fa-solid fa-lock text-[9px] text-slate-600 ml-auto"></i>`
+                        : `<div class="ml-auto"><div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"></div></div>`;
+
+                    div.innerHTML = `<i class="fa-solid ${config.icon} w-4 text-center text-[12px]"></i><span class="text-sm font-medium ml-2.5">${config.label}</span>${statusHtml}`;
+                    body.appendChild(div);
+                });
+
+                container.appendChild(body);
             });
+
+            saveSidebarGroupState(state);
         }
 
         function openDealCommander() {
@@ -1268,11 +1376,12 @@
                 window.location.href = `billing.html?lock=${config.module}`;
                 return;
             }
-            if (key === 'niche_closer') { openDealCommander(); return; }
-            if (key === 'content_roi') { document.getElementById('pipeline-intelligence-modal').classList.remove('hidden'); return; }
-            if (key === 'sce')     { document.getElementById('sce-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-            if (key === 'eb')      { document.getElementById('eb-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-            if (key === 'chatbot') { document.getElementById('chatbot-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'niche_closer')    { openDealCommander(); return; }
+            if (key === 'content_roi')     { document.getElementById('pipeline-intelligence-modal').classList.remove('hidden'); return; }
+            if (key === 'sce')             { document.getElementById('sce-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'eb')              { document.getElementById('eb-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'chatbot')         { document.getElementById('chatbot-gate-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            if (key === 'my_leads_anchor') { document.getElementById('my-leads')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
             if (config.link && config.link !== '#') window.location.href = config.link;
         }
 

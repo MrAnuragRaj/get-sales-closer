@@ -280,6 +280,47 @@ async function incrementProviderCall(sb: ReturnType<typeof getServiceSupabaseCli
   await sb.rpc("lge_increment_rate_limit", { p_org_id: orgId, p_provider: provider, p_amount: 1 }).then(undefined, () => {});
 }
 
+// ── Phase 20: Circuit breaker helpers ────────────────────────────────────────
+// Loads breaker state per org per provider: closed | open | half_open
+
+async function loadCircuitBreakerStates(
+  sb: ReturnType<typeof getServiceSupabaseClient>,
+  orgId: string,
+): Promise<Map<string, "closed" | "open" | "half_open">> {
+  const states = new Map<string, "closed" | "open" | "half_open">();
+  const { data } = await sb.from("lge_provider_health")
+    .select("provider, breaker_state, cooldown_until")
+    .eq("org_id", orgId);
+  for (const row of data ?? []) {
+    const state = row.breaker_state as string;
+    // Auto-transition open→half_open if cooldown expired (client-side check; DB is authoritative)
+    if (state === "open" && row.cooldown_until && new Date(row.cooldown_until) < new Date()) {
+      states.set(row.provider, "half_open");
+    } else {
+      states.set(row.provider, state as "closed" | "open" | "half_open");
+    }
+  }
+  return states;
+}
+
+function isProviderBlocked(
+  provider: string,
+  rateLimited: Set<string>,
+  circuitBreakers: Map<string, "closed" | "open" | "half_open">,
+): boolean {
+  if (rateLimited.has(provider)) return true;
+  const state = circuitBreakers.get(provider) ?? "closed";
+  return state === "open"; // half_open allows ONE test call
+}
+
+async function recordProviderSuccess(sb: ReturnType<typeof getServiceSupabaseClient>, orgId: string, provider: string) {
+  sb.rpc("lge_record_provider_success", { p_org_id: orgId, p_provider: provider }).then(undefined, () => {});
+}
+
+async function recordProviderFailure(sb: ReturnType<typeof getServiceSupabaseClient>, orgId: string, provider: string) {
+  sb.rpc("lge_record_provider_failure", { p_org_id: orgId, p_provider: provider }).then(undefined, () => {});
+}
+
 // ── Input format validators (pre-enrichment guards) ───────────────────────────
 // Prevents API quota waste on obviously invalid/synthetic contact data.
 
@@ -346,6 +387,7 @@ async function processLead(
   sourceAdjCache: Map<string, SourceAdjMap>,
   campaignConfigCache: Map<string, CampaignConfig>,
   rateLimitedCache: Map<string, Set<string>>,
+  circuitBreakerCache: Map<string, Map<string, "closed" | "open" | "half_open">>,
 ): Promise<void> {
   // Phase 17: SLA — record enrichment start time
   const enrichmentStartAt = new Date().toISOString();
@@ -445,6 +487,12 @@ async function processLead(
     }
     const rateLimited = rateLimitedCache.get(lead.org_id)!;
 
+    // Phase 20: load circuit breaker states for this org (cached per batch)
+    if (!circuitBreakerCache.has(lead.org_id)) {
+      circuitBreakerCache.set(lead.org_id, await loadCircuitBreakerStates(sb, lead.org_id));
+    }
+    const circuitBreakers = circuitBreakerCache.get(lead.org_id)!;
+
     // ── Apollo enrichment ─────────────────────────────────────────────────────
     let apolloResult: ApolloResult | null = null;
     // Apollo needs at least one usable signal; treat invalid email as absent
@@ -452,14 +500,27 @@ async function processLead(
       (lead.lead_email && emailValid) || lead.lead_name || lead.lead_company
     );
 
-    if (keys.apollo && hasApolloInput && !rateLimited.has("apollo")) {
-      apolloResult = await enrichWithApollo(keys.apollo, leadContact);
-      void incrementProviderCall(sb, lead.org_id, "apollo");
-      await sb.from("lge_provider_calls").insert({
-        raw_lead_id: lead.lead_id,
-        provider: "apollo",
-        status: apolloResult ? "success" : "failed",
-      });
+    const apolloBlocked = isProviderBlocked("apollo", rateLimited, circuitBreakers);
+
+    if (keys.apollo && hasApolloInput && !apolloBlocked) {
+      try {
+        apolloResult = await enrichWithApollo(keys.apollo, leadContact);
+        void incrementProviderCall(sb, lead.org_id, "apollo");
+        void recordProviderSuccess(sb, lead.org_id, "apollo");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "apollo", status: apolloResult ? "success" : "failed",
+        });
+        // If half_open test succeeded, refresh breaker cache to closed
+        if (circuitBreakers.get("apollo") === "half_open") {
+          circuitBreakers.set("apollo", "closed");
+        }
+      } catch (apolloErr: any) {
+        void recordProviderFailure(sb, lead.org_id, "apollo");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "apollo", status: "failed",
+          error_detail: apolloErr.message ?? "provider_error",
+        });
+      }
     } else {
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
@@ -467,21 +528,33 @@ async function processLead(
         status: "skipped",
         error_detail: !keys.apollo ? "no_api_key"
           : rateLimited.has("apollo") ? "rate_limited"
+          : circuitBreakers.get("apollo") === "open" ? "circuit_breaker_open"
           : (!emailValid && lead.lead_email ? "invalid_email_format" : "no_usable_input"),
       });
     }
 
     // ── Hunter email verification ─────────────────────────────────────────────
     let hunterResult: HunterResult | null = null;
+    const hunterBlocked = isProviderBlocked("hunter", rateLimited, circuitBreakers);
 
-    if (keys.hunter && lead.lead_email && emailValid && !rateLimited.has("hunter")) {
-      hunterResult = await verifyWithHunter(keys.hunter, lead.lead_email);
-      void incrementProviderCall(sb, lead.org_id, "hunter");
-      await sb.from("lge_provider_calls").insert({
-        raw_lead_id: lead.lead_id,
-        provider: "hunter",
-        status: hunterResult ? "success" : "failed",
-      });
+    if (keys.hunter && lead.lead_email && emailValid && !hunterBlocked) {
+      try {
+        hunterResult = await verifyWithHunter(keys.hunter, lead.lead_email);
+        void incrementProviderCall(sb, lead.org_id, "hunter");
+        void recordProviderSuccess(sb, lead.org_id, "hunter");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "hunter", status: hunterResult ? "success" : "failed",
+        });
+        if (circuitBreakers.get("hunter") === "half_open") {
+          circuitBreakers.set("hunter", "closed");
+        }
+      } catch (hunterErr: any) {
+        void recordProviderFailure(sb, lead.org_id, "hunter");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "hunter", status: "failed",
+          error_detail: hunterErr.message ?? "provider_error",
+        });
+      }
     } else {
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
@@ -489,7 +562,7 @@ async function processLead(
         status: "skipped",
         error_detail: !keys.hunter ? "no_api_key"
           : !lead.lead_email ? "no_email"
-          : rateLimited.has("hunter") ? "rate_limited"
+          : hunterBlocked ? (rateLimited.has("hunter") ? "rate_limited" : "circuit_breaker_open")
           : "invalid_email_format",
       });
     }
@@ -499,7 +572,7 @@ async function processLead(
     let hunterDomainResult: HunterDomainResult | null = null;
     const apolloMissingFirmographic = !apolloResult?.industry && !apolloResult?.company_size;
 
-    if (keys.hunter && lead.lead_email && emailValid && apolloMissingFirmographic && !rateLimited.has("hunter")) {
+    if (keys.hunter && lead.lead_email && emailValid && apolloMissingFirmographic && !hunterBlocked) {
       hunterDomainResult = await enrichFromHunterDomain(keys.hunter, lead.lead_email);
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
@@ -514,22 +587,30 @@ async function processLead(
         error_detail: !keys.hunter ? "no_api_key"
           : !lead.lead_email ? "no_email"
           : !emailValid ? "invalid_email_format"
-          : rateLimited.has("hunter") ? "rate_limited"
+          : hunterBlocked ? "circuit_breaker_open_or_rate_limited"
           : "apollo_sufficient",
       });
     }
 
     // ── AbstractAPI Phone Verification ────────────────────────────────────────
     let phoneVerifyResult: { valid: boolean; line_type: string; carrier: string | null } | null = null;
+    const abstractBlocked = isProviderBlocked("abstract_phone", rateLimited, circuitBreakers);
 
-    if (keys.abstract_phone && lead.lead_phone && phoneValid && !rateLimited.has("abstract_phone")) {
-      phoneVerifyResult = await verifyPhoneAbstract(keys.abstract_phone, lead.lead_phone);
-      void incrementProviderCall(sb, lead.org_id, "abstract_phone");
-      await sb.from("lge_provider_calls").insert({
-        raw_lead_id: lead.lead_id,
-        provider: "abstract_phone",
-        status: phoneVerifyResult ? "success" : "failed",
-      });
+    if (keys.abstract_phone && lead.lead_phone && phoneValid && !abstractBlocked) {
+      try {
+        phoneVerifyResult = await verifyPhoneAbstract(keys.abstract_phone, lead.lead_phone);
+        void incrementProviderCall(sb, lead.org_id, "abstract_phone");
+        void recordProviderSuccess(sb, lead.org_id, "abstract_phone");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "abstract_phone", status: phoneVerifyResult ? "success" : "failed",
+        });
+      } catch (absErr: any) {
+        void recordProviderFailure(sb, lead.org_id, "abstract_phone");
+        await sb.from("lge_provider_calls").insert({
+          raw_lead_id: lead.lead_id, provider: "abstract_phone", status: "failed",
+          error_detail: absErr.message ?? "provider_error",
+        });
+      }
     } else {
       await sb.from("lge_provider_calls").insert({
         raw_lead_id: lead.lead_id,
@@ -537,7 +618,7 @@ async function processLead(
         status: "skipped",
         error_detail: !keys.abstract_phone ? "no_api_key"
           : !lead.lead_phone ? "no_phone"
-          : rateLimited.has("abstract_phone") ? "rate_limited"
+          : abstractBlocked ? (rateLimited.has("abstract_phone") ? "rate_limited" : "circuit_breaker_open")
           : "invalid_phone_format",
       });
     }
@@ -854,13 +935,14 @@ serve(async (req: Request) => {
     const sourceAdjCache      = new Map<string, SourceAdjMap>();
     const campaignConfigCache = new Map<string, CampaignConfig>();
     const rateLimitedCache    = new Map<string, Set<string>>();
+    const circuitBreakerCache = new Map<string, Map<string, "closed" | "open" | "half_open">>();
 
     const batchStart = Date.now();
     let failCount = 0;
 
     await runPool(batch, CONCURRENCY, async (lead) => {
       try {
-        await processLead(lead, sb, orgKeyCache, sourceAdjCache, campaignConfigCache, rateLimitedCache);
+        await processLead(lead, sb, orgKeyCache, sourceAdjCache, campaignConfigCache, rateLimitedCache, circuitBreakerCache);
       } catch {
         failCount++;
       }
