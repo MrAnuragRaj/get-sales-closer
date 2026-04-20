@@ -1396,6 +1396,119 @@ serve(async (req: Request) => {
       return ok({ benchmarks: data ?? [] });
     }
 
+    // ── Phase 20: Intake Activity ─────────────────────────────────────────────
+
+    case "list_intake_events": {
+      const {
+        source: filterSource,
+        campaign_id: filterCampaign,
+        decision: filterDecision,
+        date_from,
+        date_to,
+        search,
+        limit: lim = 100,
+        offset: off = 0,
+      } = body;
+
+      // Human-readable decision labels
+      const DECISION_LABELS: Record<string, string> = {
+        lge_queued:      "Sent to LGE",
+        direct_push:     "Pushed to GSC",
+        held:            "Held (fail-closed)",
+        shadow:          "Shadow mode (GSC + LGE)",
+        fallback_open:   "Fallback → GSC (fail-open)",
+        fallback_closed: "Held — LGE unavailable",
+        error:           "Error",
+      };
+
+      let q = adminSb.from("lge_intake_events")
+        .select(`
+          id,
+          idempotency_key,
+          org_id,
+          intake_source,
+          campaign_id,
+          router_decision,
+          fallback_reason,
+          lge_lead_id,
+          gsc_lead_id,
+          created_at,
+          lge_campaigns ( name )
+        `, { count: "exact" })
+        .eq("org_id", ctx.orgId)
+        .order("created_at", { ascending: false })
+        .range(Number(off), Number(off) + Math.min(Number(lim), 500) - 1);
+
+      if (filterSource)   q = q.eq("intake_source", filterSource);
+      if (filterCampaign) q = q.eq("campaign_id", filterCampaign);
+      if (filterDecision) q = q.eq("router_decision", filterDecision);
+      if (date_from)      q = q.gte("created_at", date_from);
+      if (date_to)        q = q.lte("created_at", date_to);
+
+      const { data, error: qe, count } = await q;
+      if (qe) return err(qe.message, 500);
+
+      const events = (data ?? []).map((row: any) => ({
+        id:               row.id,
+        created_at:       row.created_at,
+        intake_source:    row.intake_source ?? "unknown",
+        campaign_name:    row.lge_campaigns?.name ?? null,
+        campaign_id:      row.campaign_id,
+        router_decision:  row.router_decision,
+        decision_label:   DECISION_LABELS[row.router_decision] ?? row.router_decision,
+        fallback_reason:  row.fallback_reason,
+        lge_lead_id:      row.lge_lead_id,
+        gsc_lead_id:      row.gsc_lead_id,
+        // Admin-only extras
+        ...(ctx.role === "admin" ? {
+          idempotency_key: row.idempotency_key,
+          event_id:        row.id,
+        } : {}),
+      }));
+
+      return ok({ events, total: count ?? 0 });
+    }
+
+    case "get_intake_event_detail": {
+      const { event_id } = body;
+      if (!event_id) return err("event_id required", 400);
+
+      const { data, error: qe } = await adminSb.from("lge_intake_events")
+        .select("*")
+        .eq("id", event_id)
+        .eq("org_id", ctx.orgId)
+        .maybeSingle();
+      if (qe) return err(qe.message, 500);
+      if (!data) return err("Event not found", 404);
+
+      // Strip raw_payload for non-admins
+      const out: any = { ...data };
+      if (ctx.role !== "admin") {
+        delete out.raw_payload;
+        delete out.idempotency_key;
+      }
+      return ok({ event: out });
+    }
+
+    case "get_intake_policy": {
+      const { data } = await adminSb.from("lge_intake_policies")
+        .select("failover_policy").eq("org_id", ctx.orgId).maybeSingle();
+      return ok({ failover_policy: data?.failover_policy ?? "fail_open" });
+    }
+
+    case "update_intake_policy": {
+      if (ctx.role === "viewer") return err("Insufficient permissions", 403);
+      const { failover_policy } = body;
+      if (!["fail_open", "fail_closed", "shadow_only"].includes(failover_policy)) {
+        return err("Invalid failover_policy. Use: fail_open, fail_closed, shadow_only", 400);
+      }
+      await adminSb.from("lge_intake_policies").upsert(
+        { org_id: ctx.orgId, failover_policy, updated_at: new Date().toISOString() },
+        { onConflict: "org_id" }
+      );
+      return ok({ ok: true, failover_policy });
+    }
+
     default:
       return err(`Unknown action: ${action}`, 400);
   }

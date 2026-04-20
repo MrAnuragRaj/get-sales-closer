@@ -564,6 +564,7 @@
             Intelligence <span id="intelligence-badge" class="hidden ml-1 bg-indigo-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">0</span>
         </button>
         <button class="tab-btn" onclick="switchTab('replay',this)" id="replay-tab-btn">Replay</button>
+        <button class="tab-btn" onclick="switchTab('intake-activity',this)" id="intake-activity-tab-btn">Intake Activity</button>
         <button class="tab-btn" onclick="switchTab('settings',this)" id="settings-tab-btn">Settings</button>
     </div>
 
@@ -1401,6 +1402,88 @@
             </div>
         </div><!-- /tab-replay -->
 
+        <!-- ── Intake Activity Tab (Phase 20) ──────────────────────────────────── -->
+        <div id="tab-intake-activity" class="tab-body hidden p-6 space-y-5">
+
+            <!-- Header + Policy -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-white">Intake Activity</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Every lead received by intake_router — its decision, source, and why.</p>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span class="text-xs text-slate-400">Intake Policy:</span>
+                    <select id="intake-policy-select" onchange="saveIntakePolicy(this.value)"
+                        class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="fail_open">Fail Open (default — push to GSC if LGE fails)</option>
+                        <option value="fail_closed">Fail Closed — hold lead if LGE fails</option>
+                        <option value="shadow_only">Shadow Only — always push to GSC + evaluate in LGE</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <select id="ia-filter-source" onchange="loadIntakeActivity()"
+                    class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">All Sources</option>
+                    <option value="ghl">GoHighLevel</option>
+                    <option value="apollo">Apollo</option>
+                    <option value="hubspot">HubSpot</option>
+                    <option value="zapier">Zapier</option>
+                    <option value="make">Make.com</option>
+                    <option value="intake_router">Generic</option>
+                </select>
+                <select id="ia-filter-decision" onchange="loadIntakeActivity()"
+                    class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">All Decisions</option>
+                    <option value="lge_queued">Sent to LGE</option>
+                    <option value="fallback_open">Fallback → GSC</option>
+                    <option value="fallback_closed">Held</option>
+                    <option value="shadow">Shadow Mode</option>
+                    <option value="error">Error</option>
+                </select>
+                <input type="date" id="ia-filter-from" onchange="loadIntakeActivity()"
+                    class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="From date">
+                <input type="date" id="ia-filter-to" onchange="loadIntakeActivity()"
+                    class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="To date">
+            </div>
+
+            <!-- Summary tiles -->
+            <div id="ia-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+            <!-- Table -->
+            <div class="bg-slate-900/50 border border-white/5 rounded-xl overflow-hidden">
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-800/60 text-slate-400 uppercase font-bold text-[10px]">
+                        <tr>
+                            <th class="px-4 py-3">Time</th>
+                            <th class="px-4 py-3">Source</th>
+                            <th class="px-4 py-3">Campaign</th>
+                            <th class="px-4 py-3">Decision</th>
+                            <th class="px-4 py-3">Reason / Note</th>
+                            <th class="px-4 py-3">Lead</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ia-tbody" class="divide-y divide-white/5">
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-slate-600 italic">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-between">
+                <span id="ia-count" class="text-xs text-slate-500">—</span>
+                <div class="flex gap-2">
+                    <button id="ia-prev" onclick="intakeActivityPage(-1)"
+                        class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition disabled:opacity-30" disabled>Prev</button>
+                    <button id="ia-next" onclick="intakeActivityPage(1)"
+                        class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition disabled:opacity-30" disabled>Next</button>
+                </div>
+            </div>
+
+        </div><!-- /tab-intake-activity -->
+
         <!-- ── Settings Tab (Phase 18 + 19) ──────────────────────────────────── -->
         <div id="tab-settings" class="tab-body hidden p-6 space-y-6">
 
@@ -1746,8 +1829,9 @@ function switchTab(name, btn) {
     if (name === 'imports-history') { populateImportHistoryFilter(); loadImportHistory(); }
     if (name === 'alerts') { loadAlerts(); loadNotifPrefs(); loadDigestHistory(); }
     if (name === 'intelligence') { populateIntelCampaignSelect(); loadVerticalPacks(); }
-    if (name === 'replay')   { loadReplayTab(); }
-    if (name === 'settings') { loadSettingsTab(); }
+    if (name === 'replay')           { loadReplayTab(); }
+    if (name === 'intake-activity')  { loadIntakeActivityTab(); }
+    if (name === 'settings')         { loadSettingsTab(); }
 }
 
 // ── Campaigns ─────────────────────────────────────────────────────────────────
@@ -5119,6 +5203,128 @@ async function loadBenchmarks() {
             </tr>`).join('')}</tbody>
         </table></div>`;
     } catch (e) { el.innerHTML = `<div class="text-xs text-red-400">${e.message}</div>`; }
+}
+
+// ── Phase 20: Intake Activity Tab ────────────────────────────────────────────
+
+let iaOffset = 0;
+const IA_LIMIT = 50;
+let iaTotalCount = 0;
+
+const DECISION_BADGE = {
+    lge_queued:      { label: 'Sent to LGE',        cls: 'bg-indigo-500/20 text-indigo-300' },
+    direct_push:     { label: 'Pushed to GSC',       cls: 'bg-green-500/20 text-green-300' },
+    held:            { label: 'Held',                cls: 'bg-amber-500/20 text-amber-300' },
+    shadow:          { label: 'Shadow Mode',         cls: 'bg-purple-500/20 text-purple-300' },
+    fallback_open:   { label: 'Fallback → GSC',      cls: 'bg-blue-500/20 text-blue-300' },
+    fallback_closed: { label: 'Held (fail-closed)',  cls: 'bg-amber-500/20 text-amber-300' },
+    error:           { label: 'Error',               cls: 'bg-red-500/20 text-red-300' },
+};
+
+async function loadIntakeActivityTab() {
+    iaOffset = 0;
+    await Promise.all([loadIntakePolicy(), loadIntakeActivity()]);
+}
+
+async function loadIntakePolicy() {
+    try {
+        const res = await callFn('lge_policy_manage', { action: 'get_intake_policy' });
+        const sel = document.getElementById('intake-policy-select');
+        if (sel && res.failover_policy) sel.value = res.failover_policy;
+    } catch { /* silent */ }
+}
+
+async function saveIntakePolicy(val) {
+    try {
+        await callFn('lge_policy_manage', { action: 'update_intake_policy', failover_policy: val });
+    } catch (e) { alert('Failed to save policy: ' + e.message); }
+}
+
+async function loadIntakeActivity() {
+    const tbody  = document.getElementById('ia-tbody');
+    const countEl = document.getElementById('ia-count');
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-600 italic">Loading...</td></tr>';
+
+    const body = {
+        action:    'list_intake_events',
+        limit:     IA_LIMIT,
+        offset:    iaOffset,
+        source:    document.getElementById('ia-filter-source')?.value   || undefined,
+        decision:  document.getElementById('ia-filter-decision')?.value || undefined,
+        date_from: document.getElementById('ia-filter-from')?.value     || undefined,
+        date_to:   document.getElementById('ia-filter-to')?.value       || undefined,
+    };
+    // Remove undefined keys
+    Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+
+    try {
+        const res = await callFn('lge_policy_manage', body);
+        iaTotalCount = res.total ?? 0;
+        renderIntakeActivitySummary(res.events ?? []);
+        renderIntakeActivityRows(res.events ?? []);
+        countEl.textContent = `${iaTotalCount} events`;
+        document.getElementById('ia-prev').disabled = iaOffset === 0;
+        document.getElementById('ia-next').disabled = iaOffset + IA_LIMIT >= iaTotalCount;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-400">${e.message}</td></tr>`;
+    }
+}
+
+function renderIntakeActivitySummary(events) {
+    const wrap = document.getElementById('ia-summary');
+    const counts = { lge_queued: 0, fallback_open: 0, fallback_closed: 0, error: 0 };
+    events.forEach(e => {
+        if (e.router_decision in counts) counts[e.router_decision]++;
+        else if (e.router_decision === 'shadow') counts.lge_queued++;
+    });
+    wrap.innerHTML = [
+        { label: 'Sent to LGE',  val: counts.lge_queued,      cls: 'text-indigo-400' },
+        { label: 'Fallback→GSC', val: counts.fallback_open,   cls: 'text-blue-400' },
+        { label: 'Held',         val: counts.fallback_closed,  cls: 'text-amber-400' },
+        { label: 'Errors',       val: counts.error,            cls: 'text-red-400' },
+    ].map(t => `
+        <div class="bg-slate-900/50 border border-white/5 rounded-xl p-4">
+            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">${t.label}</p>
+            <p class="text-2xl font-bold ${t.cls} mt-1">${t.val}</p>
+        </div>
+    `).join('');
+}
+
+function renderIntakeActivityRows(events) {
+    const tbody = document.getElementById('ia-tbody');
+    if (!events.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-600 italic">No intake events found for the selected filters.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = events.map(e => {
+        const badge   = DECISION_BADGE[e.router_decision] ?? { label: e.router_decision, cls: 'bg-slate-700 text-slate-300' };
+        const time    = new Date(e.created_at).toLocaleString();
+        const source  = (e.intake_source ?? 'unknown').toUpperCase();
+        const campaign = e.campaign_name ?? (e.campaign_id ? e.campaign_id.slice(0, 8) + '…' : '—');
+        const reason  = e.fallback_reason
+            ? `<span class="text-amber-400">${e.fallback_reason.replace(/_/g, ' ')}</span>`
+            : '<span class="text-slate-600">—</span>';
+        const lead    = e.lge_lead_id
+            ? `<span class="font-mono text-[10px] text-indigo-400">LGE ${e.lge_lead_id.slice(0,8)}…</span>`
+            : e.gsc_lead_id
+                ? `<span class="font-mono text-[10px] text-green-400">GSC ${e.gsc_lead_id.slice(0,8)}…</span>`
+                : '<span class="text-slate-600">—</span>';
+        return `<tr class="hover:bg-slate-800/30 transition">
+            <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${time}</td>
+            <td class="px-4 py-2.5 text-slate-300 font-mono text-[11px]">${source}</td>
+            <td class="px-4 py-2.5 text-slate-400 max-w-[140px] truncate" title="${campaign}">${campaign}</td>
+            <td class="px-4 py-2.5">
+                <span class="badge ${badge.cls} px-2 py-0.5">${badge.label}</span>
+            </td>
+            <td class="px-4 py-2.5">${reason}</td>
+            <td class="px-4 py-2.5">${lead}</td>
+        </tr>`;
+    }).join('');
+}
+
+function intakeActivityPage(dir) {
+    iaOffset = Math.max(0, iaOffset + dir * IA_LIMIT);
+    loadIntakeActivity();
 }
 </script>
 </body>
