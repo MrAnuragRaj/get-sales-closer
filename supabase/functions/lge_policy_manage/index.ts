@@ -27,12 +27,20 @@ function err(msg: string, status = 400) {
 async function resolveOrgAndRole(req: Request, adminSb: ReturnType<typeof createClient>):
   Promise<{ orgId: string; role: "admin" | "operator" | "viewer" } | null> {
   const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
 
-  const userSb = createClient(SUPABASE_URL, token, { auth: { persistSession: false } });
-  const { data: { user }, error } = await userSb.auth.getUser();
-  if (error || !user) return null;
+  // Direct fetch to /auth/v1/user — bypasses SDK ES256 local-parse (this project uses ES256 JWTs)
+  const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { "Authorization": `Bearer ${token}`, "apikey": SERVICE_ROLE },
+  });
+  if (!userResp.ok) return null;
+  const userData = await userResp.json();
+  const userId: string = userData?.id;
+  if (!userId) return null;
+
+  // Wrap as user object for the rest of the function
+  const user = { id: userId };
 
   // Check platform admin
   const { data: profile } = await adminSb.from("profiles")
