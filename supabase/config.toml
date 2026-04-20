@@ -3,8 +3,8 @@ project_id = "klbwigcvrdfeeeeotehu"
 # ── LGE functions — ES256 JWT note ────────────────────────────────────────────
 # This Supabase project uses ES256 (asymmetric) JWT signing.
 # The Supabase JS SDK inside Deno edge functions cannot parse ES256 tokens locally.
-# All four LGE functions handle auth via plain fetch to /auth/v1/user using the
-# service role key — so platform-level verify_jwt must stay false.
+# All LGE functions handle auth via plain fetch to /auth/v1/user using the
+# service role key — so platform-level verify_jwt must stay false for all of them.
 
 [functions.lge_campaign_manage]
 verify_jwt = false
@@ -16,4 +16,37 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.lge_outcome_sync]
+verify_jwt = false
+
+[functions.lge_policy_manage]
+verify_jwt = false
+
+[functions.lge_alert_worker]
+verify_jwt = false
+
+[functions.lge_notifications_manage]
+verify_jwt = false
+
+[functions.lge_reliability_worker]
+verify_jwt = false
+
+[functions.lge_recommendation_feedback_worker]
+verify_jwt = false
+
+[functions.lge_auto_assist_worker]
+verify_jwt = false
+
+[functions.lge_global_pattern_worker]
+verify_jwt = false
+
+[functions.lge_cost_worker]
+verify_jwt = false
+
+[functions.lge_dlq_worker]
+verify_jwt = false
+
+[functions.lge_public_api]
+verify_jwt = false
+
+[functions.intake_router]
 verify_jwt = false
