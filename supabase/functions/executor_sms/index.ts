@@ -4,6 +4,7 @@ import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 import { updateConversationState } from "../_shared/conversation_state.ts";
 import type { Intent } from "../_shared/intent_rules.ts";
+import { emitCrmEvent } from "../_shared/crm_emitter.ts";
 
 const LEASE_SECONDS = 90;
 
@@ -608,6 +609,23 @@ async function runExecutor(supabase: any, task_id: string, worker_id: string | u
     content: messageBody,
     metadata: { task_id, sid: twilioJson.sid },
   }).then(undefined, (e: any) => console.error("[executor_sms] outbound interaction log failed:", e));
+
+  // CRM Sync: emit lead_contacted event (fire-and-forget)
+  void emitCrmEvent(supabase, {
+    orgId:          task.org_id,
+    sourceSystem:   "gsc",
+    eventType:      "lead_contacted",
+    entityType:     "lead",
+    entityId:       task.lead_id,
+    idempotencyKey: `gsc:lead_contacted:lead:${task.lead_id}:task:${task_id}`,
+    payload: {
+      channel:             "sms",
+      phone:               task.leads?.phone ?? null,
+      message_preview:     messageBody.slice(0, 200),
+      lifecycle_stage:     "contacted",
+      last_interaction_at: new Date().toISOString(),
+    },
+  });
 
   // Task 7: persist conversation state so memory_json is actually populated.
   // Best-effort — failure here must never block task completion.

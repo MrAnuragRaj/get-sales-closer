@@ -3,6 +3,7 @@ import { getServiceSupabaseClient } from "../_shared/db.ts";
 import { generateMessage } from "../_shared/brain.ts";
 import { enforceKillSwitchForTaskExecutor, enforceOrgCancellationForTaskExecutor, enforcePlatformKillSwitchForTaskExecutor, enforceRateLimitForTaskExecutor } from "../_shared/security.ts";
 import { updateConversationState } from "../_shared/conversation_state.ts";
+import { emitCrmEvent } from "../_shared/crm_emitter.ts";
 
 const LEASE_SECONDS = 90;
 const TOKEN_KEY = "sentinel.email";
@@ -444,6 +445,24 @@ serve(async (req) => {
       ai: brainResult.metadata ?? {},
       mode: (brainResult.metadata as any)?.mode ?? "ai",
       force_raw_send: forceRaw === true,
+    },
+  });
+
+  // CRM Sync: emit lead_contacted event (fire-and-forget)
+  void emitCrmEvent(supabase, {
+    orgId:          task.org_id,
+    sourceSystem:   "gsc",
+    eventType:      "lead_contacted",
+    entityType:     "lead",
+    entityId:       task.lead_id,
+    idempotencyKey: `gsc:lead_contacted:lead:${task.lead_id}:task:${task_id}`,
+    payload: {
+      channel:             "email",
+      email:               (task.leads as any)?.email ?? null,
+      name:                (task.leads as any)?.name ?? null,
+      message_preview:     subject,
+      lifecycle_stage:     "contacted",
+      last_interaction_at: new Date().toISOString(),
     },
   });
 
