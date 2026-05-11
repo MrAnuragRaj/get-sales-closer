@@ -1,6 +1,6 @@
 # CLAUDE.md — GetSalesCloser Project Guide
 
-> Last updated: 2026-04-19 (LGE Phase 12 validated + hardened; Phase 14 — Activated Intelligence; Phase 15 — Self-Improving System) | Full session history → `docs/SESSIONS.md`
+> Last updated: 2026-05-11 (CRM-Sync Phase 1+2 complete — HubSpot + Pipedrive adapters, crm.html, Sync Monitor, field mapping) | Full session history → `docs/SESSIONS.md`
 
 **Live URL**: https://www.getsalescloser.com (Vercel) | **Supabase**: https://klbwigcvrdfeeeeotehu.supabase.co
 **Admin email**: anurag@yogmayaindustries.com | **Admin password**: AdminGSC2026
@@ -90,8 +90,15 @@
 | `org_channels_*` (5 fns) | Channel management |
 | `campaign_ticker`, `decision_engine`, `execution_planner`, `execution-dispatcher`, `task_sweeper` | Core automation pipeline |
 | `invoice-reminder-worker` | `REMINDER_DRY_RUN=false` (live) |
+| `crm_sync_worker` | Async CRM event processor; pg_cron #35 `*/5 * * * *`; FOR UPDATE SKIP LOCKED; batch 20; routes to HubSpot/Pipedrive adapters; `--no-verify-jwt` |
+| `crm_oauth` | CRM OAuth flow (HubSpot + Pipedrive); save_api_key; test_connection; field_mappings; sync stats/logs/retry RPCs |
 
-**Shared modules** (`_shared/`): `db.ts`, `brain.ts`, `persona_builder.ts`, `reply_router.ts`, `intent_ai.ts`, `intent_rules.ts`, `conversation_state.ts`, `security.ts`, `retry_policy.ts`, `strike_time.ts`, `revenue_adapters.ts`, `health_scorer.ts`, `doctor_payload_builder.ts`, `pii_scrubber.ts`, `team_attention.ts`, `guardrails/`
+**Shared modules** (`_shared/`): `db.ts`, `brain.ts`, `persona_builder.ts`, `reply_router.ts`, `intent_ai.ts`, `intent_rules.ts`, `conversation_state.ts`, `security.ts`, `retry_policy.ts`, `strike_time.ts`, `revenue_adapters.ts`, `health_scorer.ts`, `doctor_payload_builder.ts`, `pii_scrubber.ts`, `team_attention.ts`, `guardrails/`, `crm_emitter.ts`, `crm_adapters.ts`, `crm_token_crypto.ts`
+
+**CRM Shared Modules:**
+- `crm_emitter.ts` — `emitCrmEvent(sb, opts)`: fire-and-forget insert into `crm_sync_events`; swallows errors so CRM never blocks GSC execution
+- `crm_adapters.ts` — `routeToAdapter(dest, event, sb)`: routes to HubSpot or Pipedrive; both adapters check `crm_sync_mappings` before create (no duplicates); `AdapterResult.authFailed` → immediate destination health_status='auth_failed'; `AdapterResult.skip` → mark skipped without burning retries
+- `crm_token_crypto.ts` — `encryptCrmAuth/decryptCrmAuth` (AES-GCM 256-bit PBKDF2); `signOAuthState/verifyOAuthState` (HMAC-SHA256, 10-min expiry)
 
 **`strike_time.ts` exports:** `computeStrikeTime(nowUtcISO, tz)` + `isWithinContactWindow(nowUtcISO, tz)` — both enforce Mon–Sat 08:00–19:59 TCPA window.
 
@@ -372,7 +379,7 @@ CSV upload / Apollo export (customer-side)
 | `lge_scores` | raw_lead_id, fit_score, confidence_score, total_score, scored_at |
 | `lge_context` | raw_lead_id, reason_to_reach_out, pain_point_hypothesis, recommended_pitch_angle, generated_at |
 | `lge_provider_config` | org_id, provider (apollo/hunter), api_key_encrypted, is_active |
-| `lge_provider_calls` | raw_lead_id, provider, status, called_at |
+| `lge_provider_calls` | raw_lead_id, provider, status, error_detail, called_at — error_detail values: `no_match` (API returned 200 but no data), `http_401` / `http_429` / `http_400` (auth/rate/bad request), `timeout`, `network_error`, `no_api_key`, `no_email`, `no_phone`, `invalid_email_format` |
 | `lge_outcomes` | raw_lead_id, gsc_lead_id, outcome_stage (no_reply/replied/booked/closed), outcome_source, observed_at, is_manual, manual_reason, manual_by, manual_at, source_priority, last_synced_at |
 
 **Edge Functions (4):**
@@ -382,7 +389,7 @@ CSV upload / Apollo export (customer-side)
 - `lge_outcome_sync` ✅ — pg_cron daily 01:00 UTC; syncs GSC lead/interaction/appointment outcomes back to `lge_outcomes`; batched 2000/run
 
 **Shared Modules (2):**
-- `_shared/lge_providers.ts` ✅ — Apollo (`/v1/people/match`, 8s timeout) + Hunter (`/v2/email-verifier`, 5s timeout); AES-GCM key decryption
+- `_shared/lge_providers.ts` ✅ — Apollo (`/v1/people/match`, 8s timeout) + Hunter (`/v2/email-verifier`, 5s timeout); AES-GCM key decryption; all provider fns return `ProviderCallResult<T> = { data: T | null; errorDetail: string | null }` — distinguishes auth errors (`http_401`) from no-match (`no_match`) from timeouts
 - `_shared/lge_scorer.ts` ✅ — `computeFitScore` / `computeConfidenceScore` / `computeTotalScore` / `routeByScore` — all pure functions
 
 **pg_cron Jobs:**
@@ -429,7 +436,12 @@ CSV upload / Apollo export (customer-side)
 | LGE Phase 13 | lge_source_stats reliability fields, lge_policy_recommendations, lge_experiments (shadow/alternating), lge_vertical_packs + lge_pack_applications, lge_policy_manage edge function | ✅ |
 | LGE Phase 14 | Activated intelligence: lge_reliability_worker (source reliability scoring every 6h), reliability_modifier applied in lge_worker (±5 pts, ≥100 sample), lge_recommendation_feedback + lge_recommendation_feedback_worker (14-day effectiveness eval), lge_policy_simulations (simulate_policy action), lge_auto_assist_actions + lge_auto_assist_worker (threshold nudge ±3, source downweight, reverse action), statistical z-test for experiment evaluation (min 100/variant, 90% CI), auto_assist_mode per campaign (off/suggest_only/assist), new policy_manage actions: simulate_policy, update_auto_assist_mode, list_auto_assist_actions, reverse_auto_assist_action, list_recommendation_feedback | ✅ 2026-04-19 |
 | LGE Phase 15 | Self-improving system: lge_global_patterns (score bands + source effectiveness + ICP segments, daily), lge_global_pattern_worker, lge_org_policies (enterprise policy engine — max_daily_push, blocked/allowed sources, compliance filters, risk_threshold, PII rules) enforced in lge_worker routing, lge_cost_metrics + lge_cost_worker (cost per enriched/pushed/booked lead, daily), recommendation_quality_score computed by feedback worker, new policy_manage actions: list_global_patterns, get_org_policy, update_org_policy, get_cost_metrics | ✅ 2026-04-19 |
+| LGE E2E Debug | Full end-to-end pipeline debug session: fixed lge_claim_batch duplicate overload ambiguity, raw_data fallbacks (industry/designation from CSV columns when Apollo returns null), hasProviderKeys ReferenceError, AbstractAPI URL rebrand (phoneintelligence.abstractapi.com), autofill in leads search (type=search), Intelligence tab Forbidden (owner role missing from resolveOrgAndRole), Intelligence campaign dropdown empty (async self-fetch), OpenAI 429 handling (rule-based recommendation fallback), provider error_detail fix (ProviderCallResult type — distinguishes no_match from auth errors) | ✅ 2026-05-11 |
 | LGE 4 | E2E test — upload CSV, watch enrichment, verify push to GSC, verify AI fires | ⬜ Defer until Twilio USA live |
+| CRM-Sync Phase 1 | Migration (crm_destinations, crm_sync_events, crm_sync_mappings, crm_sync_logs + claim_crm_sync_events RPC); crm_emitter.ts shared module; crm_adapters.ts (native/hubspot/salesforce/pipedrive/zoho stubs); crm_sync_worker edge fn (pg_cron #35 every 5min); lead_created emitted from hook_inbound; lead_replied emitted from webhook_inbound SMS/WA path | ✅ 2026-05-11 |
+| CRM-Sync Phase 2 | crm_adapters.ts full HubSpot + Pipedrive (mapping-before-create, authFailed fast-fail, rate_limit re-queue, 409 conflict handling, token refresh); crm_token_crypto.ts (AES-GCM + HMAC OAuth state); crm_oauth edge fn (authorize_url, callback, save_api_key, disconnect, test_connection, update_field_mappings, get_destinations, retry_event, sync stats/logs); crm_sync_worker updated (sb passthrough, authFailed immediate, no duplicate mapping upsert); executor_sms + executor_email emit lead_contacted; crm.html (Connections + Field Mapping + Sync Monitor tabs); Phase 2 migration (4-col unique, retry_crm_sync_event, get_crm_sync_stats, get_crm_sync_logs, get_failed_crm_events RPCs) | ✅ 2026-05-11 |
+| CRM-Sync Phase 3 | Salesforce adapter (OAuth2 + REST API); Zoho adapter; field mapping UI | ⬜ |
+| CRM-Sync Phase 4 | NativeCRMAdapter — implemented when native Customer Growth CRM is built | ⬜ |
 
 ---
 
@@ -476,11 +488,71 @@ All phases shipped and live at https://www.getsalescloser.com:
 
 ## What's Next (priority order)
 
-1. **Meta OAuth E2E test** — set `META_APP_SECRET` in Railway + register redirect URI in Meta Developer App; then test Facebook/Instagram connect in growth_dashboard.html
-2. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
-3. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
-4. **LGE Session 4 (E2E)** — upload CSV → watch enrichment → score → force_push or auto-push → verify GSC lead + AI fires → check lge_outcomes after sync *(defer until Twilio USA live)*
-5. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
+1. **CRM-Sync Phase 3** — Salesforce adapter (OAuth2 + REST API) + Zoho adapter; field mapping UI Phase 2 (custom field discovery from live CRM); add crm.html link to dashboard.html nav
+2. **CRM pg_cron registration** — register `crm_sync_worker` as pg_cron job #35 `*/5 * * * *`; add `HUBSPOT_CLIENT_ID/SECRET` and `PIPEDRIVE_CLIENT_ID/SECRET` env vars to Supabase
+3. **Meta OAuth E2E test** — set `META_APP_SECRET` in Railway + register redirect URI in Meta Developer App; then test Facebook/Instagram connect in growth_dashboard.html
+4. **RD 10 — Revenue Doctor E2E** — generate a report, buy a bundle, verify credits deducted, share link, export PDF
+5. **Groups A → B → C → F** — unblocked once Twilio USA number arrives
+6. **LGE Session 4 (E2E)** — upload CSV → watch enrichment → score → force_push or auto-push → verify GSC lead + AI fires → check lge_outcomes after sync *(defer until Twilio USA live)*
+7. **Growth Engine E2E (Group GE)** — entitlement gate, locked-preview, grant via admin, LinkedIn/Meta OAuth connect, verify dashboard populates
+8. **LGE Monetization** — see "LGE Monetization Opportunities" section below; next billing work: volume tiers + AI context credits
+
+---
+
+## Platform Completeness Audit (2026-05-11)
+
+### GSC Core — ~85% Complete
+
+**Fully built:** All channel executors (SMS/Email/Voice/WhatsApp/RCS/Messenger), Sentinel, Knowledge Brain, Appointment Architect, Voice Liaison, Revenue Doctor, Auth+Consent flow, Multi-tenant (Solo/Agency/Enterprise), Admin Founder Dashboard, Billing/Subscriptions/Credits, Cancellation+Refund, Growth Engine (UI + Railway FastAPI + LinkedIn OAuth + Meta OAuth).
+
+**Partially built:**
+- Growth Engine: UI+OAuth ✅; actual content generation/engagement automation backend not writing data yet — FastAPI needs `META_APP_SECRET` to activate
+- Deal Commander: modal UI in dashboard.html exists but no backing edge function; feature is UI-only
+
+**Critical gaps (not built):**
+- **CRM export**: No native Salesforce/HubSpot/Pipedrive connectors — leads are one-way into GSC; no two-way sync. **Enterprise blocker.**
+- **Slack/Teams notification channel**: No executor; only SMS/Email/Voice/WhatsApp/Messenger coded
+- **Org-level audit logs**: LGE has full audit trail; GSC core has none (no `gsc_audit_logs` table)
+- **A/B testing for GSC messaging**: No experimentation on AI-generated outreach copy
+- **White-label / custom domain**: Not architected
+
+### LGE — ~92% Complete
+
+**Fully built:** Campaign CRUD+lifecycle, CSV import+idempotency+history, Lead pipeline (all 7 statuses), Lead detail modal (score breakdown, enrichment, AI context, notes, audit trail, timeline, score override, outcome marking), Intelligence tab (recommendations+cache+rule-based fallback, experiments UI, vertical packs UI, alerts with digest), Analytics (calibration scorecard, source intelligence, cost metrics), Self-improving system (global patterns, cost worker, recommendation feedback, auto-assist, reliability scorer), Policy engine (lge_org_policies enforced in worker).
+
+**Incomplete / gaps:**
+- **CRM Integration**: Zero native connectors — pushed leads don't flow back to user's CRM; outcomes from CRM not pulled in. **Next phase.**
+- **Vertical Intelligence Pack content**: UI + DB schema exist; no pre-built pack definitions (law, medical, real estate, solar). Content must be authored.
+- **Experiment run mechanics**: `lge_experiments` table + UI ready; no `lge_experiment_worker` to auto-evaluate variants and declare a winner.
+- **Cross-campaign deduplication**: Only deduplicates within a single import batch; same lead from two campaigns is processed twice.
+- **AbstractAPI test in campaign_manage**: Test Connection UI exists for Apollo/Hunter; AbstractAPI has no "Test Connection" button yet.
+
+---
+
+## LGE Monetization Opportunities
+
+Current pricing: **$299/mo flat** for `lead_gen` entitlement (unlimited leads, BYO API keys).
+
+### Immediate opportunities (no new infra needed)
+
+| Opportunity | Mechanism | Suggested Pricing |
+|---|---|---|
+| **Volume tiers** | Gate by leads/month via `lge_org_policies.max_daily_push` | Starter $149 (500/mo), Growth $299 (2500/mo), Pro $599 (10k/mo) |
+| **AI Context Credits** | GPT-4o-mini runs per scored lead; already tracked in lge_worker | Bundle credits (e.g. 500 = $19); include 200 in base plan |
+| **Policy Recommendations** | Already gated with 6h cache; rule-based fallback for zero-credit state | 5 free/month, then 1 credit each (same credit bucket as AI context) |
+
+### Medium-term opportunities (new infra required)
+
+| Opportunity | What to build | Suggested Pricing |
+|---|---|---|
+| **GSC-Managed Enrichment** | Buy Apollo/Hunter API at volume; charge per enriched lead | $0.05–0.10/enriched lead; replaces BYO model for users who don't have keys |
+| **Vertical Intelligence Packs** | Author pre-built ICP configs for Law, Medical, Real Estate, Solar, SaaS | $49/pack one-time or $19/mo/vertical |
+| **CRM Sync Credits** | Charge per CRM record created (HubSpot/Salesforce object writes) | 1 credit per record pushed; included in Pro tier |
+| **Experiment Runner** | Build `lge_experiment_worker`; premium feature | Part of Pro tier only ($599/mo) |
+
+### Key design rule (do not change)
+- `lge_outcomes` feedback loop must remain free — it feeds the self-improving scorer; charging for it would break the quality flywheel
+- AI Context generation for auto-push leads (≥80 score) should always succeed — never gate this behind empty credits or auto-push rate collapses
 
 ---
 
