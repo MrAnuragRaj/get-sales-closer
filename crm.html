@@ -7,23 +7,22 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     body { font-family: 'Inter', sans-serif; }
     .tab-btn.active { border-bottom: 2px solid #6366f1; color: #6366f1; }
     .status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-    .status-healthy { background: #dcfce7; color: #16a34a; }
-    .status-auth_failed { background: #fee2e2; color: #dc2626; }
-    .status-degraded { background: #fef3c7; color: #d97706; }
-    .status-synced { background: #dcfce7; color: #16a34a; }
-    .status-failed { background: #fee2e2; color: #dc2626; }
-    .status-pending { background: #e0e7ff; color: #4338ca; }
-    .status-skipped { background: #f3f4f6; color: #6b7280; }
+    .status-healthy    { background: #dcfce7; color: #16a34a; }
+    .status-auth_failed{ background: #fee2e2; color: #dc2626; }
+    .status-degraded   { background: #fef3c7; color: #d97706; }
+    .status-synced     { background: #dcfce7; color: #16a34a; }
+    .status-failed     { background: #fee2e2; color: #dc2626; }
+    .status-pending    { background: #e0e7ff; color: #4338ca; }
+    .status-skipped    { background: #f3f4f6; color: #6b7280; }
     .status-processing { background: #fef3c7; color: #d97706; }
-    .status-auth_failed-log { background: #fee2e2; color: #dc2626; }
     .status-rate_limited { background: #fef3c7; color: #d97706; }
-    .status-retrying { background: #e0e7ff; color: #4338ca; }
+    .status-retrying   { background: #e0e7ff; color: #4338ca; }
+    .status-success    { background: #dcfce7; color: #16a34a; }
     .toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 0.875rem; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideUp 0.25s ease; }
     @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -71,23 +70,20 @@
 
   <main class="max-w-5xl mx-auto px-6 py-8">
 
-    <!-- ── CONNECTIONS TAB ─────────────────────────────────────────────────── -->
+    <!-- CONNECTIONS TAB -->
     <div id="tab-connections">
       <div class="mb-6">
         <h1 class="text-xl font-bold text-gray-900">CRM Connections</h1>
         <p class="text-sm text-gray-500 mt-1">Connect GetSalesCloser to your CRM. Leads, replies, and meetings sync automatically.</p>
       </div>
 
-      <!-- Connected CRMs list -->
       <div id="connections-list" class="space-y-3 mb-8">
         <div class="text-sm text-gray-400 py-6 text-center"><i class="fas fa-spinner fa-spin mr-2"></i>Loading connections...</div>
       </div>
 
-      <!-- Add CRM cards -->
       <h2 class="text-sm font-semibold text-gray-700 mb-3">Connect a CRM</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        <!-- HubSpot card -->
         <div class="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 text-lg font-bold">H</div>
@@ -102,7 +98,6 @@
           </button>
         </div>
 
-        <!-- Pipedrive card -->
         <div class="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-lg font-bold">P</div>
@@ -116,13 +111,12 @@
             <button onclick="connectOAuth('pipedrive')" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
               <i class="fas fa-link mr-1"></i>OAuth
             </button>
-            <button onclick="showApiKeyModal('pipedrive')" class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition">
+            <button onclick="showApiKeyModal()" class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition">
               <i class="fas fa-key mr-1"></i>API Key
             </button>
           </div>
         </div>
 
-        <!-- Salesforce — Phase 3 -->
         <div class="bg-white border border-gray-100 rounded-xl p-5 opacity-50 cursor-not-allowed">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600 text-lg font-bold">S</div>
@@ -135,7 +129,6 @@
           <button disabled class="w-full py-2 bg-gray-100 text-gray-400 text-xs font-semibold rounded-lg cursor-not-allowed">Coming soon</button>
         </div>
 
-        <!-- Zoho — Phase 3 -->
         <div class="bg-white border border-gray-100 rounded-xl p-5 opacity-50 cursor-not-allowed">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-500 text-lg font-bold">Z</div>
@@ -150,7 +143,6 @@
 
       </div>
 
-      <!-- What syncs info box -->
       <div class="mt-6 bg-indigo-50 border border-indigo-100 rounded-xl p-5">
         <h3 class="text-sm font-semibold text-indigo-900 mb-2"><i class="fas fa-info-circle mr-1.5"></i>What syncs automatically</h3>
         <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-indigo-700">
@@ -164,14 +156,13 @@
       </div>
     </div>
 
-    <!-- ── FIELD MAPPING TAB ───────────────────────────────────────────────── -->
+    <!-- FIELD MAPPING TAB -->
     <div id="tab-fieldmap" class="hidden">
       <div class="mb-6">
         <h1 class="text-xl font-bold text-gray-900">Field Mapping</h1>
         <p class="text-sm text-gray-500 mt-1">Map GSC lead fields to your CRM's custom fields. Defaults work out of the box.</p>
       </div>
 
-      <!-- CRM selector -->
       <div class="mb-5">
         <label class="block text-xs font-semibold text-gray-600 mb-1.5">Select CRM to configure</label>
         <select id="fm-crm-select" onchange="loadFieldMappings()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
@@ -195,7 +186,6 @@
             <tbody id="fm-rows"></tbody>
           </table>
         </div>
-
         <div class="flex items-center justify-between">
           <p class="text-xs text-gray-400">Leave a CRM field blank to skip that GSC field.</p>
           <button onclick="saveFieldMappings()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition">
@@ -205,7 +195,7 @@
       </div>
     </div>
 
-    <!-- ── SYNC MONITOR TAB ───────────────────────────────────────────────── -->
+    <!-- SYNC MONITOR TAB -->
     <div id="tab-monitor" class="hidden">
       <div class="mb-6 flex items-start justify-between">
         <div>
@@ -217,8 +207,7 @@
         </button>
       </div>
 
-      <!-- Stats strip -->
-      <div id="stats-strip" class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+      <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
         <div class="bg-white border border-gray-200 rounded-xl p-3 text-center">
           <div id="stat-pending" class="text-xl font-bold text-indigo-600">—</div>
           <div class="text-xs text-gray-400 mt-0.5">Pending</div>
@@ -245,7 +234,6 @@
         </div>
       </div>
 
-      <!-- Failed events (retryable) -->
       <div class="mb-6">
         <h2 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-exclamation-triangle text-red-400 mr-1.5"></i>Failed Events</h2>
         <div id="failed-events-wrap">
@@ -253,7 +241,6 @@
         </div>
       </div>
 
-      <!-- Recent sync log -->
       <div>
         <h2 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-history text-gray-400 mr-1.5"></i>Recent Activity</h2>
         <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -281,7 +268,7 @@
   </main>
 </div>
 
-<!-- API Key Modal (Pipedrive) -->
+<!-- Pipedrive API Key Modal -->
 <div id="api-key-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
   <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
     <h3 class="text-base font-bold text-gray-900 mb-4"><i class="fas fa-key mr-2 text-blue-500"></i>Pipedrive API Key</h3>
@@ -292,7 +279,7 @@
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-600 mb-1">API Domain</label>
-        <input id="pd-api-domain" type="text" placeholder="api.pipedrive.com" value="api.pipedrive.com" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+        <input id="pd-api-domain" type="text" value="api.pipedrive.com" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
       </div>
     </div>
     <div class="flex gap-3">
@@ -308,113 +295,109 @@
 <script src="auth.js"></script>
 <script>
 const SUPABASE_URL = "https://klbwigcvrdfeeeeotehu.supabase.co";
-const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
+const FUNCTIONS_URL = SUPABASE_URL + "/functions/v1";
 
-let _jwt = null;
-let _destinations = [];
+var _jwt = null;
+var _destinations = [];
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 requireAuth({
-  onAuthenticated: async (profile, user, sb) => {
+  onAuthenticated: function(profile, user, sb) {
     document.getElementById('page-content').classList.remove('hidden');
-    const { data: { session } } = await sb.auth.getSession();
-    _jwt = session?.access_token ?? null;
 
-    // Handle OAuth return params
-    const params = new URLSearchParams(location.search);
-    if (params.has("crm_connected")) toast(`${params.get("crm_connected")} connected successfully`, "green");
-    if (params.has("crm_error"))     toast(`Connection failed: ${params.get("crm_error")}`, "red");
-    if (params.has("crm_connected") || params.has("crm_error")) {
-      history.replaceState({}, "", location.pathname);
-    }
+    sb.auth.getSession().then(function(res) {
+      _jwt = res.data.session ? res.data.session.access_token : null;
 
-    await loadAll();
-  },
+      // Handle OAuth return params
+      var params = new URLSearchParams(location.search);
+      if (params.has("crm_connected")) toast(params.get("crm_connected") + " connected successfully", "green");
+      if (params.has("crm_error"))     toast("Connection failed: " + params.get("crm_error"), "red");
+      if (params.has("crm_connected") || params.has("crm_error")) {
+        history.replaceState({}, "", location.pathname);
+      }
+
+      loadAll();
+    });
+  }
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function toast(msg, color = "gray") {
-  const el = document.getElementById("toast-el");
-  const map = { green: "#16a34a", red: "#dc2626", gray: "#4b5563", indigo: "#4338ca" };
-  el.style.background = map[color] ?? map.gray;
+function toast(msg, color) {
+  color = color || "gray";
+  var map = { green: "#16a34a", red: "#dc2626", gray: "#4b5563", indigo: "#4338ca" };
+  var el = document.getElementById("toast-el");
+  el.style.background = map[color] || map.gray;
   el.textContent = msg;
   el.classList.remove("hidden");
-  setTimeout(() => el.classList.add("hidden"), 3500);
+  setTimeout(function() { el.classList.add("hidden"); }, 3500);
 }
 
-async function crmApi(action, extra = {}) {
-  const res = await fetch(`${FUNCTIONS_URL}/crm_oauth`, {
+function crmApi(action, extra) {
+  extra = extra || {};
+  var body = Object.assign({ action: action }, extra);
+  return fetch(FUNCTIONS_URL + "/crm_oauth", {
     method: "POST",
-    headers: { "Authorization": `Bearer ${_jwt}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...extra }),
-  });
-  return res.json();
+    headers: { "Authorization": "Bearer " + _jwt, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then(function(r) { return r.json(); }).catch(function() { return {}; });
 }
 
 function switchTab(tab) {
-  ["connections", "fieldmap", "monitor"].forEach(t => {
-    document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tab);
-    document.querySelector(`[data-tab="${t}"]`).classList.toggle("active", t === tab);
+  ["connections", "fieldmap", "monitor"].forEach(function(t) {
+    document.getElementById("tab-" + t).classList.toggle("hidden", t !== tab);
+    document.querySelector("[data-tab='" + t + "']").classList.toggle("active", t === tab);
   });
   if (tab === "monitor")  loadMonitor();
   if (tab === "fieldmap") populateFmCrmSelect();
 }
 
-async function loadAll() {
-  await loadConnections();
+function loadAll() {
+  loadConnections();
 }
 
 // ── Connections ───────────────────────────────────────────────────────────────
-async function loadConnections() {
-  const wrap = document.getElementById("connections-list");
-  const data = await crmApi("get_destinations");
-  _destinations = data.destinations ?? [];
+function loadConnections() {
+  var wrap = document.getElementById("connections-list");
+  crmApi("get_destinations").then(function(data) {
+    _destinations = data.destinations || [];
 
-  if (!_destinations.length) {
-    wrap.innerHTML = `<div class="text-sm text-gray-400 text-center py-8"><i class="fas fa-plug mr-2"></i>No CRM connected yet.</div>`;
-    return;
-  }
+    if (!_destinations.length) {
+      wrap.innerHTML = '<div class="text-sm text-gray-400 text-center py-8"><i class="fas fa-plug mr-2"></i>No CRM connected yet.</div>';
+      return;
+    }
 
-  wrap.innerHTML = _destinations.map(d => `
-    <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-4 min-w-0">
-        <div class="w-10 h-10 rounded-lg ${crmColor(d.crm_type)} flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-          ${d.crm_type[0].toUpperCase()}
-        </div>
-        <div class="min-w-0">
-          <div class="font-semibold text-gray-900 text-sm capitalize">${d.crm_type}</div>
-          <div class="text-xs text-gray-400 mt-0.5">
-            Last sync: ${d.last_sync_at ? new Date(d.last_sync_at).toLocaleString() : 'Never'}
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-3 flex-shrink-0">
-        <span class="status-pill status-${d.health_status}">
-          <i class="fas fa-circle" style="font-size:6px"></i> ${d.health_status.replace("_", " ")}
-        </span>
-        <button onclick="testConnection('${d.crm_type}')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-          <i class="fas fa-vial mr-1"></i>Test
-        </button>
-        <button onclick="disconnectCrm('${d.crm_type}')" class="text-xs text-red-500 hover:text-red-700 font-medium">
-          <i class="fas fa-unlink mr-1"></i>Disconnect
-        </button>
-      </div>
-    </div>
-  `).join("");
+    wrap.innerHTML = _destinations.map(function(d) {
+      return '<div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center justify-between gap-4">' +
+        '<div class="flex items-center gap-4 min-w-0">' +
+          '<div class="w-10 h-10 rounded-lg ' + crmColor(d.crm_type) + ' flex items-center justify-center text-white text-sm font-bold flex-shrink-0">' + d.crm_type[0].toUpperCase() + '</div>' +
+          '<div class="min-w-0">' +
+            '<div class="font-semibold text-gray-900 text-sm capitalize">' + d.crm_type + '</div>' +
+            '<div class="text-xs text-gray-400 mt-0.5">Last sync: ' + (d.last_sync_at ? new Date(d.last_sync_at).toLocaleString() : 'Never') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-3 flex-shrink-0">' +
+          '<span class="status-pill status-' + d.health_status + '"><i class="fas fa-circle" style="font-size:6px"></i> ' + d.health_status.replace("_", " ") + '</span>' +
+          '<button onclick="testConnection(\'' + d.crm_type + '\')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"><i class="fas fa-vial mr-1"></i>Test</button>' +
+          '<button onclick="disconnectCrm(\'' + d.crm_type + '\')" class="text-xs text-red-500 hover:text-red-700 font-medium"><i class="fas fa-unlink mr-1"></i>Disconnect</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
 
-  // Show live badge if at least one healthy
-  const hasHealthy = _destinations.some(d => d.health_status === "healthy");
-  document.getElementById("sync-status-badge").classList.toggle("hidden", !hasHealthy);
+    var hasHealthy = _destinations.some(function(d) { return d.health_status === "healthy"; });
+    document.getElementById("sync-status-badge").classList.toggle("hidden", !hasHealthy);
+  });
 }
 
 function crmColor(type) {
-  return { hubspot: "bg-orange-500", pipedrive: "bg-blue-600", salesforce: "bg-sky-500", zoho: "bg-red-500" }[type] ?? "bg-gray-400";
+  var map = { hubspot: "bg-orange-500", pipedrive: "bg-blue-600", salesforce: "bg-sky-500", zoho: "bg-red-500" };
+  return map[type] || "bg-gray-400";
 }
 
-async function connectOAuth(crmType) {
-  const data = await crmApi("authorize_url", { crm_type: crmType });
-  if (data.error) { toast(data.error, "red"); return; }
-  window.location.href = data.url;
+function connectOAuth(crmType) {
+  crmApi("authorize_url", { crm_type: crmType }).then(function(data) {
+    if (data.error) { toast(data.error, "red"); return; }
+    window.location.href = data.url;
+  });
 }
 
 function showApiKeyModal() {
@@ -425,197 +408,189 @@ function closeApiKeyModal() {
   document.getElementById("api-key-modal").classList.add("hidden");
 }
 
-async function savePipedriveApiKey() {
-  const api_key   = document.getElementById("pd-api-key").value.trim();
-  const api_domain = document.getElementById("pd-api-domain").value.trim() || "api.pipedrive.com";
+function savePipedriveApiKey() {
+  var api_key    = document.getElementById("pd-api-key").value.trim();
+  var api_domain = document.getElementById("pd-api-domain").value.trim() || "api.pipedrive.com";
   if (!api_key) { toast("API key is required", "red"); return; }
 
-  const data = await crmApi("save_api_key", { crm_type: "pipedrive", api_key, api_domain });
-  if (data.error) { toast(data.error, "red"); return; }
-  toast("Pipedrive connected via API key", "green");
-  closeApiKeyModal();
-  loadConnections();
+  crmApi("save_api_key", { crm_type: "pipedrive", api_key: api_key, api_domain: api_domain }).then(function(data) {
+    if (data.error) { toast(data.error, "red"); return; }
+    toast("Pipedrive connected via API key", "green");
+    closeApiKeyModal();
+    loadConnections();
+  });
 }
 
-async function testConnection(crmType) {
-  const data = await crmApi("test_connection", { crm_type: crmType });
-  if (data.success) toast(`${crmType} connection is healthy`, "green");
-  else              toast(`${crmType} test failed: ${data.error ?? `HTTP ${data.status}`}`, "red");
+function testConnection(crmType) {
+  crmApi("test_connection", { crm_type: crmType }).then(function(data) {
+    if (data.success) toast(crmType + " connection is healthy", "green");
+    else              toast(crmType + " test failed: " + (data.error || ("HTTP " + data.status)), "red");
+  });
 }
 
-async function disconnectCrm(crmType) {
-  if (!confirm(`Disconnect ${crmType}? Sync events already queued will be skipped.`)) return;
-  await crmApi("disconnect", { crm_type: crmType });
-  toast(`${crmType} disconnected`, "gray");
-  loadConnections();
+function disconnectCrm(crmType) {
+  if (!confirm("Disconnect " + crmType + "? Sync events already queued will be skipped.")) return;
+  crmApi("disconnect", { crm_type: crmType }).then(function() {
+    toast(crmType + " disconnected", "gray");
+    loadConnections();
+  });
 }
 
 // ── Field Mapping ─────────────────────────────────────────────────────────────
 
-const GSC_FIELDS = [
-  { key: "name",             label: "Name",              desc: "Full name of the lead" },
-  { key: "email",            label: "Email",             desc: "Lead email address" },
-  { key: "phone",            label: "Phone",             desc: "Lead phone number (E.164)" },
-  { key: "company",          label: "Company",           desc: "Lead company name" },
-  { key: "source",           label: "Source",            desc: "Lead source (e.g. ghl, facebook)" },
-  { key: "lifecycle_stage",  label: "Lifecycle Stage",   desc: "new, contacted, replied, booked, converted" },
-  { key: "message_preview",  label: "Last Message",      desc: "Preview of last AI message sent" },
+var GSC_FIELDS = [
+  { key: "name",            label: "Name",           desc: "Full name of the lead" },
+  { key: "email",           label: "Email",          desc: "Lead email address" },
+  { key: "phone",           label: "Phone",          desc: "Lead phone number (E.164)" },
+  { key: "company",         label: "Company",        desc: "Lead company name" },
+  { key: "source",          label: "Source",         desc: "Lead source (e.g. ghl, facebook)" },
+  { key: "lifecycle_stage", label: "Lifecycle Stage",desc: "new, contacted, replied, booked, converted" },
+  { key: "message_preview", label: "Last Message",   desc: "Preview of last AI message sent" }
 ];
 
-// HubSpot defaults
-const HUBSPOT_DEFAULTS = {
+var HUBSPOT_DEFAULTS = {
   name: "firstname + lastname", email: "email", phone: "phone", company: "company",
-  source: "hs_lead_status", lifecycle_stage: "lifecyclestage", message_preview: "",
+  source: "hs_lead_status", lifecycle_stage: "lifecyclestage", message_preview: ""
 };
-// Pipedrive defaults
-const PIPEDRIVE_DEFAULTS = {
+var PIPEDRIVE_DEFAULTS = {
   name: "name", email: "email (array)", phone: "phone (array)", company: "org_name",
-  source: "", lifecycle_stage: "", message_preview: "",
+  source: "", lifecycle_stage: "", message_preview: ""
 };
 
 function populateFmCrmSelect() {
-  const sel = document.getElementById("fm-crm-select");
-  const prev = sel.value;
-  sel.innerHTML = `<option value="">— choose CRM —</option>` +
-    _destinations.map(d => `<option value="${d.crm_type}" ${d.crm_type === prev ? "selected" : ""}>${d.crm_type}</option>`).join("");
+  var sel  = document.getElementById("fm-crm-select");
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">— choose CRM —</option>' +
+    _destinations.map(function(d) {
+      return '<option value="' + d.crm_type + '"' + (d.crm_type === prev ? " selected" : "") + '>' + d.crm_type + '</option>';
+    }).join("");
   if (!_destinations.length) {
     document.getElementById("fm-not-connected").classList.remove("hidden");
     document.getElementById("fm-no-select").classList.add("hidden");
   }
-  if (prev && _destinations.some(d => d.crm_type === prev)) loadFieldMappings();
+  if (prev && _destinations.some(function(d) { return d.crm_type === prev; })) loadFieldMappings();
 }
 
 function loadFieldMappings() {
-  const crmType = document.getElementById("fm-crm-select").value;
-  const noSel   = document.getElementById("fm-no-select");
-  const wrap    = document.getElementById("fm-table-wrap");
+  var crmType = document.getElementById("fm-crm-select").value;
+  var noSel   = document.getElementById("fm-no-select");
+  var wrap    = document.getElementById("fm-table-wrap");
 
   if (!crmType) { noSel.classList.remove("hidden"); wrap.classList.add("hidden"); return; }
   noSel.classList.add("hidden");
   wrap.classList.remove("hidden");
 
-  const dest = _destinations.find(d => d.crm_type === crmType);
-  const saved = (dest?.config_json?.field_mappings ?? {}) as Record<string, string>;
-  const defaults = crmType === "hubspot" ? HUBSPOT_DEFAULTS : PIPEDRIVE_DEFAULTS;
+  var dest     = _destinations.find(function(d) { return d.crm_type === crmType; });
+  var saved    = (dest && dest.config_json && dest.config_json.field_mappings) ? dest.config_json.field_mappings : {};
+  var defaults = crmType === "hubspot" ? HUBSPOT_DEFAULTS : PIPEDRIVE_DEFAULTS;
 
-  const tbody = document.getElementById("fm-rows");
-  tbody.innerHTML = GSC_FIELDS.map(f => `
-    <tr class="border-b border-gray-100 last:border-0">
-      <td class="py-3 px-4 font-mono text-xs text-indigo-700 font-semibold">${f.key}</td>
-      <td class="py-3 px-4">
-        <input type="text" id="fm-${f.key}"
-          value="${saved[f.key] ?? ""}"
-          placeholder="${defaults[f.key] ?? "(skip)"}"
-          class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-      </td>
-      <td class="py-3 px-4 text-xs text-gray-400">${f.desc}</td>
-    </tr>
-  `).join("");
+  var tbody = document.getElementById("fm-rows");
+  tbody.innerHTML = GSC_FIELDS.map(function(f) {
+    return '<tr class="border-b border-gray-100 last:border-0">' +
+      '<td class="py-3 px-4 font-mono text-xs text-indigo-700 font-semibold">' + f.key + '</td>' +
+      '<td class="py-3 px-4">' +
+        '<input type="text" id="fm-' + f.key + '" value="' + (saved[f.key] || "") + '" placeholder="' + (defaults[f.key] || "(skip)") + '" ' +
+          'class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300" />' +
+      '</td>' +
+      '<td class="py-3 px-4 text-xs text-gray-400">' + f.desc + '</td>' +
+    '</tr>';
+  }).join("");
 }
 
-async function saveFieldMappings() {
-  const crmType = document.getElementById("fm-crm-select").value;
+function saveFieldMappings() {
+  var crmType = document.getElementById("fm-crm-select").value;
   if (!crmType) { toast("Select a CRM first", "red"); return; }
 
-  const field_mappings = {};
-  GSC_FIELDS.forEach(f => {
-    const val = document.getElementById(`fm-${f.key}`)?.value?.trim();
+  var field_mappings = {};
+  GSC_FIELDS.forEach(function(f) {
+    var el  = document.getElementById("fm-" + f.key);
+    var val = el ? el.value.trim() : "";
     if (val) field_mappings[f.key] = val;
   });
 
-  const data = await crmApi("update_field_mappings", { crm_type: crmType, field_mappings });
-  if (data.error) { toast(data.error, "red"); return; }
-  toast("Field mappings saved", "green");
-  await loadAll();
+  crmApi("update_field_mappings", { crm_type: crmType, field_mappings: field_mappings }).then(function(data) {
+    if (data.error) { toast(data.error, "red"); return; }
+    toast("Field mappings saved", "green");
+    loadAll();
+  });
 }
 
 // ── Sync Monitor ──────────────────────────────────────────────────────────────
 
-async function loadMonitor() {
-  await Promise.all([loadStats(), loadFailedEvents(), loadSyncLog()]);
+function loadMonitor() {
+  loadStats();
+  loadFailedEvents();
+  loadSyncLog();
 }
 
-async function loadStats() {
-  const data = await crmApi("get_sync_stats");
-  const s = data.stats ?? {};
-  ["pending","processing","synced","failed","skipped","total"].forEach(k => {
-    const el = document.getElementById(`stat-${k}`);
-    if (el) el.textContent = s[k] ?? "0";
+function loadStats() {
+  crmApi("get_sync_stats").then(function(data) {
+    var s = data.stats || {};
+    ["pending","processing","synced","failed","skipped","total"].forEach(function(k) {
+      var el = document.getElementById("stat-" + k);
+      if (el) el.textContent = (s[k] !== undefined ? s[k] : "0");
+    });
   });
 }
 
-async function loadFailedEvents() {
-  const wrap = document.getElementById("failed-events-wrap");
-  const data = await crmApi("get_failed_events", { limit: 25 });
-  const events = data.events ?? [];
-
-  if (!events.length) {
-    wrap.innerHTML = `<div class="text-sm text-gray-400 text-center py-5"><i class="fas fa-check-circle text-green-400 mr-2"></i>No failed events</div>`;
-    return;
-  }
-
-  wrap.innerHTML = `
-    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="bg-gray-50 border-b border-gray-200">
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Entity</th>
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">CRM</th>
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Attempts</th>
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Error</th>
-            <th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${events.map(e => `
-            <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-              <td class="py-2.5 px-4 text-xs font-mono text-gray-700">${e.event_type}</td>
-              <td class="py-2.5 px-4 text-xs text-gray-500">${e.entity_type} <span class="text-gray-300 font-mono">${e.entity_id?.slice(0,8)}…</span></td>
-              <td class="py-2.5 px-4 text-xs text-gray-500 capitalize">${e.crm_type ?? '—'}</td>
-              <td class="py-2.5 px-4 text-xs text-gray-500">${e.attempts}/${e.max_attempts}</td>
-              <td class="py-2.5 px-4 text-xs text-red-500 max-w-xs truncate" title="${e.last_error ?? ''}">${e.last_error ?? '—'}</td>
-              <td class="py-2.5 px-4">
-                <button onclick="retryEvent('${e.event_id}')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
-                  <i class="fas fa-redo mr-1"></i>Retry
-                </button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
+function loadFailedEvents() {
+  var wrap = document.getElementById("failed-events-wrap");
+  crmApi("get_failed_events", { limit: 25 }).then(function(data) {
+    var events = data.events || [];
+    if (!events.length) {
+      wrap.innerHTML = '<div class="text-sm text-gray-400 text-center py-5"><i class="fas fa-check-circle text-green-400 mr-2"></i>No failed events</div>';
+      return;
+    }
+    wrap.innerHTML = '<div class="bg-white border border-gray-200 rounded-xl overflow-hidden"><table class="w-full text-sm">' +
+      '<thead><tr class="bg-gray-50 border-b border-gray-200">' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Entity</th>' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">CRM</th>' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Attempts</th>' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Error</th>' +
+        '<th class="text-left py-2.5 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>' +
+      '</tr></thead><tbody>' +
+      events.map(function(e) {
+        return '<tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">' +
+          '<td class="py-2.5 px-4 text-xs font-mono text-gray-700">' + (e.event_type || '—') + '</td>' +
+          '<td class="py-2.5 px-4 text-xs text-gray-500">' + (e.entity_type || '—') + ' <span class="text-gray-300 font-mono">' + (e.entity_id ? e.entity_id.slice(0,8) + '…' : '') + '</span></td>' +
+          '<td class="py-2.5 px-4 text-xs text-gray-500 capitalize">' + (e.crm_type || '—') + '</td>' +
+          '<td class="py-2.5 px-4 text-xs text-gray-500">' + e.attempts + '/' + e.max_attempts + '</td>' +
+          '<td class="py-2.5 px-4 text-xs text-red-500 max-w-xs truncate">' + (e.last_error || '—') + '</td>' +
+          '<td class="py-2.5 px-4"><button onclick="retryEvent(\'' + e.event_id + '\')" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap"><i class="fas fa-redo mr-1"></i>Retry</button></td>' +
+        '</tr>';
+      }).join("") +
+      '</tbody></table></div>';
+  });
 }
 
-async function retryEvent(eventId) {
-  const data = await crmApi("retry_event", { event_id: eventId });
-  if (data.success) { toast("Event re-queued for retry", "indigo"); loadMonitor(); }
-  else toast(data.error ?? "Retry failed", "red");
+function retryEvent(eventId) {
+  crmApi("retry_event", { event_id: eventId }).then(function(data) {
+    if (data.success) { toast("Event re-queued for retry", "indigo"); loadMonitor(); }
+    else toast(data.error || "Retry failed", "red");
+  });
 }
 
-async function loadSyncLog() {
-  const tbody = document.getElementById("sync-log-body");
-  const data  = await crmApi("get_sync_logs", { limit: 50 });
-  const logs  = data.logs ?? [];
-
-  if (!logs.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-sm text-gray-400">No sync activity yet.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = logs.map(l => `
-    <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-      <td class="py-2.5 px-4 text-xs text-gray-400 whitespace-nowrap">${new Date(l.created_at).toLocaleString()}</td>
-      <td class="py-2.5 px-4 text-xs font-mono text-gray-700">${l.event_type ?? '—'}</td>
-      <td class="py-2.5 px-4 text-xs text-gray-500">${l.entity_type ?? '—'}</td>
-      <td class="py-2.5 px-4 text-xs text-gray-500 capitalize">${l.crm_type ?? '—'}</td>
-      <td class="py-2.5 px-4">
-        <span class="status-pill status-${l.status === 'success' ? 'synced' : (l.status ?? 'skipped')}">${l.status ?? '—'}</span>
-      </td>
-      <td class="py-2.5 px-4 text-xs text-red-400 max-w-xs truncate" title="${l.error_message ?? ''}">${l.error_message ?? ''}</td>
-    </tr>
-  `).join("");
+function loadSyncLog() {
+  var tbody = document.getElementById("sync-log-body");
+  crmApi("get_sync_logs", { limit: 50 }).then(function(data) {
+    var logs = data.logs || [];
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-sm text-gray-400">No sync activity yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(function(l) {
+      var statusClass = l.status === 'success' ? 'synced' : (l.status || 'skipped');
+      return '<tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">' +
+        '<td class="py-2.5 px-4 text-xs text-gray-400 whitespace-nowrap">' + (l.created_at ? new Date(l.created_at).toLocaleString() : '—') + '</td>' +
+        '<td class="py-2.5 px-4 text-xs font-mono text-gray-700">' + (l.event_type || '—') + '</td>' +
+        '<td class="py-2.5 px-4 text-xs text-gray-500">' + (l.entity_type || '—') + '</td>' +
+        '<td class="py-2.5 px-4 text-xs text-gray-500 capitalize">' + (l.crm_type || '—') + '</td>' +
+        '<td class="py-2.5 px-4"><span class="status-pill status-' + statusClass + '">' + (l.status || '—') + '</span></td>' +
+        '<td class="py-2.5 px-4 text-xs text-red-400 max-w-xs truncate">' + (l.error_message || '') + '</td>' +
+      '</tr>';
+    }).join("");
+  });
 }
 </script>
 </body>
