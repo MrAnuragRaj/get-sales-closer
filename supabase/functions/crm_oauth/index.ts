@@ -47,15 +47,22 @@ async function resolveOrgId(jwt: string): Promise<{ orgId: string; userId: strin
   const { data: { user } } = await userSb.auth.getUser();
   if (!user) return null;
 
-  const sb = getServiceSupabaseClient();
-  const { data: member } = await sb
+  // Check org_members first (agency/enterprise agents)
+  const { data: memRows } = await userSb
     .from("org_members")
     .select("org_id")
     .eq("user_id", user.id)
+    .limit(1);
+  if (memRows && memRows.length > 0) return { orgId: memRows[0].org_id, userId: user.id };
+
+  // Fallback: solo user who owns an org directly
+  const { data: orgRow } = await userSb
+    .from("organizations")
+    .select("id")
     .limit(1)
     .maybeSingle();
-  if (!member) return null;
-  return { orgId: member.org_id, userId: user.id };
+  if (!orgRow) return null;
+  return { orgId: orgRow.id, userId: user.id };
 }
 
 // ── HubSpot OAuth constants ────────────────────────────────────────────────────
