@@ -76,6 +76,14 @@ const HUBSPOT_SCOPES        = "crm.objects.contacts.write crm.objects.contacts.r
 const PIPEDRIVE_AUTHORIZE_URL = "https://oauth.pipedrive.com/oauth/authorize";
 const PIPEDRIVE_TOKEN_URL     = "https://oauth.pipedrive.com/oauth/token";
 
+// ── Salesforce OAuth constants ─────────────────────────────────────────────────
+const SALESFORCE_AUTHORIZE_URL = "https://login.salesforce.com/services/oauth2/authorize";
+const SALESFORCE_TOKEN_URL     = "https://login.salesforce.com/services/oauth2/token";
+
+// ── Zoho OAuth constants ───────────────────────────────────────────────────────
+const ZOHO_AUTHORIZE_URL = "https://accounts.zoho.com/oauth/v2/auth";
+const ZOHO_TOKEN_URL     = "https://accounts.zoho.com/oauth/v2/token";
+
 // ── Redirect base URL ──────────────────────────────────────────────────────────
 
 function callbackBase(): string {
@@ -108,6 +116,33 @@ async function authorizeUrl(orgId: string, crmType: string): Promise<Response> {
     url.searchParams.set("client_id",    clientId);
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("state",        state);
+    return resp({ url: url.toString() });
+  }
+
+  if (crmType === "salesforce") {
+    const clientId = Deno.env.get("SALESFORCE_CLIENT_ID");
+    if (!clientId) return resp({ error: "SALESFORCE_CLIENT_ID not configured" }, 500);
+    const redirectUri = `${callbackBase()}?action=callback`;
+    const url = new URL(SALESFORCE_AUTHORIZE_URL);
+    url.searchParams.set("client_id",     clientId);
+    url.searchParams.set("redirect_uri",  redirectUri);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope",         "api refresh_token offline_access");
+    url.searchParams.set("state",         state);
+    return resp({ url: url.toString() });
+  }
+
+  if (crmType === "zoho") {
+    const clientId = Deno.env.get("ZOHO_CLIENT_ID");
+    if (!clientId) return resp({ error: "ZOHO_CLIENT_ID not configured" }, 500);
+    const redirectUri = `${callbackBase()}?action=callback`;
+    const url = new URL(ZOHO_AUTHORIZE_URL);
+    url.searchParams.set("client_id",     clientId);
+    url.searchParams.set("redirect_uri",  redirectUri);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope",         "ZohoCRM.modules.contacts.ALL,ZohoCRM.modules.deals.ALL,ZohoCRM.modules.activities.ALL,ZohoCRM.modules.tasks.ALL");
+    url.searchParams.set("access_type",   "offline");
+    url.searchParams.set("state",         state);
     return resp({ url: url.toString() });
   }
 
@@ -240,6 +275,44 @@ async function oauthCallback(url: URL): Promise<Response> {
     return Response.redirect(`${frontendBase}/crm.html?crm_connected=pipedrive`);
   }
 
+  if (crmType === "salesforce") {
+    const clientId     = Deno.env.get("SALESFORCE_CLIENT_ID");
+    const clientSecret = Deno.env.get("SALESFORCE_CLIENT_SECRET");
+    if (!clientId || !clientSecret) return Response.redirect(`${frontendBase}/crm.html?crm_error=server_misconfigured`);
+    const tokenRes = await fetch(SALESFORCE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code }).toString(),
+    });
+    if (!tokenRes.ok) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
+    const tokens = await tokenRes.json();
+    if (!tokens.access_token) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
+    const authObj = { access_token: tokens.access_token, refresh_token: tokens.refresh_token, instance_url: tokens.instance_url, expires_at: Date.now() + 7200 * 1000 };
+    const encrypted = await encryptCrmAuth(authObj);
+    const { error: upsertErr } = await sb.from("crm_destinations").upsert({ org_id: orgId, crm_type: "salesforce", is_active: true, priority: 100, config_json: {}, auth_json_encrypted: encrypted, health_status: "healthy", updated_at: new Date().toISOString() }, { onConflict: "org_id,crm_type" });
+    if (upsertErr) return Response.redirect(`${frontendBase}/crm.html?crm_error=save_failed`);
+    return Response.redirect(`${frontendBase}/crm.html?crm_connected=salesforce`);
+  }
+
+  if (crmType === "zoho") {
+    const clientId     = Deno.env.get("ZOHO_CLIENT_ID");
+    const clientSecret = Deno.env.get("ZOHO_CLIENT_SECRET");
+    if (!clientId || !clientSecret) return Response.redirect(`${frontendBase}/crm.html?crm_error=server_misconfigured`);
+    const tokenRes = await fetch(ZOHO_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code }).toString(),
+    });
+    if (!tokenRes.ok) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
+    const tokens = await tokenRes.json();
+    if (tokens.error || !tokens.access_token) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
+    const authObj = { access_token: tokens.access_token, refresh_token: tokens.refresh_token, api_domain: tokens.api_domain ?? "www.zohoapis.com", accounts_server: "https://accounts.zoho.com", expires_at: Date.now() + (tokens.expires_in ?? 3600) * 1000 };
+    const encrypted = await encryptCrmAuth(authObj);
+    const { error: upsertErr } = await sb.from("crm_destinations").upsert({ org_id: orgId, crm_type: "zoho", is_active: true, priority: 100, config_json: {}, auth_json_encrypted: encrypted, health_status: "healthy", updated_at: new Date().toISOString() }, { onConflict: "org_id,crm_type" });
+    if (upsertErr) return Response.redirect(`${frontendBase}/crm.html?crm_error=save_failed`);
+    return Response.redirect(`${frontendBase}/crm.html?crm_connected=zoho`);
+  }
+
   return Response.redirect(`${frontendBase}/crm.html?crm_error=unsupported_crm`);
 }
 
@@ -326,6 +399,22 @@ async function testConnection(orgId: string, body: Record<string, unknown>): Pro
       : `https://${domain}/v1/users/me`;
     const headers: Record<string, string> = isApiKey ? {} : { Authorization: `Bearer ${auth.access_token}` };
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) }).catch(() => null);
+    return resp({ success: !!res?.ok, status: res?.status ?? 0 });
+  }
+
+  if (crm_type === "salesforce") {
+    const res = await fetch(`${auth.instance_url}/services/data/v59.0/limits`, {
+      headers: { "Authorization": `Bearer ${auth.access_token}` },
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => null);
+    return resp({ success: !!res?.ok, status: res?.status ?? 0 });
+  }
+
+  if (crm_type === "zoho") {
+    const res = await fetch(`https://${auth.api_domain}/crm/v6/org`, {
+      headers: { "Authorization": `Zoho-oauthtoken ${auth.access_token}` },
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => null);
     return resp({ success: !!res?.ok, status: res?.status ?? 0 });
   }
 

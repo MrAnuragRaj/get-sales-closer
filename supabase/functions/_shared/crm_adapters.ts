@@ -52,8 +52,8 @@ export async function routeToAdapter(
     case "native":     return syncViaNativeAdapter();
     case "hubspot":    return syncViaHubSpot(dest, event, sb);
     case "pipedrive":  return syncViaPipedrive(dest, event, sb);
-    case "salesforce": return { success: false, skip: true, error: "salesforce_adapter_phase3" };
-    case "zoho":       return { success: false, skip: true, error: "zoho_adapter_phase3" };
+    case "salesforce": return syncViaSalesforce(dest, event, sb);
+    case "zoho":       return syncViaZoho(dest, event, sb);
     default:
       return { success: false, skip: true, error: `unknown_crm_type:${dest.crm_type}` };
   }
@@ -719,6 +719,313 @@ export async function syncViaPipedrive(
       return { success: true };
     }
 
+    default:
+      return { success: true };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SALESFORCE ADAPTER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SF_API_VERSION = "v59.0";
+
+interface SalesforceAuth {
+  access_token:  string;
+  refresh_token: string;
+  instance_url:  string;
+  expires_at?:   number;
+}
+
+async function refreshSalesforceToken(auth: SalesforceAuth, dest: CrmDestination, sb: SupabaseClient): Promise<SalesforceAuth | null> {
+  const clientId     = Deno.env.get("SALESFORCE_CLIENT_ID");
+  const clientSecret = Deno.env.get("SALESFORCE_CLIENT_SECRET");
+  if (!clientId || !clientSecret) return null;
+  try {
+    const res = await fetch("https://login.salesforce.com/services/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, client_secret: clientSecret, refresh_token: auth.refresh_token }).toString(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const newAuth: SalesforceAuth = { access_token: json.access_token, refresh_token: auth.refresh_token, instance_url: json.instance_url ?? auth.instance_url, expires_at: Date.now() + 7200 * 1000 };
+    await sb.from("crm_destinations").update({ auth_json_encrypted: await encryptCrmAuth(newAuth as unknown as Record<string, unknown>), health_status: "healthy", updated_at: new Date().toISOString() }).eq("id", dest.id);
+    return newAuth;
+  } catch { return null; }
+}
+
+async function salesforceRequest(method: string, path: string, body: unknown, auth: SalesforceAuth, dest: CrmDestination, sb: SupabaseClient): Promise<{ ok: boolean; status: number; data: unknown; authFailed: boolean; rateLimited: boolean }> {
+  const base = `${auth.instance_url}/services/data/${SF_API_VERSION}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  const doRequest = async (token: string) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+    clearTimeout(timer);
+    let data: unknown; try { data = await res.json(); } catch { data = null; }
+    return { ok: res.ok, status: res.status, data };
+  };
+  try {
+    let result = await doRequest(auth.access_token);
+    if (result.status === 401) {
+      const refreshed = await refreshSalesforceToken(auth, dest, sb);
+      if (!refreshed) return { ...result, authFailed: true, rateLimited: false };
+      result = await doRequest(refreshed.access_token);
+      if (result.status === 401) return { ...result, authFailed: true, rateLimited: false };
+    }
+    return { ...result, authFailed: result.status === 401, rateLimited: result.status === 429 };
+  } catch { clearTimeout(timer); return { ok: false, status: 0, data: null, authFailed: false, rateLimited: false }; }
+}
+
+async function getSalesforceContactId(email: string | null, dest: CrmDestination, entityId: string, auth: SalesforceAuth, sb: SupabaseClient): Promise<string | null> {
+  const { data: mapping } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", entityId).eq("external_entity_type", "Contact").maybeSingle();
+  if (mapping?.external_entity_id) return mapping.external_entity_id;
+  if (email) {
+    const q = encodeURIComponent(`SELECT Id FROM Contact WHERE Email = '${email.replace(/'/g, "\\'")}' LIMIT 1`);
+    const result = await salesforceRequest("GET", `/query?q=${q}`, null, auth, dest, sb);
+    const records = (result.data as any)?.records;
+    if (records?.length) return String(records[0].Id);
+  }
+  return null;
+}
+
+async function salesforceUpsertMapping(sb: SupabaseClient, dest: CrmDestination, entityId: string, externalType: string, externalId: string) {
+  await sb.from("crm_sync_mappings").upsert({ org_id: dest.org_id, destination_id: dest.id, internal_entity_type: "lead", internal_entity_id: entityId, external_entity_type: externalType, external_entity_id: externalId, updated_at: new Date().toISOString() }, { onConflict: "destination_id,internal_entity_type,internal_entity_id,external_entity_type" }).then(undefined, () => {});
+}
+
+export async function syncViaSalesforce(dest: CrmDestination, event: CrmSyncEvent, sb: SupabaseClient): Promise<AdapterResult> {
+  if (!dest.auth_json_encrypted) return { success: false, skip: true, error: "salesforce_not_configured" };
+  let auth: SalesforceAuth;
+  try { auth = (await decryptCrmAuth(dest.auth_json_encrypted)) as unknown as SalesforceAuth; }
+  catch { return { success: false, authFailed: true, error: "auth_failed_decrypt_error" }; }
+  if (auth.expires_at && Date.now() > auth.expires_at - 5 * 60 * 1000) {
+    const refreshed = await refreshSalesforceToken(auth, dest, sb);
+    if (refreshed) auth = refreshed;
+  }
+  const p = event.payload_json;
+
+  switch (event.event_type) {
+    case "lead_created":
+    case "customer_updated": {
+      const email = p.email ? String(p.email) : null;
+      const existingId = await getSalesforceContactId(email, dest, event.entity_id, auth, sb);
+      const nameParts = String(p.name ?? "Unknown").split(" ");
+      const contactBody = { FirstName: nameParts[0], LastName: nameParts.slice(1).join(" ") || nameParts[0], Email: email ?? undefined, Phone: p.phone ? String(p.phone) : undefined, LeadSource: "Web" };
+      if (existingId) {
+        const res = await salesforceRequest("PATCH", `/sobjects/Contact/${existingId}`, contactBody, auth, dest, sb);
+        if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+        if (res.rateLimited) return { success: false, error: "rate_limited_429" };
+        if (res.status !== 204 && !res.ok) return { success: false, error: `sf_http_${res.status}` };
+        await salesforceUpsertMapping(sb, dest, event.entity_id, "Contact", existingId);
+        return { success: true, externalId: existingId };
+      }
+      const res = await salesforceRequest("POST", "/sobjects/Contact", contactBody, auth, dest, sb);
+      if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      if (res.rateLimited) return { success: false, error: "rate_limited_429" };
+      if (!res.ok) return { success: false, error: `sf_http_${res.status}` };
+      const contactId = String((res.data as any)?.id);
+      await salesforceUpsertMapping(sb, dest, event.entity_id, "Contact", contactId);
+      const oppRes = await salesforceRequest("POST", "/sobjects/Opportunity", { Name: `${p.name ?? "Lead"} — GSC`, StageName: "Prospecting", CloseDate: new Date(Date.now() + 30 * 86400 * 1000).toISOString().split("T")[0], LeadSource: "Web" }, auth, dest, sb);
+      if (oppRes.ok) {
+        const oppId = String((oppRes.data as any)?.id);
+        await salesforceUpsertMapping(sb, dest, event.entity_id, "Opportunity", oppId);
+        await salesforceRequest("POST", "/sobjects/OpportunityContactRole", { OpportunityId: oppId, ContactId: contactId, IsPrimary: true }, auth, dest, sb).catch(() => {});
+      }
+      return { success: true, externalId: contactId };
+    }
+    case "lead_contacted":
+    case "lead_replied": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getSalesforceContactId(email, dest, event.entity_id, auth, sb);
+      if (!contactId) return { success: false, error: "contact_not_found_in_sf" };
+      const { data: oppMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Opportunity").maybeSingle();
+      const taskRes = await salesforceRequest("POST", "/sobjects/Task", { Subject: event.event_type === "lead_replied" ? "Lead replied" : "GSC outreach sent", Status: "Completed", Priority: "Normal", WhoId: contactId, ...(oppMap?.external_entity_id ? { WhatId: oppMap.external_entity_id } : {}), Description: String(p.message_preview ?? "").slice(0, 32000), ActivityDate: new Date().toISOString().split("T")[0] }, auth, dest, sb);
+      if (taskRes.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      if (taskRes.rateLimited) return { success: false, error: "rate_limited_429" };
+      if (event.event_type === "lead_replied" && oppMap?.external_entity_id) {
+        await salesforceRequest("PATCH", `/sobjects/Opportunity/${oppMap.external_entity_id}`, { StageName: "Qualification" }, auth, dest, sb);
+      }
+      return { success: taskRes.ok || taskRes.status === 201, error: taskRes.ok ? undefined : `sf_http_${taskRes.status}` };
+    }
+    case "meeting_booked": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getSalesforceContactId(email, dest, event.entity_id, auth, sb);
+      const { data: oppMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Opportunity").maybeSingle();
+      if (oppMap?.external_entity_id) {
+        const closeDate = p.meeting_at ? String(p.meeting_at).split("T")[0] : new Date(Date.now() + 14 * 86400 * 1000).toISOString().split("T")[0];
+        await salesforceRequest("PATCH", `/sobjects/Opportunity/${oppMap.external_entity_id}`, { StageName: "Value Proposition", CloseDate: closeDate }, auth, dest, sb);
+      }
+      if (contactId) {
+        await salesforceRequest("POST", "/sobjects/Event", { Subject: "Meeting booked via GSC", WhoId: contactId, StartDateTime: p.meeting_at ?? new Date().toISOString(), EndDateTime: p.meeting_at ?? new Date().toISOString(), DurationInMinutes: 30 }, auth, dest, sb);
+      }
+      return { success: true };
+    }
+    case "deal_won":
+    case "deal_lost": {
+      const { data: oppMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Opportunity").maybeSingle();
+      if (!oppMap?.external_entity_id) return { success: true };
+      const res = await salesforceRequest("PATCH", `/sobjects/Opportunity/${oppMap.external_entity_id}`, { StageName: event.event_type === "deal_won" ? "Closed Won" : "Closed Lost", CloseDate: new Date().toISOString().split("T")[0] }, auth, dest, sb);
+      if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      return { success: res.ok || res.status === 204 };
+    }
+    case "customer_converted": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getSalesforceContactId(email, dest, event.entity_id, auth, sb);
+      if (!contactId) return { success: true };
+      await salesforceRequest("POST", "/sobjects/Task", { Subject: "Lead converted to customer via GSC", Status: "Completed", Priority: "Normal", WhoId: contactId, ActivityDate: new Date().toISOString().split("T")[0] }, auth, dest, sb);
+      return { success: true };
+    }
+    default:
+      return { success: true };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZOHO CRM ADAPTER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface ZohoAuth {
+  access_token:    string;
+  refresh_token:   string;
+  api_domain:      string;
+  accounts_server: string;
+  expires_at?:     number;
+}
+
+async function refreshZohoToken(auth: ZohoAuth, dest: CrmDestination, sb: SupabaseClient): Promise<ZohoAuth | null> {
+  const clientId     = Deno.env.get("ZOHO_CLIENT_ID");
+  const clientSecret = Deno.env.get("ZOHO_CLIENT_SECRET");
+  if (!clientId || !clientSecret) return null;
+  const tokenUrl = `${auth.accounts_server ?? "https://accounts.zoho.com"}/oauth/v2/token`;
+  try {
+    const res = await fetch(tokenUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", client_id: clientId, client_secret: clientSecret, refresh_token: auth.refresh_token }).toString() });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.error) return null;
+    const newAuth: ZohoAuth = { access_token: json.access_token, refresh_token: auth.refresh_token, api_domain: auth.api_domain, accounts_server: auth.accounts_server, expires_at: Date.now() + (json.expires_in ?? 3600) * 1000 };
+    await sb.from("crm_destinations").update({ auth_json_encrypted: await encryptCrmAuth(newAuth as unknown as Record<string, unknown>), health_status: "healthy", updated_at: new Date().toISOString() }).eq("id", dest.id);
+    return newAuth;
+  } catch { return null; }
+}
+
+async function zohoRequest(method: string, path: string, body: unknown, auth: ZohoAuth, dest: CrmDestination, sb: SupabaseClient): Promise<{ ok: boolean; status: number; data: unknown; authFailed: boolean; rateLimited: boolean }> {
+  const base = `https://${auth.api_domain}/crm/v6`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  const doRequest = async (token: string) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { "Authorization": `Zoho-oauthtoken ${token}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+    clearTimeout(timer);
+    let data: unknown; try { data = await res.json(); } catch { data = null; }
+    return { ok: res.ok, status: res.status, data };
+  };
+  try {
+    let result = await doRequest(auth.access_token);
+    if (result.status === 401) {
+      const refreshed = await refreshZohoToken(auth, dest, sb);
+      if (!refreshed) return { ...result, authFailed: true, rateLimited: false };
+      result = await doRequest(refreshed.access_token);
+      if (result.status === 401) return { ...result, authFailed: true, rateLimited: false };
+    }
+    return { ...result, authFailed: result.status === 401, rateLimited: result.status === 429 };
+  } catch { clearTimeout(timer); return { ok: false, status: 0, data: null, authFailed: false, rateLimited: false }; }
+}
+
+async function getZohoContactId(email: string | null, dest: CrmDestination, entityId: string, auth: ZohoAuth, sb: SupabaseClient): Promise<string | null> {
+  const { data: mapping } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", entityId).eq("external_entity_type", "Contact").maybeSingle();
+  if (mapping?.external_entity_id) return mapping.external_entity_id;
+  if (email) {
+    const result = await zohoRequest("GET", `/Contacts/search?email=${encodeURIComponent(email)}`, null, auth, dest, sb);
+    const records = (result.data as any)?.data;
+    if (records?.length) return String(records[0].id);
+  }
+  return null;
+}
+
+async function zohoUpsertMapping(sb: SupabaseClient, dest: CrmDestination, entityId: string, externalType: string, externalId: string) {
+  await sb.from("crm_sync_mappings").upsert({ org_id: dest.org_id, destination_id: dest.id, internal_entity_type: "lead", internal_entity_id: entityId, external_entity_type: externalType, external_entity_id: externalId, updated_at: new Date().toISOString() }, { onConflict: "destination_id,internal_entity_type,internal_entity_id,external_entity_type" }).then(undefined, () => {});
+}
+
+export async function syncViaZoho(dest: CrmDestination, event: CrmSyncEvent, sb: SupabaseClient): Promise<AdapterResult> {
+  if (!dest.auth_json_encrypted) return { success: false, skip: true, error: "zoho_not_configured" };
+  let auth: ZohoAuth;
+  try { auth = (await decryptCrmAuth(dest.auth_json_encrypted)) as unknown as ZohoAuth; }
+  catch { return { success: false, authFailed: true, error: "auth_failed_decrypt_error" }; }
+  if (auth.expires_at && Date.now() > auth.expires_at - 5 * 60 * 1000) {
+    const refreshed = await refreshZohoToken(auth, dest, sb);
+    if (refreshed) auth = refreshed;
+  }
+  const p = event.payload_json;
+
+  switch (event.event_type) {
+    case "lead_created":
+    case "customer_updated": {
+      const email = p.email ? String(p.email) : null;
+      const existingId = await getZohoContactId(email, dest, event.entity_id, auth, sb);
+      const nameParts = String(p.name ?? "Unknown").split(" ");
+      const contactData = { Last_Name: nameParts.length > 1 ? nameParts.slice(1).join(" ") : nameParts[0], First_Name: nameParts.length > 1 ? nameParts[0] : undefined, Email: email ?? undefined, Phone: p.phone ? String(p.phone) : undefined, Account_Name: p.company ? String(p.company) : undefined, Lead_Source: "Web Site" };
+      if (existingId) {
+        const res = await zohoRequest("PUT", `/Contacts/${existingId}`, { data: [contactData] }, auth, dest, sb);
+        if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+        if (res.rateLimited) return { success: false, error: "rate_limited_429" };
+        if (!res.ok) return { success: false, error: `zoho_http_${res.status}` };
+        await zohoUpsertMapping(sb, dest, event.entity_id, "Contact", existingId);
+        return { success: true, externalId: existingId };
+      }
+      const res = await zohoRequest("POST", "/Contacts", { data: [contactData] }, auth, dest, sb);
+      if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      if (res.rateLimited) return { success: false, error: "rate_limited_429" };
+      if (!res.ok) return { success: false, error: `zoho_http_${res.status}` };
+      const contactId = String((res.data as any)?.data?.[0]?.details?.id);
+      await zohoUpsertMapping(sb, dest, event.entity_id, "Contact", contactId);
+      const dealRes = await zohoRequest("POST", "/Deals", { data: [{ Deal_Name: `${p.name ?? "Lead"} — GSC`, Stage: "Qualification", Contact_Name: { id: contactId }, Lead_Source: "Web Site", Closing_Date: new Date(Date.now() + 30 * 86400 * 1000).toISOString().split("T")[0] }] }, auth, dest, sb);
+      if (dealRes.ok) {
+        const dealId = String((dealRes.data as any)?.data?.[0]?.details?.id);
+        await zohoUpsertMapping(sb, dest, event.entity_id, "Deal", dealId);
+      }
+      return { success: true, externalId: contactId };
+    }
+    case "lead_contacted":
+    case "lead_replied": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getZohoContactId(email, dest, event.entity_id, auth, sb);
+      if (!contactId) return { success: false, error: "contact_not_found_in_zoho" };
+      const { data: dealMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Deal").maybeSingle();
+      const taskRes = await zohoRequest("POST", "/Tasks", { data: [{ Subject: event.event_type === "lead_replied" ? "Lead replied" : "GSC outreach sent", Status: "Completed", Priority: "Normal", Who_Id: { id: contactId, type: "contacts" }, ...(dealMap?.external_entity_id ? { What_Id: { id: dealMap.external_entity_id, type: "deals" } } : {}), Description: String(p.message_preview ?? "").slice(0, 32000) }] }, auth, dest, sb);
+      if (taskRes.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      if (taskRes.rateLimited) return { success: false, error: "rate_limited_429" };
+      if (event.event_type === "lead_replied" && dealMap?.external_entity_id) {
+        await zohoRequest("PUT", `/Deals/${dealMap.external_entity_id}`, { data: [{ Stage: "Value Proposition" }] }, auth, dest, sb);
+      }
+      return { success: taskRes.ok, error: taskRes.ok ? undefined : `zoho_http_${taskRes.status}` };
+    }
+    case "meeting_booked": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getZohoContactId(email, dest, event.entity_id, auth, sb);
+      const { data: dealMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Deal").maybeSingle();
+      if (dealMap?.external_entity_id) {
+        const closeDate = p.meeting_at ? String(p.meeting_at).split("T")[0] : new Date(Date.now() + 14 * 86400 * 1000).toISOString().split("T")[0];
+        await zohoRequest("PUT", `/Deals/${dealMap.external_entity_id}`, { data: [{ Stage: "Needs Analysis", Closing_Date: closeDate }] }, auth, dest, sb);
+      }
+      if (contactId) {
+        await zohoRequest("POST", "/Events", { data: [{ Event_Title: "Meeting booked via GSC", Start_DateTime: p.meeting_at ?? new Date().toISOString(), End_DateTime: p.meeting_at ?? new Date().toISOString(), Who_Id: { id: contactId, type: "contacts" }, ...(dealMap?.external_entity_id ? { What_Id: { id: dealMap.external_entity_id, type: "deals" } } : {}) }] }, auth, dest, sb);
+      }
+      return { success: true };
+    }
+    case "deal_won":
+    case "deal_lost": {
+      const { data: dealMap } = await sb.from("crm_sync_mappings").select("external_entity_id").eq("destination_id", dest.id).eq("internal_entity_type", "lead").eq("internal_entity_id", event.entity_id).eq("external_entity_type", "Deal").maybeSingle();
+      if (!dealMap?.external_entity_id) return { success: true };
+      const res = await zohoRequest("PUT", `/Deals/${dealMap.external_entity_id}`, { data: [{ Stage: event.event_type === "deal_won" ? "Closed Won" : "Closed Lost" }] }, auth, dest, sb);
+      if (res.authFailed) return { success: false, authFailed: true, error: "auth_failed_401" };
+      return { success: res.ok };
+    }
+    case "customer_converted": {
+      const email = p.email ? String(p.email) : null;
+      const contactId = await getZohoContactId(email, dest, event.entity_id, auth, sb);
+      if (!contactId) return { success: true };
+      await zohoRequest("POST", "/Tasks", { data: [{ Subject: "Lead converted to customer via GSC", Status: "Completed", Priority: "Normal", Who_Id: { id: contactId, type: "contacts" } }] }, auth, dest, sb);
+      return { success: true };
+    }
     default:
       return { success: true };
   }

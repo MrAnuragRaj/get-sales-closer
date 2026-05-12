@@ -117,28 +117,28 @@
           </div>
         </div>
 
-        <div class="bg-white border border-gray-100 rounded-xl p-5 opacity-50 cursor-not-allowed">
+        <div class="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600 text-lg font-bold">S</div>
             <div>
-              <div class="font-semibold text-gray-900 text-sm">Salesforce <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded ml-1">Coming soon</span></div>
-              <div class="text-xs text-gray-400">OAuth 2.0</div>
+              <div class="font-semibold text-gray-900 text-sm">Salesforce</div>
+              <div class="text-xs text-gray-400">OAuth 2.0 — contacts + opportunities</div>
             </div>
           </div>
-          <p class="text-xs text-gray-500 mb-4">Full Salesforce sync coming in Phase 3.</p>
-          <button disabled class="w-full py-2 bg-gray-100 text-gray-400 text-xs font-semibold rounded-lg cursor-not-allowed">Coming soon</button>
+          <p class="text-xs text-gray-500 mb-4">Sync leads as Contacts and create linked Opportunities. Tasks logged for outreach, replies, and meetings.</p>
+          <button onclick="connectOAuth('salesforce')" class="w-full py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold rounded-lg transition"><i class="fas fa-link mr-1.5"></i>Connect Salesforce</button>
         </div>
 
-        <div class="bg-white border border-gray-100 rounded-xl p-5 opacity-50 cursor-not-allowed">
+        <div class="bg-white border border-gray-200 rounded-xl p-5 hover:border-indigo-300 transition">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-500 text-lg font-bold">Z</div>
             <div>
-              <div class="font-semibold text-gray-900 text-sm">Zoho CRM <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded ml-1">Coming soon</span></div>
-              <div class="text-xs text-gray-400">OAuth 2.0</div>
+              <div class="font-semibold text-gray-900 text-sm">Zoho CRM</div>
+              <div class="text-xs text-gray-400">OAuth 2.0 — contacts + deals</div>
             </div>
           </div>
-          <p class="text-xs text-gray-500 mb-4">Zoho CRM sync coming in Phase 3.</p>
-          <button disabled class="w-full py-2 bg-gray-100 text-gray-400 text-xs font-semibold rounded-lg cursor-not-allowed">Coming soon</button>
+          <p class="text-xs text-gray-500 mb-4">Sync leads as Contacts and create linked Deals. Tasks and Events logged for outreach, replies, and meetings.</p>
+          <button onclick="connectOAuth('zoho')" class="w-full py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition"><i class="fas fa-link mr-1.5"></i>Connect Zoho CRM</button>
         </div>
 
       </div>
@@ -455,6 +455,14 @@ var PIPEDRIVE_DEFAULTS = {
   name: "name", email: "email (array)", phone: "phone (array)", company: "org_name",
   source: "", lifecycle_stage: "", message_preview: ""
 };
+var SALESFORCE_DEFAULTS = {
+  name: "FirstName + LastName", email: "Email", phone: "Phone", company: "Account.Name",
+  source: "LeadSource", lifecycle_stage: "Stage", message_preview: "Description"
+};
+var ZOHO_DEFAULTS = {
+  name: "Last_Name", email: "Email", phone: "Phone", company: "Account_Name",
+  source: "Lead_Source", lifecycle_stage: "Stage", message_preview: "Description"
+};
 
 function populateFmCrmSelect() {
   var sel  = document.getElementById("fm-crm-select");
@@ -481,7 +489,7 @@ function loadFieldMappings() {
 
   var dest     = _destinations.find(function(d) { return d.crm_type === crmType; });
   var saved    = (dest && dest.config_json && dest.config_json.field_mappings) ? dest.config_json.field_mappings : {};
-  var defaults = crmType === "hubspot" ? HUBSPOT_DEFAULTS : PIPEDRIVE_DEFAULTS;
+  var defaults = crmType === "hubspot" ? HUBSPOT_DEFAULTS : (crmType === "salesforce" ? SALESFORCE_DEFAULTS : (crmType === "zoho" ? ZOHO_DEFAULTS : PIPEDRIVE_DEFAULTS));
 
   var tbody = document.getElementById("fm-rows");
   tbody.innerHTML = GSC_FIELDS.map(function(f) {
