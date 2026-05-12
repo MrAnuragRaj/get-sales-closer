@@ -315,6 +315,7 @@ let _destinations = [];
 // ── Auth ──────────────────────────────────────────────────────────────────────
 requireAuth({
   onAuthenticated: async (profile, user, sb) => {
+    document.getElementById('page-content').classList.remove('hidden');
     const { data: { session } } = await sb.auth.getSession();
     _jwt = session?.access_token ?? null;
 
