@@ -91,6 +91,19 @@ function callbackBase(): string {
   return `${supaUrl}/functions/v1/crm_oauth`;
 }
 
+// ── PKCE helper (required by Salesforce) ──────────────────────────────────────
+
+async function generatePKCE(): Promise<{ verifier: string; challenge: string }> {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const verifier = btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return { verifier, challenge };
+}
+
 // ── Action: authorize_url ──────────────────────────────────────────────────────
 
 async function authorizeUrl(orgId: string, crmType: string): Promise<Response> {
@@ -122,13 +135,18 @@ async function authorizeUrl(orgId: string, crmType: string): Promise<Response> {
   if (crmType === "salesforce") {
     const clientId = Deno.env.get("SALESFORCE_CLIENT_ID");
     if (!clientId) return resp({ error: "SALESFORCE_CLIENT_ID not configured" }, 500);
+    const { verifier, challenge } = await generatePKCE();
+    // Embed codeVerifier in state so callback can retrieve it for token exchange
+    const sfState = await signOAuthState({ orgId, crmType, ts: Date.now(), codeVerifier: verifier });
     const redirectUri = `${callbackBase()}?action=callback`;
     const url = new URL(SALESFORCE_AUTHORIZE_URL);
-    url.searchParams.set("client_id",     clientId);
-    url.searchParams.set("redirect_uri",  redirectUri);
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope",         "api refresh_token offline_access");
-    url.searchParams.set("state",         state);
+    url.searchParams.set("client_id",            clientId);
+    url.searchParams.set("redirect_uri",         redirectUri);
+    url.searchParams.set("response_type",        "code");
+    url.searchParams.set("scope",                "api refresh_token offline_access");
+    url.searchParams.set("code_challenge",       challenge);
+    url.searchParams.set("code_challenge_method","S256");
+    url.searchParams.set("state",                sfState);
     return resp({ url: url.toString() });
   }
 
@@ -279,10 +297,13 @@ async function oauthCallback(url: URL): Promise<Response> {
     const clientId     = Deno.env.get("SALESFORCE_CLIENT_ID");
     const clientSecret = Deno.env.get("SALESFORCE_CLIENT_SECRET");
     if (!clientId || !clientSecret) return Response.redirect(`${frontendBase}/crm.html?crm_error=server_misconfigured`);
+    const codeVerifier = stateData.codeVerifier ? String(stateData.codeVerifier) : undefined;
+    const tokenParams: Record<string, string> = { grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code };
+    if (codeVerifier) tokenParams.code_verifier = codeVerifier;
     const tokenRes = await fetch(SALESFORCE_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code }).toString(),
+      body: new URLSearchParams(tokenParams).toString(),
     });
     if (!tokenRes.ok) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
     const tokens = await tokenRes.json();
