@@ -319,15 +319,22 @@ async function oauthCallback(url: URL): Promise<Response> {
     const clientId     = Deno.env.get("ZOHO_CLIENT_ID");
     const clientSecret = Deno.env.get("ZOHO_CLIENT_SECRET");
     if (!clientId || !clientSecret) return Response.redirect(`${frontendBase}/crm.html?crm_error=server_misconfigured`);
-    const tokenRes = await fetch(ZOHO_TOKEN_URL, {
+    // Zoho passes accounts-server in callback URL — must use it for token exchange
+    // (codes issued by zoho.in/zoho.eu are invalid on accounts.zoho.com)
+    const accountsServer = url.searchParams.get("accounts-server") ?? "https://accounts.zoho.com";
+    const zohoTokenUrl = `${accountsServer}/oauth/v2/token`;
+    const tokenRes = await fetch(zohoTokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code }).toString(),
     });
-    if (!tokenRes.ok) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
-    const tokens = await tokenRes.json();
-    if (tokens.error || !tokens.access_token) return Response.redirect(`${frontendBase}/crm.html?crm_error=token_exchange_failed`);
-    const authObj = { access_token: tokens.access_token, refresh_token: tokens.refresh_token, api_domain: tokens.api_domain ?? "www.zohoapis.com", accounts_server: "https://accounts.zoho.com", expires_at: Date.now() + (tokens.expires_in ?? 3600) * 1000 };
+    let tokens: Record<string, unknown> = {};
+    try { tokens = await tokenRes.json(); } catch { /* ignore */ }
+    if (!tokenRes.ok || tokens.error || !tokens.access_token) {
+      const detail = encodeURIComponent(String(tokens.error ?? tokens.message ?? `http_${tokenRes.status}`));
+      return Response.redirect(`${frontendBase}/crm.html?crm_error=zoho_${detail}`);
+    }
+    const authObj = { access_token: tokens.access_token, refresh_token: tokens.refresh_token, api_domain: tokens.api_domain ?? "www.zohoapis.com", accounts_server: accountsServer, expires_at: Date.now() + (Number(tokens.expires_in) || 3600) * 1000 };
     const encrypted = await encryptCrmAuth(authObj);
     const { error: upsertErr } = await sb.from("crm_destinations").upsert({ org_id: orgId, crm_type: "zoho", is_active: true, priority: 100, config_json: {}, auth_json_encrypted: encrypted, health_status: "healthy", updated_at: new Date().toISOString() }, { onConflict: "org_id,crm_type" });
     if (upsertErr) return Response.redirect(`${frontendBase}/crm.html?crm_error=save_failed`);
