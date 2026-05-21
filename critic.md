@@ -1,1593 +1,601 @@
-What is still incomplete in Engagement Bot
+This is directionally strong, but Sprint B is not yet at the same hardening level as Sprint A.
 
-Right now the missing pieces are not conceptual. They are operational:
+There are good architectural ideas here, but there are also several places where the system can drift into:
 
-real engagement OAuth/scope separation
+* executive narrative inflation,
+* retrospective bias,
+* calibration distortion,
+* and operator unfairness.
 
-real comment/reply execution
+So this needs a much stricter review.
 
-platform-specific engagement adapters
+---
 
-engagement-safe rate limiting
+# Executive Digest Engine — critique
 
-UI/state handling for engagement connection health
+## What is strong
 
-end-to-end tests on real execution paths
+The source selection is correct:
 
-That means you are no longer in architecture mode. You are in completion mode.
+* portfolio pulse
+* churn contacts
+* open escalations
+* expansion-ready accounts
+* consciousness
+* attention debt
 
-Recommendation
+Those are the right operational primitives.
 
-Finish Engagement Bot in three focused blocks:
+And importantly:
+the digest is:
 
-Block 1 — Credentials and connection model
+```text
+deterministic synthesis
+```
 
-Build this first.
+NOT:
 
-Required
+* GPT narrative generation,
+* speculative “AI insights,”
+* or autonomous executive interpretation.
 
-dedicated engagement capability model per platform
+That restraint is correct.
 
-token/scope validation for engagement actions
+---
 
-do not assume publish tokens are enough
+# Major concern #1 — Digest narrative stability
 
-connection health must distinguish:
+(VERY IMPORTANT)
 
-publishing connected
+Right now:
+the digest likely risks:
 
-engagement connected
+```text
+narrative volatility
+```
 
-reconnect needed
+Meaning:
+small metric changes can create:
 
-unsupported/disabled
+* dramatically different executive narratives.
 
-Output
+That destroys executive trust over time.
 
-A platform account should be able to answer:
+---
 
-can_publish = true/false
-can_engage = true/false
-reason = missing_scope | expired | revoked | feature_disabled
+# What you need
 
-This is the foundation.
+Add:
 
-Block 2 — Real execution engine
-
-Replace stubs with actual execution.
-
-Start with this order
-
-LinkedIn comments/replies
-
-Facebook page comment flows if supported in your chosen flow
-
-Instagram only if execution path is clean
-
-keep X dormant as already designed
-
-Important
-
-For v1, comments and replies are enough.
-Do not add likes/reposts. They are not needed and only create more platform-risk complexity.
-
-Required behavior
-
-execute only comment and reply
-
-require platform capability check before execute
-
-log platform action id
-
-update opportunity and action status correctly
-
-increment commercial and safety caps only on success
-
-Block 3 — Operational safety and UX
-
-This is what makes it launchable.
-
-Must add
-
-route-level rate limiting on engagement routes
-
-execution retries only where safe
-
-connection-health visibility in dashboard
-
-clear badge in UI:
-
-ready
-
-reconnect needed
-
-engagement not enabled
-
-audit trail visible for engagement execution failures
-
-UI copy
-
-Do not hide missing capability behind vague errors.
-Say things like:
-
-“LinkedIn connected for publishing, but engagement permission is missing.”
-
-“Reconnect Meta account to enable comment execution.”
-
-That reduces support chaos.
-Exact finish plan
-
-
-Engagement auth and capability model
-
-add platform capability fields
-
-add scope validation
-
-separate publish-capable vs engage-capable
-
-update /growth/accounts/status
-
-Real LinkedIn engagement execution
-
-comment execution
-
-reply execution
-
-store external action id
-
-error normalization
-
-tests
-
-Meta engagement execution
-
-comment/reply path only if clean and supportable
-
-same logging/cap behavior
-
-tests
-
-Dashboard engagement completion
-
-show engagement readiness per platform
-
-surface reconnect actions
-
-improve errors/messages
-
-hide unsupported execution buttons when capability missing
-
-Route-level rate limiting + operational safeguards
-
-discover
-
-execute
-
-intelligence generate
-
-metrics ingest if needed
-
-validate cap enforcement under concurrency
-
-Full E2E testing
-Run these complete flows:
-
-connect account
-
-discover opportunity
-
-score
-
-approve or auto-safe
-
-execute
-
-log
-
-analytics reflect it
-
-Launch polish / freeze
-
-bug fixes only
-
-no new features
-
-decide whether any platform remains engagement-disabled
-
-update sales copy and UI wording accordingly
-
-Hard product rule for launch
-
-If a platform’s engagement execution is not truly reliable by launch day, do not pretend it is complete.
-
-Use this rule:
-
-Launch as active only if all are true
-
-real OAuth/scope works
-
-execution is real, not stubbed
-
-actions are logged
-
-caps enforce correctly
-
-dashboard health is visible
-
-failure messages are clear
-
-To maximize success, launch Engagement Bot as:
-
-Fully active
-
-LinkedIn
-
-Facebook
-Instagram
-X
-
-
-The right move is:
-
-make LinkedIn excellent
-
-make Meta excellent
-keep X dormant
-
-Phase 8 — Engagement Bot Completion
-
-Institutional Architecture Plan
-
-1. Objectives
-
-The Engagement Bot must become a fully operational subsystem capable of:
-
-Discovering engagement opportunities
-
-Scoring opportunities for safety and relevance
-
-Routing opportunities through auto-safe or human approval
-
-Executing engagement actions on supported platforms
-
-Enforcing commercial and safety caps
-
-Logging execution events and outcomes
-
-Feeding engagement results into analytics and ROI attribution
-
-Exposing clear operational status to the dashboard
-
-Maintaining strict tenant isolation
-
-Remaining safe against abuse, rate limits, and platform errors
-
-The Engagement Bot must integrate cleanly with the existing Growth Engine components:
-
-content generation
-
-publishing
-
-analytics
-
-intelligence summaries
-
-dashboard control surfaces
-
-2. Architectural Principles
-
-The Engagement Bot must follow these core design rules:
-
-2.1 Deterministic execution
-
-Every engagement action must produce a single deterministic record in the database.
-
-2.2 Capability-gated execution
-
-The system must never attempt an engagement action unless the platform account is verified as engagement capable.
-
-2.3 Safety-first automation
-
-The system must enforce both:
-
-commercial engagement caps
-
-platform safety limits
-
-before any execution occurs.
-
-2.4 Immutable audit trail
-
-Every executed or attempted engagement must be stored in append-only logs.
-
-2.5 Platform abstraction
-
-Each platform must be implemented as a separate adapter, not embedded logic.
-
-2.6 Tenant isolation
-
-All engagement records must remain strictly scoped by org_id.
-
-2.7 Graceful failure
-
-Every failure must produce a normalized error category.
-
-3. System Architecture
-
-The Engagement Bot consists of five major layers.
-
-Opportunity Discovery
-        │
-        ▼
-Opportunity Scoring
-        │
-        ▼
-Approval Routing
-        │
-        ▼
-Execution Engine
-        │
-        ▼
-Analytics + ROI Attribution
-
-Each layer must be independently testable.
-
-4. Capability Model
-
-The system must track two independent capability types for each platform connection.
-
-Publishing capability
-
-Allows:
-
-content posting
-
-media upload
-
-scheduled publishing
-
-Engagement capability
-
-Allows:
-
-commenting
-
-replying
-
-interacting with posts
-
-These capabilities must be tracked independently because platform permission scopes differ.
-
-4.1 Capability schema
-
-Extend growth.social_accounts:
-
-publish_capable BOOLEAN
-engage_capable BOOLEAN
-
-publish_status_reason TEXT
-engage_status_reason TEXT
-
-scopes_json JSONB
-token_expiry TIMESTAMP
-
-last_capability_check TIMESTAMP
-
-Possible capability states:
-
-connected
-missing_scope
-token_expired
-revoked
-feature_disabled
-unsupported
-no_account
-4.2 Capability evaluation
-
-A capability evaluation routine must run whenever:
-
-account is connected
-
-token refreshed
-
-account status requested
-
-This routine determines:
-
-can_publish
-can_engage
-reason
-5. Opportunity Discovery
-
-Discovery identifies posts that are potential engagement opportunities.
-
-Sources may include:
-
-monitored accounts
-
-monitored topics
-
-monitored hashtags
-
-monitored conversations
-
-Each discovered post becomes a row in:
-
-growth.engagement_opportunities
-
-Key fields:
-
-org_id
-platform
-post_id
-post_url
-author_id
-opportunity_type (comment/reply)
-
-status
-discovered_at
-
-Duplicate opportunities must be prevented using:
-
-UNIQUE(org_id, platform, post_id, opportunity_type)
-6. Opportunity Scoring
-
-Each opportunity must pass through a scoring process.
-
-Scoring determines:
-
-confidence score
-
-risk score
-
-relevance score
-
-These values determine whether the opportunity is:
-
-auto_approved
-pending_review
-6.1 Scoring pipeline
-
-The scoring pipeline should combine:
-
-LLM analysis
-
-heuristic validation
-
-LLM produces:
-
-confidence_score
-risk_score
-generated_action_text
-
-Heuristics enforce safety:
-
-Examples:
-
-post length < 50 characters → relevance capped
-missing brand profile → confidence capped
-unknown author → risk increased
-7. Approval Routing
-
-Opportunities must follow one of two paths.
-
-Auto-approved
-
-Executed automatically if:
-
-confidence >= threshold
-risk <= threshold
-
-Thresholds depend on plan tier.
-
-Pending review
-
-Human must approve before execution.
-
-8. Execution Engine
-
-The execution engine converts opportunities into real platform actions.
-
-Supported actions in v1:
-
-comment
-reply
-
-Other actions must not be executed.
-
-8.1 Execution validation pipeline
-
-Before execution:
-
-Verify engagement plan active
-
-Verify commercial cap not exceeded
-
-Verify platform safety cap not exceeded
-
-Verify account exists
-
-Verify platform engagement capability
-
-Verify opportunity still valid
-
-Only then may execution occur.
-
-9. Platform Adapters
-
-Each platform must be implemented as a dedicated adapter.
-
-Example structure:
-
-engagement/
-  executor.py
-  linkedin_executor.py
-  meta_executor.py
-  x_executor.py
-9.1 LinkedIn adapter
-
-Must support:
-
-comment
-reply
-
-Responsibilities:
-
-build request payload
-
-send API request
-
-normalize errors
-
-return structured result
-
-Return structure:
-
-success
-platform_action_id
-error_category
-error_detail
-9.2 Meta adapter
-
-If implemented, must support:
-
-facebook comment
-facebook reply
-instagram comment
-
-If Instagram commenting is not supported in your integration path, capability must return:
-
-unsupported
-9.3 X adapter
-
-X must remain feature-flagged dormant.
-
-Behavior:
-
-execution returns PLATFORM_DISABLED
-no API call made
-10. Cap Enforcement
-
-Two independent cap systems must exist.
-
-Commercial caps
-
-Defined by plan:
-
-starter = 5 engagements/day
-pro = 15 engagements/day
-Platform safety caps
-
-Prevent spam behavior.
-
-Example limits:
-
-LinkedIn comments/day
-Meta comments/day
-
-Execution order:
-
-commercial cap check
-→ platform cap check
-→ execute
-11. Execution Logging
-
-Every action must produce an entry in:
-
-growth.engagement_actions
-
-Fields:
-
-org_id
-platform
-action_type
-opportunity_id
-platform_action_id
-
-confidence_score
-risk_score
-approval_status
-
-execution_status
-error_category
-error_detail
-
-actor_user_id
-executed_at
-
-Append-only logging must be enforced.
-
-12. Rate Limiting
-
-Route-level rate limiting must be enforced for safety.
-
-Important routes:
-
-discover
-execute
-analytics generation
-metrics ingest
-
-Limits must be:
-
-per org
-time window based
-13. Dashboard Integration
-
-The dashboard must expose engagement state clearly.
-
-13.1 Platform health
-
-The connection strip must display:
-
-Publishing status
-Engagement status
-Reconnect requirement
-Last publish result
+```text
+digest narrative hysteresis
+```
 
 Example:
 
-LinkedIn
-Publishing: Connected
-Engagement: Connected
+* “stable but worsening”
+  should not flip to:
+* “critical deterioration”
+  because of:
+* one churn spike,
+* one escalation,
+* or one pulse fluctuation.
 
-Facebook
-Publishing: Connected
-Engagement: Reconnect required
+You need:
 
-Instagram
-Publishing: Connected
-Engagement: Unsupported
+* transition thresholds,
+* narrative persistence,
+* confidence weighting,
+* trend smoothing.
 
-X
-Publishing: Dormant
-Engagement: Dormant
-13.2 Opportunity UI
+Very important.
 
-Opportunity actions must reflect capability.
+---
+
+# Major concern #2 — Executive attention overload
+
+(CRITICAL)
+
+You now have:
+
+* executive reviews,
+* executive digests,
+* portfolio pulse,
+* topology alerts,
+* attention debt,
+* consciousness,
+* churn reviews,
+* expansion reviews.
+
+This can easily become:
+
+```text
+executive cognition saturation
+```
+
+Need:
+
+```text
+digest compression discipline
+```
 
 Rules:
 
-if can_engage=false → disable execute button
-display reason
-14. Error Handling
+* max top risks
+* max top opportunities
+* escalation prioritization cap
+* suppress repetitive narratives
+* cluster duplicate risks
 
-Every platform error must map to normalized categories.
+Otherwise:
+the digest becomes noise.
+
+---
+
+# Major concern #3 — Digest causality leakage
+
+(IMPORTANT)
+
+If digest references:
+
+* causal chains,
+* pulse shifts,
+* consciousness changes,
+
+verify:
+only:
+
+```text
+high exclusivity causal chains
+```
+
+can influence executive narrative.
+
+Otherwise:
+low-confidence causality can contaminate executive cognition.
+
+Very important.
+
+---
+
+# Decision Quality Engine — critique
+
+This is the more important part of Sprint B.
+
+And honestly:
+this has the potential to become:
+
+```text
+one of the strongest systems in the platform
+```
+
+if calibrated correctly.
+
+Or:
+
+```text
+organizational resentment infrastructure
+```
+
+if calibrated poorly.
+
+Very important distinction.
+
+---
+
+# What is strong
+
+Excellent decisions:
+
+* snapshot at decision time
+* retrospective evaluation
+* delayed assessment window
+* quality flags instead of binary correctness
+* operator calibration over time
+
+All very good.
+
+Especially:
+
+```text
+decision-time snapshot preservation
+```
+
+That is critical.
+
+Without that:
+retrospective review becomes:
+
+```text
+hindsight hallucination
+```
+
+Good architecture.
+
+---
+
+# CRITICAL ISSUE #1 — Outcome bias
+
+(VERY IMPORTANT)
+
+This is now your biggest risk.
 
 Example:
 
-AUTH_FAILED
-RATE_LIMITED
-RETRYABLE
-PERMANENT
-PLATFORM_DISABLED
-CONTENT_REJECTED
+* operator escalates aggressively
+* customer survives
+* system says:
+  “good decision”
 
-This normalization must already exist in publishing and should be reused.
+But:
+the escalation may still have been:
 
-15. Analytics Integration
+* operationally excessive,
+* cognitively expensive,
+* structurally destabilizing.
 
-Engagement actions must feed analytics.
+Conversely:
 
-Analytics must be able to report:
+* operator chooses calm monitoring
+* customer later churns due to external reasons
+* system punishes operator unfairly.
 
-engagement actions executed
-success rate
-platform distribution
-auto vs human approval ratio
-16. ROI Attribution
+Very important.
 
-Engagement actions must link to measurable outcomes.
+---
 
-Examples:
+# What you need
 
-profile views
-follower growth
-connection requests
-click increases
+Decision quality must measure:
 
-Attribution model must be documented as correlation-based, not causal.
+```text
+decision quality under available information
+```
 
-17. Observability
+NOT:
 
-Operational diagnostics must be visible.
+```text
+whether the eventual outcome was good
+```
 
-Log events should include:
+Huge difference.
 
-engagement_execution_started
-engagement_execution_success
-engagement_execution_failed
-engagement_cap_blocked
-engagement_platform_disabled
-18. Testing Requirements
+---
 
-Institutional-grade testing must include:
-
-capability tests
-scoring tests
-approval routing tests
-execution tests
-cap enforcement tests
-platform error normalization tests
-analytics integration tests
-tenant isolation tests
-19. Launch Safety Requirements
-
-A platform may only be considered engagement-ready if:
-
-OAuth works
-scopes verified
-execution implemented
-logging works
-caps enforced
-dashboard reflects status
-
-If any of these fail, the platform must be labeled:
-
-beta
-disabled
-coming soon
-20. Final System State
-
-After Phase 8 the Growth Engine should contain five complete subsystems:
-
-Content Generation Engine
-
-Publishing Engine
-
-Engagement Engine
-
-Analytics Engine
-
-Growth Intelligence Engine
-
-Together these form the complete AI growth automation system.
-the three upgrades that would make this Engagement Engine much harder to replicate and much more effective than most AI social tools.
-
-1. Persona-Calibrated Engagement Voice
-
-Most tools use one generic reply style. That makes comments feel robotic.
-
-Your system should support multiple engagement personas per brand, for example:
-
-founder/operator
-
-analytical expert
-
-friendly educator
-
-contrarian challenger
-
-Then choose persona by context.
-
-Example
-
-If the source post is:
-
-polarizing → use measured contrarian
-
-educational → use analytical expert
-
-founder story → use founder/operator
-
-Why this matters
-
-This creates:
-
-more human variation
-
-better platform fit
-
-less bot-like repetition
-
-stronger brand identity
-
-Implementation
-
-Add to brand profile:
-
-engagement_personas_json
-default_persona
-persona_selection_rules_json
-
-And log on each action:
-
-persona_used
-
-That lets you later answer:
-
-which persona gets more replies
-
-which persona drives profile visits
-
-which persona works best by platform
-
-This is a major advantage because competitors usually have one tone only.
-
-2. Thread-State Memory
-
-Most tools reply to each post as if it’s the first interaction. That is weak.
-
-Your system should remember:
-
-have we interacted with this author before?
-
-what stance did we take last time?
-
-did they reply to us?
-
-is this a follow-up discussion?
-
-Why this matters
-
-It turns isolated comments into relationship-building conversation chains.
-
-Instead of:
-
-one smart comment
-
-you get:
-
-repeated high-quality interactions with the same niche voices
-
-That grows authority much faster.
-
-Implementation
-
-Add a lightweight conversation memory table, for example:
-
-growth.engagement_thread_memory
-
-Fields:
-
-org_id
-platform
-author_identifier
-thread_identifier
-last_action_text
-last_action_at
-last_stance
-interaction_count
-last_outcome
-
-Then before generating a reply, include memory like:
-
-We previously agreed with this author on response-speed issues.
-Do not repeat the same point.
-Advance the discussion one step.
-
-That is a huge upgrade because it makes the bot feel context-aware instead of reactive.
-
-3. Outcome-Weighted Engagement Optimization
-
-Most tools optimize for:
-
-number of comments
-
-likes
-
-replies
-
-That is shallow.
-
-Your system should optimize for business outcomes, not just activity.
-
-Rank engagement strategies by:
-
-profile visits generated
-
-follower delta
-
-clicks
-
-meetings influenced
-
-leads influenced
-
-Then learn:
-
-which target types work best
-
-which persona works best
-
-which action type works best
-
-which platforms produce actual pipeline, not vanity metrics
-
-Why this matters
-
-This makes the system a revenue engine, not just an engagement engine.
-
-Implementation
-
-For each executed engagement, track:
-
-persona_used
-
-action_type
-
-confidence_score
-
-platform
-
-target_type
-
-author_tier / audience size if available
-
-Then join to ROI events and summarize patterns like:
-
-Contrarian founder-style replies on LinkedIn competitor posts
-produce 3x more profile visits and 2x more demo clicks
-than neutral educational comments.
-
-That is the kind of intelligence competitors usually do not have.
-
-Why these three matter together
-
-If you combine them, the Engagement Engine becomes:
-
-context-aware
-persona-aware
-outcome-aware
-
-Instead of just:
-
-AI writes comment
-AI posts comment
-
-That is a very big leap.
-
-Priority order
-
-If you want the highest leverage path:
-
-First
-
-Outcome-Weighted Engagement Optimization
-because it improves business value directly.
-
-Second
-
-Thread-State Memory
-because it makes engagement feel real and compounds authority.
-
-Third
-
-Persona-Calibrated Engagement Voice
-because it improves quality and reduces AI smell.
-
-My recommendation
-
-Do not make these part of the immediate launch blocker set.
-
-Treat them as:
-
-Phase 8.5 or Phase 9 enhancements
-
-First finish:
-
-real engagement execution
-
-capability model
-
-rate limiting
-
-dashboard readiness
-
-Then layer these on top.
-PHASE 8.5 / 9 UPGRADE SPEC
-ADVANCED ENGAGEMENT INTELLIGENCE
-
-These upgrades sit on top of the existing Engagement Engine.
-They do not replace the current architecture.
-
-They extend it in three directions:
-
-Persona-Calibrated Engagement Voice
-
-Thread-State Memory
-
-Outcome-Weighted Engagement Optimization
-
-The objective is to make the Engagement Bot:
-
-less repetitive
-
-more context-aware
-
-more human-feeling
-
-more revenue-oriented
-
-1. PERSONA-CALIBRATED ENGAGEMENT VOICE
-1.1 Goal
-
-The same brand should not sound identical in every comment.
-
-The system should support multiple engagement voices and choose the right one based on context.
-
-Examples:
-
-founder_operator
-
-analytical_expert
-
-practical_educator
-
-measured_contrarian
-
-1.2 Data model
-Extend growth.brand_profiles
+# Strong recommendation
 
 Add:
 
-engagement_personas_json jsonb
-default_engagement_persona text
-persona_selection_rules_json jsonb
-Example engagement_personas_json
-{
-  "founder_operator": {
-    "tone": "direct, commercially sharp, experienced operator",
-    "style_rules": [
-      "sound like someone who has seen sales problems firsthand",
-      "prefer operational language over theory",
-      "avoid soft motivational phrasing"
-    ]
-  },
-  "analytical_expert": {
-    "tone": "precise, evidence-led, thoughtful",
-    "style_rules": [
-      "use clear reasoning",
-      "add one useful insight",
-      "avoid emotional exaggeration"
-    ]
-  },
-  "practical_educator": {
-    "tone": "helpful, clear, low-ego",
-    "style_rules": [
-      "make the point easy to understand",
-      "focus on one actionable observation",
-      "avoid sounding preachy"
-    ]
-  },
-  "measured_contrarian": {
-    "tone": "respectfully challenging, sharp",
-    "style_rules": [
-      "disagree without sounding hostile",
-      "introduce a better framing",
-      "avoid aggression or sarcasm"
-    ]
-  }
-}
-Example persona_selection_rules_json
-{
-  "debate_high": "measured_contrarian",
-  "founder_story": "founder_operator",
-  "educational_post": "analytical_expert",
-  "beginner_audience": "practical_educator"
-}
-1.3 DB audit trail
-Extend growth.engagement_actions
-
-Add:
-
-persona_used text
-persona_reason text
-
-This is necessary for later performance analysis.
-
-1.4 Service layer
+```text
+decision_context_quality
+```
 
-Create:
+Meaning:
 
-app/services/engagement/persona_selector.py
+* given:
 
-Responsibilities:
+  * churn score,
+  * escalation state,
+  * volatility,
+  * visibility,
+  * trajectory,
+  * topology,
+  * fatigue,
+  * signal confidence,
+* was the decision:
 
-read org brand profile
+  * reasonable?
 
-inspect opportunity context
+NOT merely:
 
-choose persona
+* successful.
 
-return persona config + reason
+This is critical.
 
-Input
+---
 
-platform
+# CRITICAL ISSUE #2 — Calibration drift unfairness
 
-source text
+You now compute:
 
-target type
+```text
+operator calibration score
+```
 
-debate strength
+Good.
 
-audience type if inferred
+But:
+operators handling:
 
-prior thread memory if available
+* difficult accounts,
+* strategic accounts,
+* volatile relationships,
+* overloaded queues
 
-Output
-{
-  "persona_used": "measured_contrarian",
-  "persona_reason": "high debate score and contrarian framing opportunity"
-}
-1.5 Prompt integration
+will naturally appear:
 
-Before generating engagement text, inject:
+* “worse.”
 
-Use the engagement persona: {persona_used}
+Need:
 
-Persona tone:
-{persona_tone}
+```text
+difficulty normalization
+```
 
-Persona style rules:
-{persona_style_rules}
+Otherwise:
+the system punishes:
 
-Do not default back to generic assistant language.
-2. THREAD-STATE MEMORY
-2.1 Goal
+```text
+high-responsibility operators
+```
 
-The bot should remember prior interactions with the same author/thread so it does not repeat itself and can build continuity.
+Very dangerous organizationally.
 
-Without this, every reply feels stateless.
+---
 
-2.2 Data model
+# You need weighting factors
 
-Create table:
+Normalize by:
 
-growth.engagement_thread_memory
-id uuid pk
-org_id uuid not null
-platform text not null
-author_identifier text not null
-thread_identifier text
-root_post_id text
-last_action_id uuid references growth.engagement_actions(id)
-last_action_text text
-last_action_at timestamptz
-last_stance text
-interaction_count integer not null default 0
-last_outcome text
-memory_summary text
-created_at timestamptz
-updated_at timestamptz
-Unique recommendation
-(org_id, platform, author_identifier, thread_identifier)
+* account fragility
+* churn severity
+* escalation complexity
+* relationship volatility
+* topology risk
+* attention debt context
+* queue load
 
-If thread_identifier is nullable per platform, use a safe derived identifier.
+Very important.
 
-2.3 Stance model
+---
 
-Use a controlled vocabulary:
+# CRITICAL ISSUE #3 — Retrospective contamination
 
-agree
-extend
-challenge
-question
-clarify
-neutral
+(IMPORTANT)
 
-This helps prompt control and analytics.
+30-day evaluation is good.
 
-2.4 Service layer
+But:
+verify:
 
-Create:
+```text
+evaluation snapshot isolation
+```
 
-app/services/engagement/thread_memory.py
+Meaning:
+evaluation must use:
 
-Functions:
+* original state,
+  NOT:
+* rewritten merged histories,
+* later topology,
+* updated consciousness,
+* recomputed causal chains.
 
-get_thread_memory(...)
+Otherwise:
+history rewrites itself.
 
-upsert_thread_memory(...)
+This is critical.
 
-summarize_thread_memory(...)
+---
 
-Behavior
-Before generating engagement
+# CRITICAL ISSUE #4 — Governance misuse risk
 
-Load memory for:
+Decision-quality systems easily become:
 
-same org
+```text
+organizational punishment systems
+```
 
-same platform
+Very dangerous.
 
-same author
+You must explicitly ensure:
 
-same thread/root post if available
+* calibration ≠ performance ranking
+* no leaderboard culture
+* no simplistic “best operator” scoring
+* no punishment automation
 
-After successful execution
+This should remain:
 
-Update:
+```text
+decision calibration infrastructure
+```
 
-last action
+NOT:
 
-last stance
+```text
+employee scoring infrastructure
+```
 
-interaction count
+Huge distinction.
 
-memory summary if needed
+---
 
-2.5 Prompt integration
+# UI concern
 
-Inject memory block into reply generation:
+The current UI risks:
 
-PRIOR INTERACTION MEMORY
-Author: {author_identifier}
-Interaction count so far: {interaction_count}
-Last stance: {last_stance}
-Last message summary: {memory_summary}
+```text
+overconfidence signaling
+```
 
-Rules:
-- Do not repeat the previous point.
-- Advance the discussion by one step.
-- Stay consistent with prior tone unless new context requires a change.
+Especially:
 
-This alone will improve perceived intelligence substantially.
+* expert tier badges
+* calibration bars
 
-2.6 Optional summarization logic
+Be careful.
 
-If thread memory becomes long, condense it into a short memory summary:
+You do NOT want:
 
-We previously agreed that fast response time matters more than most teams think.
-Do not restate that exact idea. Add a more operational angle.
+```text
+false operator authority signaling
+```
 
-This can be regenerated every N interactions.
+Maybe later:
+replace:
 
-3. OUTCOME-WEIGHTED ENGAGEMENT OPTIMIZATION
-3.1 Goal
+* “expert”
+  with:
+* “high consistency”
+  or:
+* “well-calibrated.”
 
-Optimize for business outcomes, not just activity.
+Subtle but important.
 
-The system should learn which engagement strategies lead to:
+---
 
-profile visits
+# Sprint B — APPROVED (2026-05-21)
 
-follower growth
+All 7 pre-approval requirements addressed:
 
-clicks
+## B1 — Digest hysteresis ✅
+`pending_narrative_state` column tracks candidate transitions. State only commits after 2 consecutive readings. Immediate flip only for `consciousness_level = 'degraded'` (genuine emergency).
 
-leads
+## B2 — Digest compression caps ✅
+Churn list capped at 3 contacts. Escalation list capped at 5. Expansion list capped at 3. Repetitive narrative suppressed (`is_suppressed_repetition = true`) when state unchanged and all counts within 10%.
 
-meetings
+## B3 — Causal-confidence filtering ✅
+Digest inflections restricted to 10 high-signal types only: trust_fracture/rebuilt, capital_collapse/recovery, churn_spike/recovery, resilience_collapse, expansion_breakthrough, outlook_critical/recovery.
 
-3.2 Data model
+## B4 — Decision-context quality ✅
+`decision_context_quality` column added to `crm_decision_reviews`. Evaluates reasonableness under available snapshot data — separate from outcome-based `decision_quality_score`. Data richness bonus (0/15/30) from snapshot completeness. Documentation bonus (+10) for operator-provided reason/notes.
 
-Create table:
+## B5 — Difficulty normalization ✅
+`account_difficulty_score` computed from avg churn/volatility/burden/escalation rate of primary-owned contacts. `normalized_calibration_score = calibration + (difficulty - 50) × 0.3`. Operators handling harder accounts receive up to +15pt normalization. Displayed separately from raw calibration.
 
-growth.engagement_outcome_features
-id uuid pk
-org_id uuid not null
-engagement_action_id uuid not null references growth.engagement_actions(id)
-platform text not null
-target_type text
-action_type text
-persona_used text
-stance_used text
-confidence_score numeric
-risk_score numeric
-author_identifier text
-author_tier text
-debate_strength numeric
-relevance_score numeric
-approval_status text
-executed_at timestamptz
-created_at timestamptz
+## B6 — Snapshot isolation verification ✅
+`evaluation_uses_snapshot_only = TRUE` stamped on every evaluated review. Outcome state (current churn/relationship_state) read separately for comparison only. Quality scoring uses snapshot columns (`churn_probability_at_decision`, `trust_state_at_decision`, `relationship_state_at_decision`) exclusively.
 
-This is a feature table for later analysis.
+## B7 — Governance anti-gamification safeguards ✅
+'expert' tier renamed 'well-calibrated'. Governance disclaimer added in UI: "Calibration scores reflect decision consistency patterns — not performance rankings. Scores are normalized for account difficulty. This data is for team learning, not evaluation." Panel header now reads "Decision Calibration — calibration only, not rankings." Operators sorted by `normalized_calibration_score` (not raw), which inherently prevents simple leaderboard abuse.
 
-3.3 Join to ROI/metrics
+---
 
-You already have:
+# Strategic assessment
 
-growth.engagement_roi_events
+Sprint B is actually the first sprint where:
 
-engagement actions
+```text
+organizational psychology risk
+```
 
-content metrics / intelligence summaries
+becomes larger than:
 
-Now add service logic that joins:
+```text
+technical architecture risk
+```
 
-engagement action features
+That is a major transition.
 
-downstream ROI deltas
+Because now:
+the platform is influencing:
 
-platform movement after action
+* executive cognition,
+* operator behavior,
+* escalation tendencies,
+* organizational trust,
+* and accountability culture.
 
-3.4 Service layer
+That requires:
 
-Create:
+```text
+extremely careful calibration
+```
 
-app/services/analytics/engagement_optimizer.py
+from now onward.
 
-Responsibilities:
+---
 
-aggregate outcomes by persona
+# Sprint C — Assessment
 
-aggregate outcomes by target type
+Sprint B is the first sprint with real organizational influence risk.
+That risk has been handled correctly.
 
-aggregate outcomes by stance
+The platform now has:
 
-rank strategies by business impact
+* executive digest (stable, compressed, non-repetitive)
+* decision calibration (context-aware, difficulty-normalized, governance-safe)
+* operating consciousness
+* attention debt
+* topology intelligence
+* reliability observability
 
-output recommendations
+What is missing at the executive layer:
 
-Example outputs
+```text
+decision accountability closure loop
+```
 
-founder_operator on LinkedIn competitor threads drives most profile visits
+Meaning:
+decisions are now logged and evaluated.
+But there is no mechanism for:
 
-measured_contrarian on high-debate threads drives most replies
+* surfacing patterns to the executive ("your team dismisses escalations 40% more often when churn > 70")
+* detecting systematic bias across operator cohorts
+* alerting when calibration is degrading before it causes customer outcomes
 
-practical_educator comments get engagement but low click-through
+This is the next critical gap.
 
-human-approved actions outperform auto-approved on Instagram
+## Recommended Sprint C: Calibration Drift Detection + Executive Pattern Surface
 
-3.5 Metrics to optimize for
+### C1 — Operator calibration trend alerting
 
-Use weighted scoring, not just raw counts.
+Currently:
+`crm_operator_decision_quality` has one row per day.
+But no code detects when calibration is trending downward over 7–14 days.
 
-Candidate weighted formula
-engagement_business_score =
-  (profile_visits * 1)
-+ (followers_delta * 2)
-+ (clicks * 4)
-+ (leads_created * 8)
-+ (meetings_booked * 15)
+Need:
+a `compute_crm_calibration_drift` function that detects:
 
-These weights can be adjusted later.
+* calibration_score declining ≥10 pts over 14 days
+* false_urgency_rate trending up 3+ consecutive days
+* missed_window_rate > 20% (sustained, not one-off)
 
-The point is to bias toward real pipeline value.
+And writes to a `crm_calibration_alerts` table.
+This is the early warning system for operator drift before it becomes customer outcomes.
 
-3.6 Store optimization summaries
+### C2 — Executive pattern surface
 
-Create table:
+Currently:
+decision reviews exist per-review.
+No org-level pattern aggregation exists.
 
-growth.engagement_strategy_summaries
-id uuid pk
-org_id uuid not null
-period_type text not null
-period_start date not null
-summary_json jsonb not null
-created_at timestamptz
+Need:
+a `get_crm_decision_patterns(p_org_id)` RPC that returns:
 
-Example summary:
+* most common decision types (distribution)
+* escalation dismiss rate by churn band (dismissing at >60% churn is a pattern risk)
+* false urgency clustering (is it always the same type of account?)
+* intervention success rate by decision type
 
-{
-  "best_persona": "founder_operator",
-  "best_target_type": "competitor_account",
-  "best_stance": "challenge",
-  "best_platform": "linkedin",
-  "top_business_score": 84.3,
-  "recommendations": [
-    "Increase founder_operator usage on LinkedIn high-debate opportunities",
-    "Reduce educational replies on low-relevance Facebook targets"
-  ]
-}
-4. PROMPT DESIGN SPEC
-4.1 Persona-aware engagement prompt
-You are writing a B2B SaaS engagement reply.
+This feeds the executive with calibration intelligence, not just individual review data.
 
-ENGAGEMENT PERSONA
-Persona: {persona_used}
-Reason selected: {persona_reason}
-Tone: {persona_tone}
-Style rules:
-{persona_style_rules}
+### C3 — Digest quality scoring
 
-THREAD MEMORY
-Interaction count: {interaction_count}
-Last stance: {last_stance}
-Memory summary:
-{memory_summary}
+Currently:
+the executive digest is generated but never evaluated.
+No mechanism tracks whether the narrative was accurate.
 
-OPPORTUNITY CONTEXT
-Platform: {platform}
-Target type: {target_type}
-Debate strength: {debate_strength}
-Source post:
-{source_text}
+Need:
+a `crm_digest_accuracy_log` that compares:
 
-GOAL
-Write a comment/reply that:
-- sounds human
-- matches the selected persona
-- does not repeat earlier points
-- adds one useful idea
-- stays concise
-- avoids robotic politeness
-- avoids hype
+* narrative_state at digest time vs portfolio state 7 days later
+* whether worsening contacts actually worsened
+* whether escalations flagged were resolved or escalated further
 
-Return JSON:
-{
-  "action_text": "",
-  "stance_used": "",
-  "confidence_score_hint": 0.0
-}
-4.2 Optimizer recommendation prompt
-Analyze engagement outcomes for this B2B SaaS account.
+This closes the learning loop on the digest itself.
 
-DATA:
-{aggregated_outcome_data}
+---
 
-Find:
-- best-performing persona
-- best-performing stance
-- best-performing target type
-- best-performing platform
-- weak patterns to reduce
-- 3-5 recommendations that improve business outcomes, not vanity metrics
+Sprint C is:
 
-Return JSON:
-{
-  "winning_patterns": [""],
-  "losing_patterns": [""],
-  "recommendations": [""]
-}
-5. API SURFACE
-5.1 New read endpoints
-GET /growth/engagement/strategy-summary
+```text
+intelligence quality infrastructure
+```
 
-Returns latest engagement strategy summary.
+Not more signals.
+Not more panels.
 
-GET /growth/engagement/thread-memory/{author_or_thread}
-
-Returns thread memory for debugging/admin use.
-
-GET /growth/engagement/personas
-
-Returns configured personas for the org.
-
-PATCH /growth/engagement/personas
-
-Updates persona config / default rules.
-
-6. DASHBOARD INTEGRATION
-6.1 Engagement tab enhancements
-
-Add:
-
-persona badge on each engagement action
-
-stance badge
-
-auto vs human label
-
-business outcome score where available
-
-6.2 Analytics tab enhancements
-
-Add:
-
-best persona
-
-best target type
-
-best stance
-
-strongest engagement pattern
-
-weakest engagement pattern
-
-This turns the dashboard from “what happened” into “what works.”
-
-7. TESTING REQUIREMENTS
-Persona tests
-
-persona selected by rule
-
-fallback to default persona
-
-persona stored on action row
-
-Thread memory tests
-
-first interaction creates memory
-
-second interaction loads memory
-
-memory summary updates
-
-stance persists
-
-Optimization tests
-
-weighted scoring works
-
-summaries generate with sparse data
-
-recommendations fallback if LLM fails
-
-8. IMPLEMENTATION ORDER
-
-Do these in this sequence:
-
-A
-
-Persona model + selector
-
-B
-
-Thread memory table + loader/updater
-
-C
-
-Prompt wiring for persona + memory
-
-D
-
-Outcome feature table + optimizer
-
-E
-
-Dashboard analytics surfaces
-
-That order gives value fastest.
-
-9. FINAL IMPACT
-
-If you add these three upgrades, the Engagement Engine becomes:
-
-Persona-aware
-
-Different tones for different contexts
-
-Context-aware
-
-Remembers prior interactions
-
-Outcome-aware
-
-Optimizes for business results
-
-That is far beyond what most AI social tools do.
-
-10. DIRECT HANDOFF BLOCK FOR CLAUDE CODE
-
-You can paste this:
-
-Implement three advanced engagement upgrades:
-
-1. Persona-Calibrated Engagement Voice
-- add engagement_personas_json, default_engagement_persona, persona_selection_rules_json to brand profile
-- add persona_used and persona_reason to engagement_actions
-- create persona_selector service
-- inject selected persona into engagement generation prompts
-
-2. Thread-State Memory
-- create growth.engagement_thread_memory
-- load memory before generating replies
-- update memory after successful execution
-- include memory summary and last stance in prompts
-- prevent repeated points across interactions
-
-3. Outcome-Weighted Engagement Optimization
-- create growth.engagement_outcome_features
-- create engagement_optimizer service
-- compute weighted business score using profile visits, followers, clicks, leads, meetings
-- generate strategy summaries and recommendations
-- expose latest strategy summary via API
-
-All new outputs must be auditable, org-scoped, and compatible with the existing engagement engine.
-
-This is the version worth building after Engagement Bot completion.
+The system now needs to learn from its own outputs.
