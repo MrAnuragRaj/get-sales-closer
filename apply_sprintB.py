@@ -87,6 +87,7 @@ BASE = r'C:\Users\anura\OneDrive\Desktop\YogMaya\SalesCloser\codes\get-sales-clo
 
 migrations = [
     (f'{BASE}\\20260524_sprintB_digest_decision.sql', 'Sprint B: Executive Digest Engine + Decision Quality Engine'),
+    (f'{BASE}\\20260524b_sprintB_cron_patch.sql', 'Sprint B Cron Patch: pg_cron registration + initial seed'),
 ]
 
 total_ok = total_err = 0
