@@ -615,7 +615,7 @@ Current pricing: **$299/mo flat** for `lead_gen` entitlement (unlimited leads, B
 ## Supabase Direct Access
 
 Service role key in Claude memory: `supabase-access.md`
-**Note: Management API PAT refreshed 2026-05-16 (`sbp_f32d14e7ea407f3529d216501eda402ff3837654`).**
+**Note: Management API PAT refreshed 2026-05-16 (stored in memory/supabase-access.md — not committed to repo).**
 Service role key (valid until 2084) can be used for PostgREST table queries and RPC calls:
 ```bash
 curl -s "https://klbwigcvrdfeeeeotehu.supabase.co/rest/v1/TABLE?select=..." \
