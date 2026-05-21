@@ -84,7 +84,7 @@ def split_statements(sql):
 BASE = r'C:\Users\anura\OneDrive\Desktop\YogMaya\SalesCloser\codes\get-sales-closer\supabase\migrations'
 
 migrations = [
-    (f'{BASE}\\20260523b_sprintA_hardening.sql', 'Sprint A Hardening: Race Lock + Replay Integrity + Leakage Fix + Retention Governance'),
+    (f'{BASE}\\20260523c_sprintA_validation.sql', 'Sprint A Validation: NOWAIT + Journey Provenance + Churn Visibility + Causal Exclusivity + Purge Detection'),
 ]
 
 total_ok = total_err = 0
