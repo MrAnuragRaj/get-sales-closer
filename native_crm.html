@@ -727,6 +727,9 @@
           <button onclick="openExecReview()" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 hover:border-indigo-500/50 transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-newspaper"></i> Weekly Review
           </button>
+          <button onclick="openDigestModal()" class="text-xs px-3 py-1.5 rounded-lg bg-sky-600/20 border border-sky-500/30 text-sky-300 hover:bg-sky-600/30 hover:border-sky-500/50 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-envelope-open-text"></i> Daily Digest
+          </button>
         </div>
       </div>
 
@@ -1521,6 +1524,35 @@
         </div>
         <div id="wh-list" class="divide-y divide-white/5">
           <div class="px-5 py-4 text-slate-500 text-sm text-center">Loading...</div>
+        </div>
+      </div>
+
+      <!-- ── Executive Digest (Sprint B) ──────────────────────────────────────── -->
+      <div class="glass rounded-xl overflow-hidden mb-6" id="exec-digest-card">
+        <div class="px-5 py-3 border-b border-white/8 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-envelope-open-text text-sky-400"></i> Executive Digest
+            <span id="digest-date-badge" class="text-[10px] text-slate-500 font-normal"></span>
+          </h3>
+          <button onclick="generateDigest()" class="btn-ghost px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-right"></i> Generate
+          </button>
+        </div>
+        <div id="digest-body" class="p-5">
+          <div class="text-slate-500 text-sm text-center py-4">Loading digest...</div>
+        </div>
+      </div>
+
+      <!-- ── Decision Quality Engine (Sprint B) ───────────────────────────────── -->
+      <div class="glass rounded-xl overflow-hidden mb-6" id="decision-quality-card">
+        <div class="px-5 py-3 border-b border-white/8">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-scale-unbalanced text-amber-400"></i> Decision Quality Engine
+            <span id="dq-summary-badge" class="text-[10px] text-slate-500 font-normal"></span>
+          </h3>
+        </div>
+        <div id="dq-body" class="p-5">
+          <div class="text-slate-500 text-sm text-center py-4">Loading decision quality...</div>
         </div>
       </div>
 
@@ -5815,7 +5847,8 @@
       loadIntelligenceHealth(), loadCrmRoles(),
       loadOperatorSustainability(), loadTopologySummary(),
       loadOperatingConsciousness(), loadEconomicsSummary(),
-      loadOrganizationalKnowledge(), loadWebhookSubscriptions()
+      loadOrganizationalKnowledge(), loadWebhookSubscriptions(),
+      loadExecutiveDigest(), loadDecisionQuality()
     ]);
   }
 
@@ -10169,6 +10202,172 @@
     document.getElementById('know-confirmed').textContent    = drift.confirmed_count ?? 0;
     document.getElementById('know-contradicted').textContent = drift.contradicted_count ?? 0;
     document.getElementById('know-aging').textContent        = drift.aging_principles_count ?? 0;
+  }
+
+  // ── Sprint B: Executive Digest Engine ────────────────────────────────────────
+  async function loadExecutiveDigest() {
+    const { data } = await _sb.rpc('get_crm_executive_digest', {
+      p_org_id: _orgId, p_digest_type: 'daily', p_days: 7
+    });
+    const cur = data?.current;
+    const el  = document.getElementById('digest-body');
+    if (!cur || cur === 'null') {
+      el.innerHTML = `<p class="text-slate-500 text-sm">No digest yet — generating now or check after the first overnight compute cycle.</p>`;
+      return;
+    }
+    const genDate = cur.digest_date ? new Date(cur.digest_date + 'T00:00:00').toLocaleDateString() : '—';
+    document.getElementById('digest-date-badge').textContent = genDate;
+
+    const pulse    = cur.sections?.portfolio_pulse ?? {};
+    const churn    = cur.sections?.churn_alerts ?? {};
+    const esc      = cur.sections?.escalation_summary ?? {};
+    const expan    = cur.sections?.expansion_opportunities ?? {};
+    const attn     = cur.sections?.attention_summary ?? {};
+    const cons     = cur.sections?.consciousness_summary ?? {};
+    const LEVEL_COLOR = { calm:'text-emerald-400', moderate:'text-amber-400', turbulent:'text-orange-400', volatile:'text-red-400', strained:'text-orange-400', critical:'text-red-400', degraded:'text-red-500', aware:'text-emerald-400', monitoring:'text-amber-400', unknown:'text-slate-400' };
+
+    const churnList = (churn.contacts ?? []).slice(0, 5).map(c => `
+      <div class="flex items-center gap-2 text-xs cursor-pointer hover:text-indigo-300 transition-colors" onclick="openContactById('${c.contact_id}')">
+        <span class="w-2 h-2 rounded-full flex-shrink-0 ${c.churn_probability >= 80 ? 'bg-red-400' : 'bg-amber-400'}"></span>
+        <span class="text-white truncate flex-1">${esc(c.name ?? '—')}</span>
+        <span class="font-mono text-red-400">${c.churn_probability ?? 0}%</span>
+      </div>`).join('');
+
+    el.innerHTML = `
+      <p class="text-sm text-slate-200 leading-relaxed mb-4 border-l-2 border-sky-500/40 pl-3">${esc(cur.narrative ?? '')}</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(cur.worsening_count ?? 0) > 0 ? 'text-red-400' : 'text-slate-400'}">${cur.worsening_count ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Worsening</div>
+        </div>
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(cur.improving_count ?? 0) > 0 ? 'text-emerald-400' : 'text-slate-400'}">${cur.improving_count ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Improving</div>
+        </div>
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(cur.high_churn_count ?? 0) >= 5 ? 'text-red-400' : (cur.high_churn_count ?? 0) > 0 ? 'text-amber-400' : 'text-slate-400'}">${cur.high_churn_count ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">High Churn</div>
+        </div>
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(cur.critical_escalations ?? 0) > 0 ? 'text-amber-400' : 'text-slate-400'}">${cur.critical_escalations ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Critical Esc.</div>
+        </div>
+      </div>
+      ${churnList ? `<div class="mb-4">
+        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">High-Churn Contacts</div>
+        <div class="space-y-1.5">${churnList}</div>
+      </div>` : ''}
+      <div class="flex flex-wrap gap-3 text-xs text-slate-400">
+        <span>Attention debt: <span class="font-semibold ${attn.debt_level === 'critical' ? 'text-red-400' : attn.debt_level === 'overloaded' ? 'text-orange-400' : attn.debt_level === 'healthy' ? 'text-emerald-400' : 'text-amber-400'}">${attn.debt_level ?? '—'}</span></span>
+        <span>Consciousness: <span class="font-semibold ${LEVEL_COLOR[cons.level] ?? 'text-slate-400'}">${cons.level ?? '—'}</span></span>
+        ${(cur.expansion_ready_count ?? 0) > 0 ? `<span>Expansion-ready: <span class="font-semibold text-emerald-400">${cur.expansion_ready_count}</span></span>` : ''}
+      </div>
+    `;
+  }
+
+  async function generateDigest() {
+    const btn = document.querySelector('#exec-digest-card button[onclick="generateDigest()"]');
+    if (btn) btn.disabled = true;
+    try {
+      const { error } = await _sb.rpc('generate_crm_executive_digest', {
+        p_org_id: _orgId, p_digest_type: 'daily', p_actor_id: _userId
+      });
+      if (error) { toast('Digest generation failed: ' + error.message, 'error'); return; }
+      toast('Daily digest generated', 'success');
+      await loadExecutiveDigest();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function openDigestModal() {
+    document.getElementById('exec-digest-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Sprint B: Decision Quality Engine ────────────────────────────────────────
+  async function loadDecisionQuality() {
+    const { data } = await _sb.rpc('get_crm_decision_quality', { p_org_id: _orgId });
+    const el = document.getElementById('dq-body');
+    if (!data) { el.innerHTML = '<p class="text-slate-500 text-sm">No decision data yet.</p>'; return; }
+
+    const sum = data.org_summary ?? {};
+    const ops = data.operators ?? [];
+    const rev = data.recent_reviews ?? [];
+
+    document.getElementById('dq-summary-badge').textContent =
+      sum.total_decisions ? `${sum.total_decisions} decisions · ${sum.evaluated_decisions ?? 0} evaluated` : '';
+
+    const TIER_COLORS = {
+      building:   'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      developing: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      proficient: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+      expert:     'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    };
+    const RATING_COLORS = {
+      excellent:   'text-emerald-400',
+      good:        'text-sky-400',
+      acceptable:  'text-slate-400',
+      poor:        'text-amber-400',
+      harmful:     'text-red-400',
+    };
+
+    const opRows = ops.length ? ops.map(op => `
+      <div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span class="text-xs font-medium text-white truncate">${esc(op.full_name ?? op.email ?? 'Unknown')}</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded-full border font-semibold ${TIER_COLORS[op.calibration_tier] ?? TIER_COLORS.building}">${op.calibration_tier}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="h-1.5 rounded-full bg-white/10 flex-1 overflow-hidden">
+              <div class="h-full rounded-full ${op.judgment_calibration_score >= 75 ? 'bg-emerald-500' : op.judgment_calibration_score >= 60 ? 'bg-sky-500' : op.judgment_calibration_score >= 45 ? 'bg-amber-500' : 'bg-slate-600'} transition-all" style="width:${op.judgment_calibration_score ?? 50}%"></div>
+            </div>
+            <span class="text-[10px] text-slate-400 w-8 text-right">${op.judgment_calibration_score ?? '—'}</span>
+          </div>
+          <div class="flex gap-3 text-[10px] text-slate-500 mt-0.5">
+            ${(op.missed_window_rate ?? 0) > 0 ? `<span class="text-amber-400">⚠ ${op.missed_window_rate}% missed</span>` : ''}
+            ${(op.false_urgency_rate ?? 0) > 0 ? `<span class="text-orange-400">⚠ ${op.false_urgency_rate}% false urgency</span>` : ''}
+            ${(op.excellent_rate ?? 0) > 0 ? `<span class="text-emerald-400">✓ ${op.excellent_rate}% excellent</span>` : ''}
+            <span>${op.total_decisions ?? 0} decisions</span>
+          </div>
+        </div>
+      </div>`).join('')
+      : '<div class="text-slate-600 text-xs text-center py-2">No operator decision data yet — decision reviews populate after 30-day evaluation windows.</div>';
+
+    const revRows = rev.slice(0, 5).map(r => `
+      <div class="flex items-start gap-2 text-xs py-1.5 border-b border-white/5 last:border-0">
+        <span class="${RATING_COLORS[r.quality_rating] ?? 'text-slate-400'} text-[10px] font-semibold w-16 flex-shrink-0 pt-0.5">${(r.quality_rating ?? '—').toUpperCase()}</span>
+        <div class="flex-1 min-w-0">
+          <span class="text-white">${esc(r.contact_name ?? '—')}</span>
+          <span class="text-slate-500 ml-1">${esc(r.contact_company ?? '')}</span>
+          <div class="text-slate-500">${(r.decision_type ?? '').replace(/_/g, ' ')}${r.evaluation_notes ? ' — ' + r.evaluation_notes.slice(0, 70) : ''}</div>
+        </div>
+      </div>`).join('');
+
+    el.innerHTML = `
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold text-slate-200">${sum.total_decisions ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Total Decisions</div>
+        </div>
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(sum.missed_window_count ?? 0) > 0 ? 'text-amber-400' : 'text-slate-400'}">${sum.missed_window_count ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Missed Windows</div>
+        </div>
+        <div class="rounded-lg bg-white/4 p-3 text-center">
+          <div class="text-xl font-bold ${(sum.excellent_count ?? 0) > 0 ? 'text-emerald-400' : 'text-slate-400'}">${sum.excellent_count ?? 0}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Excellent</div>
+        </div>
+      </div>
+      ${ops.length ? `<div class="mb-4">
+        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Operator Calibration</div>
+        ${opRows}
+      </div>` : opRows}
+      ${revRows ? `<div>
+        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Recent Evaluated Decisions</div>
+        ${revRows}
+      </div>` : ''}
+    `;
   }
 
   // ── P7: Webhook Subscriptions ─────────────────────────────────────────────────
