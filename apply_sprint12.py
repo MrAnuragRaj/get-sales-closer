@@ -84,7 +84,7 @@ def split_statements(sql):
 BASE = r'C:\Users\anura\OneDrive\Desktop\YogMaya\SalesCloser\codes\get-sales-closer\supabase\migrations'
 
 migrations = [
-    (f'{BASE}\\20260523_sprintA_governance_causal_calibration.sql', 'Sprint A: Governance Completion + Causal Calibration'),
+    (f'{BASE}\\20260523b_sprintA_hardening.sql', 'Sprint A Hardening: Race Lock + Replay Integrity + Leakage Fix + Retention Governance'),
 ]
 
 total_ok = total_err = 0
