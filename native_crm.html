@@ -424,6 +424,16 @@
           </div>
           <div id="recent-merges-list" class="space-y-1.5"></div>
         </div>
+        <!-- Pending Merge Approvals -->
+        <div id="pending-merges-section" class="mt-3 hidden">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[10px] font-semibold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+              <i class="fa-solid fa-clock text-amber-400"></i> Pending Merge Approvals
+            </p>
+            <span id="pending-merge-count" class="text-[10px] font-bold text-amber-400">0</span>
+          </div>
+          <div id="pending-merges-list" class="space-y-2"></div>
+        </div>
       </div>
     </div>
 
@@ -2482,6 +2492,26 @@
         </div>
       </div>
 
+      <!-- Causal Intelligence (calibrated chains for this contact) -->
+      <div id="cp-causal-card" class="mb-4 hidden">
+        <div class="glass rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-diagram-project text-cyan-400"></i>
+              <span class="text-sm font-semibold text-white">Causal Patterns</span>
+            </div>
+            <div id="causal-calibration-badge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400"></div>
+          </div>
+          <div id="cp-causal-list" class="space-y-2 text-xs">
+            <p class="text-slate-500">No causal events recorded yet.</p>
+          </div>
+          <div id="causal-suppressed-warning" class="hidden mt-2 text-[10px] text-amber-500 flex items-center gap-1">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Some low-confidence patterns are hidden to prevent speculative storytelling.
+          </div>
+        </div>
+      </div>
+
       <!-- Team Observations -->
       <div id="cp-team-obs-card" class="mb-4">
         <div class="glass rounded-xl p-4">
@@ -2849,6 +2879,15 @@
           </select>
         </div>
         <textarea id="esc-note" placeholder="Context / reason for escalation" class="input-field text-sm" rows="3"></textarea>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Visibility</label>
+          <select id="esc-visibility-scope" class="input-field text-sm">
+            <option value="org">Everyone in org</option>
+            <option value="leadership">Leadership only (founder/executive/manager)</option>
+            <option value="owner_chain">Owner chain (assigned + contact owners)</option>
+            <option value="executive_only">Executive only (founder/executive)</option>
+          </select>
+        </div>
       </div>
       <div class="mt-4 flex gap-3">
         <button onclick="document.getElementById('manual-escalation-modal').classList.add('hidden')" class="flex-1 btn-ghost px-4 py-2 rounded-lg text-sm">Cancel</button>
@@ -3516,6 +3555,7 @@
         loadContactPredictiveScore(_currentContact.id),
         loadTeamObservations(_currentContact.id),
         loadContactSuccessPlan(_currentContact.id),
+        loadContactCausalIntelligence(_currentContact.id),
       ]);
     }
     if (name === 'timeline') loadTimeline(_currentContact.id);
@@ -5930,9 +5970,14 @@
   async function saveManualEscalation() {
     const contactId = document.getElementById('esc-contact-id').value;
     if (!contactId) { toast('Select a contact first', true); return; }
-    const priority = document.getElementById('esc-priority').value;
-    const note     = document.getElementById('esc-note').value.trim() || null;
-    await _sb.rpc('create_manual_crm_escalation', { p_org_id: _orgId, p_contact_id: contactId, p_priority: priority, p_note: note });
+    const priority        = document.getElementById('esc-priority').value;
+    const note            = document.getElementById('esc-note').value.trim() || null;
+    const visibilityScope = document.getElementById('esc-visibility-scope').value;
+    await _sb.rpc('create_manual_crm_escalation', {
+      p_org_id: _orgId, p_contact_id: contactId,
+      p_priority: priority, p_reason: note,
+      p_visibility_scope: visibilityScope
+    });
     document.getElementById('manual-escalation-modal').classList.add('hidden');
     toast('Escalation created');
     loadEscalations();
@@ -6079,6 +6124,46 @@
           <span class="lc-badge ${confBadge[o.confidence] ?? 'conf-low'} text-[10px] py-0 px-1.5">${o.confidence}</span>
           ${o.author_id ? `<span class="text-[10px] text-slate-500">${memberMap[o.author_id] ?? ''}</span>` : ''}
           <span class="text-[10px] text-slate-600 ml-auto">${new Date(o.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Causal Intelligence (contact-level) ───────────────────────────────────────
+  async function loadContactCausalIntelligence(contactId) {
+    const card     = document.getElementById('cp-causal-card');
+    const listEl   = document.getElementById('cp-causal-list');
+    const badge    = document.getElementById('causal-calibration-badge');
+    const suppWarn = document.getElementById('causal-suppressed-warning');
+    const { data } = await _sb.rpc('get_crm_causal_intelligence', {
+      p_org_id: _orgId, p_contact_id: contactId, p_include_suppressed: false
+    });
+    if (!data) return;
+
+    const events  = data.contact_events ?? [];
+    const cal     = data.calibration_summary ?? {};
+
+    if (!events.length) { card.classList.add('hidden'); return; }
+    card.classList.remove('hidden');
+
+    if (cal.total_chains != null) {
+      badge.textContent = `${cal.high_confidence ?? 0} high-conf / ${cal.total_chains} chains`;
+      badge.classList.remove('hidden');
+    }
+
+    if ((cal.suppressed_chains ?? 0) > 0) suppWarn.classList.remove('hidden');
+    else suppWarn.classList.add('hidden');
+
+    const DIRECTION_COLORS = { positive: 'text-emerald-400', negative: 'text-red-400', neutral: 'text-slate-400' };
+    listEl.innerHTML = events.slice(0, 6).map(ev => `
+      <div class="pb-2 border-b border-white/5 last:border-0">
+        <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">${ev.cause_type.replace(/_/g,' ')}</span>
+          <i class="fa-solid fa-arrow-right text-slate-600 text-[8px]"></i>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 ${DIRECTION_COLORS[ev.direction] ?? 'text-slate-400'}">${ev.effect_type.replace(/_/g,' ')}</span>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-slate-500">
+          <span>${ev.lag_days ?? 0}d lag</span>
+          <span class="${ev.confidence === 'high' ? 'text-emerald-500' : ev.confidence === 'medium' ? 'text-amber-500' : 'text-slate-500'}">${ev.confidence ?? '—'} confidence</span>
         </div>
       </div>`).join('');
   }
@@ -7441,6 +7526,43 @@
     }
 
     loadRecentMerges();
+    loadPendingMerges();
+  }
+
+  async function loadPendingMerges() {
+    const section  = document.getElementById('pending-merges-section');
+    const listEl   = document.getElementById('pending-merges-list');
+    const countEl  = document.getElementById('pending-merge-count');
+    const { data } = await _sb.rpc('get_crm_pending_merges', { p_org_id: _orgId });
+    if (!data?.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    countEl.textContent = data.length;
+    listEl.innerHTML = data.map(m => `
+      <div class="glass rounded-lg px-3 py-2 text-xs" id="pm-row-${m.log_id}">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-white font-medium">${esc(m.secondary_name ?? '—')}</span>
+          <i class="fa-solid fa-arrow-right text-slate-600 text-[9px]"></i>
+          <span class="text-slate-300">${esc(m.primary_name ?? '—')}</span>
+          ${m.merge_confidence != null ? `<span class="text-[9px] px-1.5 py-0.5 rounded ${m.merge_confidence >= 70 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${m.merge_confidence}% match</span>` : ''}
+        </div>
+        <p class="text-slate-500 mb-2">${esc(m.approval_reason ?? '—')}</p>
+        <div class="flex gap-2">
+          <button onclick="approvePendingMerge('${m.log_id}', true)" class="text-emerald-400 hover:text-emerald-300 font-medium px-2 py-1 rounded bg-emerald-500/10">Approve</button>
+          <button onclick="approvePendingMerge('${m.log_id}', false)" class="text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded bg-red-500/10">Reject</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function approvePendingMerge(logId, approve) {
+    const { data, error } = await _sb.rpc('approve_crm_merge', {
+      p_org_id: _orgId, p_log_id: logId, p_approve: approve
+    });
+    if (error || data?.success === false) {
+      toast((data?.error ?? error?.message ?? 'Action failed'), true); return;
+    }
+    toast(approve ? 'Merge approved and executed' : 'Merge rejected');
+    loadDataQuality();
+    if (approve) loadContacts();
   }
 
   async function loadRecentMerges() {

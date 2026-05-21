@@ -84,11 +84,7 @@ def split_statements(sql):
 BASE = r'C:\Users\anura\OneDrive\Desktop\YogMaya\SalesCloser\codes\get-sales-closer\supabase\migrations'
 
 migrations = [
-    (f'{BASE}\\20260522_sprint16_redundancy_meta1.sql',     'Sprint 16: Redundancy + Meta-Layer 1 Knowledge Engine'),
-    (f'{BASE}\\20260522b_sprint17_relationship_economics.sql', 'Sprint 17: Meta-Layer 4 Relationship Economics'),
-    (f'{BASE}\\20260522c_sprint18_causality_chains.sql',    'Sprint 18: Meta-Layer 5 Causality Chains'),
-    (f'{BASE}\\20260522d_sprint19_operating_consciousness.sql', 'Sprint 19: Meta-Layer 6 Operating Consciousness'),
-    (f'{BASE}\\20260522e_p7_platformization.sql',            'P7: Platformization & Ecosystem Infrastructure'),
+    (f'{BASE}\\20260523_sprintA_governance_causal_calibration.sql', 'Sprint A: Governance Completion + Causal Calibration'),
 ]
 
 total_ok = total_err = 0
