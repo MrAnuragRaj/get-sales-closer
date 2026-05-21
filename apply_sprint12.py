@@ -1,8 +1,10 @@
 """Apply Sprint 16-19 + P7 migrations"""
-import sys, io, json, subprocess, re
+import sys, io, json, subprocess, re, os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-PAT = 'sbp_f32d14e7ea407f3529d216501eda402ff3837654'
+PAT = os.environ.get('SUPABASE_PAT', '')
+if not PAT:
+    raise RuntimeError('Set SUPABASE_PAT env var to the Supabase Management API personal access token')
 URL = 'https://api.supabase.com/v1/projects/klbwigcvrdfeeeeotehu/database/query'
 TMPFILE = 'C:\\Windows\\Temp\\mgr_sql.json'
 
