@@ -1545,11 +1545,12 @@
 
       <!-- ── Decision Quality Engine (Sprint B) ───────────────────────────────── -->
       <div class="glass rounded-xl overflow-hidden mb-6" id="decision-quality-card">
-        <div class="px-5 py-3 border-b border-white/8">
+        <div class="px-5 py-3 border-b border-white/8 flex items-center justify-between">
           <h3 class="text-sm font-semibold text-white flex items-center gap-2">
-            <i class="fa-solid fa-scale-unbalanced text-amber-400"></i> Decision Quality Engine
+            <i class="fa-solid fa-scale-balanced text-amber-400"></i> Decision Calibration
             <span id="dq-summary-badge" class="text-[10px] text-slate-500 font-normal"></span>
           </h3>
+          <span class="text-[9px] text-slate-600 italic">calibration only — not rankings</span>
         </div>
         <div id="dq-body" class="p-5">
           <div class="text-slate-500 text-sm text-center py-4">Loading decision quality...</div>
@@ -10216,7 +10217,16 @@
       return;
     }
     const genDate = cur.digest_date ? new Date(cur.digest_date + 'T00:00:00').toLocaleDateString() : '—';
-    document.getElementById('digest-date-badge').textContent = genDate;
+    const STATE_BADGE = {
+      stable:    'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      worsening: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      critical:  'bg-red-500/20 text-red-400 border-red-500/30',
+      improving: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+      recovering:'bg-sky-500/20 text-sky-400 border-sky-500/30',
+    };
+    const narrativeState = cur.narrative_state ?? 'stable';
+    const stateBadge = `<span class="text-[9px] px-1.5 py-0.5 rounded-full border font-semibold ${STATE_BADGE[narrativeState] ?? STATE_BADGE.stable}">${narrativeState}</span>`;
+    document.getElementById('digest-date-badge').innerHTML = `${genDate} &nbsp;${stateBadge}${cur.is_suppressed_repetition ? ' <span class="text-[9px] text-slate-600">unchanged</span>' : ''}`;
 
     const pulse    = cur.sections?.portfolio_pulse ?? {};
     const churn    = cur.sections?.churn_alerts ?? {};
@@ -10226,7 +10236,7 @@
     const cons     = cur.sections?.consciousness_summary ?? {};
     const LEVEL_COLOR = { calm:'text-emerald-400', moderate:'text-amber-400', turbulent:'text-orange-400', volatile:'text-red-400', strained:'text-orange-400', critical:'text-red-400', degraded:'text-red-500', aware:'text-emerald-400', monitoring:'text-amber-400', unknown:'text-slate-400' };
 
-    const churnList = (churn.contacts ?? []).slice(0, 5).map(c => `
+    const churnList = (churn.contacts ?? []).map(c => `
       <div class="flex items-center gap-2 text-xs cursor-pointer hover:text-indigo-300 transition-colors" onclick="openContactById('${c.contact_id}')">
         <span class="w-2 h-2 rounded-full flex-shrink-0 ${c.churn_probability >= 80 ? 'bg-red-400' : 'bg-amber-400'}"></span>
         <span class="text-white truncate flex-1">${esc(c.name ?? '—')}</span>
@@ -10234,7 +10244,7 @@
       </div>`).join('');
 
     el.innerHTML = `
-      <p class="text-sm text-slate-200 leading-relaxed mb-4 border-l-2 border-sky-500/40 pl-3">${esc(cur.narrative ?? '')}</p>
+      <p class="text-sm text-slate-200 leading-relaxed mb-4 border-l-2 ${narrativeState === 'critical' ? 'border-red-500/60' : narrativeState === 'worsening' ? 'border-amber-500/60' : narrativeState === 'improving' ? 'border-emerald-500/60' : 'border-sky-500/40'} pl-3">${esc(cur.narrative ?? '')}</p>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div class="rounded-lg bg-white/4 p-3 text-center">
           <div class="text-xl font-bold ${(cur.worsening_count ?? 0) > 0 ? 'text-red-400' : 'text-slate-400'}">${cur.worsening_count ?? 0}</div>
@@ -10298,10 +10308,10 @@
       sum.total_decisions ? `${sum.total_decisions} decisions · ${sum.evaluated_decisions ?? 0} evaluated` : '';
 
     const TIER_COLORS = {
-      building:   'bg-slate-500/20 text-slate-400 border-slate-500/30',
-      developing: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      proficient: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
-      expert:     'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+      building:          'bg-slate-500/20 text-slate-400 border-slate-500/30',
+      developing:        'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      proficient:        'bg-sky-500/20 text-sky-400 border-sky-500/30',
+      'well-calibrated': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
     };
     const RATING_COLORS = {
       excellent:   'text-emerald-400',
@@ -10311,38 +10321,50 @@
       harmful:     'text-red-400',
     };
 
-    const opRows = ops.length ? ops.map(op => `
+    const opRows = ops.length ? ops.map(op => {
+      const score = op.normalized_calibration_score ?? op.judgment_calibration_score ?? 50;
+      const diffScore = op.account_difficulty_score ?? 50;
+      const diffLabel = diffScore >= 70 ? 'hard accounts' : diffScore >= 55 ? 'moderate accounts' : diffScore <= 35 ? 'stable accounts' : '';
+      const diffColor = diffScore >= 70 ? 'text-orange-400' : diffScore >= 55 ? 'text-amber-400' : 'text-slate-500';
+      return `
       <div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-0.5">
             <span class="text-xs font-medium text-white truncate">${esc(op.full_name ?? op.email ?? 'Unknown')}</span>
             <span class="text-[9px] px-1.5 py-0.5 rounded-full border font-semibold ${TIER_COLORS[op.calibration_tier] ?? TIER_COLORS.building}">${op.calibration_tier}</span>
+            ${diffLabel ? `<span class="text-[9px] ${diffColor}">${diffLabel}</span>` : ''}
           </div>
           <div class="flex items-center gap-2">
             <div class="h-1.5 rounded-full bg-white/10 flex-1 overflow-hidden">
-              <div class="h-full rounded-full ${op.judgment_calibration_score >= 75 ? 'bg-emerald-500' : op.judgment_calibration_score >= 60 ? 'bg-sky-500' : op.judgment_calibration_score >= 45 ? 'bg-amber-500' : 'bg-slate-600'} transition-all" style="width:${op.judgment_calibration_score ?? 50}%"></div>
+              <div class="h-full rounded-full ${score >= 75 ? 'bg-emerald-500' : score >= 60 ? 'bg-sky-500' : score >= 45 ? 'bg-amber-500' : 'bg-slate-600'} transition-all" style="width:${score}%"></div>
             </div>
-            <span class="text-[10px] text-slate-400 w-8 text-right">${op.judgment_calibration_score ?? '—'}</span>
+            <span class="text-[10px] text-slate-400 w-8 text-right">${score}</span>
           </div>
           <div class="flex gap-3 text-[10px] text-slate-500 mt-0.5">
-            ${(op.missed_window_rate ?? 0) > 0 ? `<span class="text-amber-400">⚠ ${op.missed_window_rate}% missed</span>` : ''}
+            ${(op.missed_window_rate ?? 0) > 0 ? `<span class="text-amber-400">⚠ ${op.missed_window_rate}% missed windows</span>` : ''}
             ${(op.false_urgency_rate ?? 0) > 0 ? `<span class="text-orange-400">⚠ ${op.false_urgency_rate}% false urgency</span>` : ''}
-            ${(op.excellent_rate ?? 0) > 0 ? `<span class="text-emerald-400">✓ ${op.excellent_rate}% excellent</span>` : ''}
+            ${(op.excellent_rate ?? 0) > 0 ? `<span class="text-emerald-400">${op.excellent_rate}% excellent</span>` : ''}
             <span>${op.total_decisions ?? 0} decisions</span>
           </div>
         </div>
-      </div>`).join('')
+      </div>`;
+    }).join('')
       : '<div class="text-slate-600 text-xs text-center py-2">No operator decision data yet — decision reviews populate after 30-day evaluation windows.</div>';
 
-    const revRows = rev.slice(0, 5).map(r => `
+    const revRows = rev.slice(0, 5).map(r => {
+      const ctxBadge = r.decision_context_quality != null
+        ? `<span class="ml-1 text-[9px] px-1 py-0.5 rounded ${r.decision_context_quality >= 70 ? 'bg-emerald-500/15 text-emerald-400' : r.decision_context_quality >= 45 ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400'}">ctx ${r.decision_context_quality}</span>`
+        : '';
+      return `
       <div class="flex items-start gap-2 text-xs py-1.5 border-b border-white/5 last:border-0">
         <span class="${RATING_COLORS[r.quality_rating] ?? 'text-slate-400'} text-[10px] font-semibold w-16 flex-shrink-0 pt-0.5">${(r.quality_rating ?? '—').toUpperCase()}</span>
         <div class="flex-1 min-w-0">
           <span class="text-white">${esc(r.contact_name ?? '—')}</span>
-          <span class="text-slate-500 ml-1">${esc(r.contact_company ?? '')}</span>
+          <span class="text-slate-500 ml-1">${esc(r.contact_company ?? '')}</span>${ctxBadge}
           <div class="text-slate-500">${(r.decision_type ?? '').replace(/_/g, ' ')}${r.evaluation_notes ? ' — ' + r.evaluation_notes.slice(0, 70) : ''}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     el.innerHTML = `
       <div class="grid grid-cols-3 gap-3 mb-4">
@@ -10359,8 +10381,11 @@
           <div class="text-[10px] text-slate-500 mt-0.5">Excellent</div>
         </div>
       </div>
+      <div class="mb-4 px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50 text-[10px] text-slate-500 leading-relaxed">
+        Calibration scores reflect decision consistency patterns — not performance rankings. Scores are normalized for account difficulty. This data is for team learning, not evaluation.
+      </div>
       ${ops.length ? `<div class="mb-4">
-        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Operator Calibration</div>
+        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Decision Calibration (difficulty-normalized)</div>
         ${opRows}
       </div>` : opRows}
       ${revRows ? `<div>

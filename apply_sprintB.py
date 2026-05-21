@@ -88,6 +88,8 @@ BASE = r'C:\Users\anura\OneDrive\Desktop\YogMaya\SalesCloser\codes\get-sales-clo
 migrations = [
     (f'{BASE}\\20260524_sprintB_digest_decision.sql', 'Sprint B: Executive Digest Engine + Decision Quality Engine'),
     (f'{BASE}\\20260524b_sprintB_cron_patch.sql', 'Sprint B Cron Patch: pg_cron registration + initial seed'),
+    (f'{BASE}\\20260524c_sprintB_refinements.sql', 'Sprint B Refinements: B1-B7 critic concerns'),
+    (f'{BASE}\\20260524d_sprintB_eval_patch.sql', 'Sprint B Eval Patch: fix CASE IN() syntax for evaluate_crm_decision_outcomes'),
 ]
 
 total_ok = total_err = 0
